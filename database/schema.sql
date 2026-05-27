@@ -1,13 +1,12 @@
 -- ============================================================
--- Meeting Management App — Database Schema
+-- Meeting Management App — Database Schema v1.4.0
 -- MySQL 8+, charset utf8mb4
--- Versi 1.3.0 — disesuaikan dengan semua controller
+--
+-- CATATAN: File ini dijalankan oleh installer SETELAH
+-- database dibuat. Jangan sertakan CREATE DATABASE / USE.
 -- ============================================================
 
-CREATE DATABASE IF NOT EXISTS meeting_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE meeting_db;
-
--- ── Users ───────────────────────────────────────────────────
+-- ── Users ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
     id                   INT PRIMARY KEY AUTO_INCREMENT,
     name                 VARCHAR(100)  NOT NULL,
@@ -25,13 +24,13 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at           TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Default admin (password: Admin@12345)
-INSERT INTO users (name, email, password, role) VALUES
+-- Seed admin default (password: Admin@12345)
+-- INSERT IGNORE: aman dijalankan ulang, tidak error jika sudah ada
+INSERT IGNORE INTO users (name, email, password, role) VALUES
   ('Administrator', 'admin@meetingapp.id',
    '$2y$12$TKh8H1.PfunNGBz/znOlJuuBVZ7XMM/YpW5BWl8gBuIV9hWaX4Iye', 'admin');
 
--- ── Departments ─────────────────────────────────────────────
--- (Sprint 3) — dibuat lebih awal agar FK users.department_id bisa dibuat
+-- ── Departments ────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS departments (
     id          INT PRIMARY KEY AUTO_INCREMENT,
     name        VARCHAR(100) NOT NULL,
@@ -43,10 +42,24 @@ CREATE TABLE IF NOT EXISTS departments (
     FOREIGN KEY (head_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
-ALTER TABLE users ADD CONSTRAINT fk_users_department
-    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL;
+-- Tambah FK department ke users hanya jika belum ada
+SET @db = DATABASE();
+SET @fk_exists = (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = @db
+      AND TABLE_NAME = 'users'
+      AND CONSTRAINT_NAME = 'fk_users_department'
+      AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @sql = IF(@fk_exists = 0,
+    'ALTER TABLE users ADD CONSTRAINT fk_users_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL',
+    'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
--- ── Meetings ────────────────────────────────────────────────
+-- ── Meetings ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS meetings (
     id             INT PRIMARY KEY AUTO_INCREMENT,
     title          VARCHAR(200)  NOT NULL,
@@ -87,7 +100,7 @@ CREATE TABLE IF NOT EXISTS meeting_attendances (
     FOREIGN KEY (user_id)    REFERENCES users(id)
 );
 
--- ── Notulen ─────────────────────────────────────────────────
+-- ── Notulen ──────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS notulen (
     id          INT PRIMARY KEY AUTO_INCREMENT,
     meeting_id  INT NOT NULL UNIQUE,
@@ -144,21 +157,17 @@ CREATE TABLE IF NOT EXISTS notifications (
     INDEX idx_user_read (user_id, is_read)
 );
 
--- ── Auth: remember token & reset password ───────────────────
--- Disimpan langsung di tabel users (kolom remember_token, reset_token)
--- Tabel terpisah tidak diperlukan
-
--- ── Sprint 1: Email Queue & Export Log ──────────────────────
+-- ── Email Queue & Export Log ─────────────────────────────────
 CREATE TABLE IF NOT EXISTS email_queue (
-    id           INT PRIMARY KEY AUTO_INCREMENT,
-    to_email     VARCHAR(150) NOT NULL,
-    subject      VARCHAR(255) NOT NULL,
-    body         LONGTEXT,
-    status       ENUM('pending','sent','failed') DEFAULT 'pending',
-    attempts     TINYINT DEFAULT 0,
-    meeting_id   INT  DEFAULT NULL,
-    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sent_at      DATETIME  DEFAULT NULL,
+    id         INT PRIMARY KEY AUTO_INCREMENT,
+    to_email   VARCHAR(150) NOT NULL,
+    subject    VARCHAR(255) NOT NULL,
+    body       LONGTEXT,
+    status     ENUM('pending','sent','failed') DEFAULT 'pending',
+    attempts   TINYINT DEFAULT 0,
+    meeting_id INT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_at    DATETIME  DEFAULT NULL,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE SET NULL
 );
 
@@ -173,20 +182,20 @@ CREATE TABLE IF NOT EXISTS notulen_exports (
     FOREIGN KEY (exported_by) REFERENCES users(id)
 );
 
--- ── Sprint 3: Komentar Notulen ───────────────────────────────
+-- ── Komentar Notulen ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS notulen_comments (
-    id           INT PRIMARY KEY AUTO_INCREMENT,
-    meeting_id   INT  NOT NULL,
-    parent_id    INT  DEFAULT NULL COMMENT 'NULL = komentar utama, isi = reply',
-    user_id      INT  NOT NULL,
-    content      TEXT NOT NULL,
-    is_resolved  TINYINT(1) DEFAULT 0,
-    created_at   TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
-    updated_at   TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    id          INT PRIMARY KEY AUTO_INCREMENT,
+    meeting_id  INT  NOT NULL,
+    parent_id   INT  DEFAULT NULL COMMENT 'NULL = komentar utama, isi = reply',
+    user_id     INT  NOT NULL,
+    content     TEXT NOT NULL,
+    is_resolved TINYINT(1) DEFAULT 0,
+    created_at  TIMESTAMP  DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP  DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_id)  REFERENCES notulen_comments(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id)    REFERENCES users(id),
-    INDEX idx_meeting (meeting_id)
+    INDEX idx_nc_meeting (meeting_id)
 );
 
 CREATE TABLE IF NOT EXISTS comment_mentions (
@@ -198,7 +207,7 @@ CREATE TABLE IF NOT EXISTS comment_mentions (
     FOREIGN KEY (user_id)    REFERENCES users(id)
 );
 
--- ── Sprint 4: Lampiran File ──────────────────────────────────
+-- ── Lampiran File ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS meeting_attachments (
     id          INT PRIMARY KEY AUTO_INCREMENT,
     meeting_id  INT NOT NULL,
@@ -211,28 +220,28 @@ CREATE TABLE IF NOT EXISTS meeting_attachments (
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (meeting_id)  REFERENCES meetings(id) ON DELETE CASCADE,
     FOREIGN KEY (uploaded_by) REFERENCES users(id),
-    INDEX idx_meeting (meeting_id)
+    INDEX idx_ma_meeting (meeting_id)
 );
 
--- ── Sprint 4: Recurring Meeting ──────────────────────────────
+-- ── Recurring Meeting ─────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS recurring_meetings (
-    id              INT PRIMARY KEY AUTO_INCREMENT,
-    title           VARCHAR(200) NOT NULL,
-    description     TEXT,
-    location        VARCHAR(200),
-    frequency       ENUM('daily','weekly','biweekly','monthly') NOT NULL DEFAULT 'weekly',
-    day_of_week     TINYINT DEFAULT NULL,
-    day_of_month    TINYINT DEFAULT NULL,
-    start_time      TIME    NOT NULL,
-    end_time        TIME    NOT NULL,
-    start_date      DATE    NOT NULL,
-    end_date        DATE    DEFAULT NULL,
-    color           VARCHAR(20)  DEFAULT '#f76707',
-    department_id   INT     DEFAULT NULL,
-    created_by      INT     NOT NULL,
-    is_active       TINYINT(1) DEFAULT 1,
-    last_generated  DATE    DEFAULT NULL,
-    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    id             INT PRIMARY KEY AUTO_INCREMENT,
+    title          VARCHAR(200) NOT NULL,
+    description    TEXT,
+    location       VARCHAR(200),
+    frequency      ENUM('daily','weekly','biweekly','monthly') NOT NULL DEFAULT 'weekly',
+    day_of_week    TINYINT DEFAULT NULL,
+    day_of_month   TINYINT DEFAULT NULL,
+    start_time     TIME    NOT NULL,
+    end_time       TIME    NOT NULL,
+    start_date     DATE    NOT NULL,
+    end_date       DATE    DEFAULT NULL,
+    color          VARCHAR(20)  DEFAULT '#f76707',
+    department_id  INT     DEFAULT NULL,
+    created_by     INT     NOT NULL,
+    is_active      TINYINT(1) DEFAULT 1,
+    last_generated DATE    DEFAULT NULL,
+    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by)    REFERENCES users(id)
 );
@@ -246,5 +255,19 @@ CREATE TABLE IF NOT EXISTS recurring_participants (
     FOREIGN KEY (user_id)      REFERENCES users(id)
 );
 
-ALTER TABLE meetings ADD CONSTRAINT fk_meetings_recurring
-    FOREIGN KEY (recurring_id) REFERENCES recurring_meetings(id) ON DELETE SET NULL;
+-- Tambah FK recurring ke meetings hanya jika belum ada
+SET @db2 = DATABASE();
+SET @fk2_exists = (
+    SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA = @db2
+      AND TABLE_NAME = 'meetings'
+      AND CONSTRAINT_NAME = 'fk_meetings_recurring'
+      AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+);
+SET @sql2 = IF(@fk2_exists = 0,
+    'ALTER TABLE meetings ADD CONSTRAINT fk_meetings_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_meetings(id) ON DELETE SET NULL',
+    'SELECT 2'
+);
+PREPARE stmt2 FROM @sql2;
+EXECUTE stmt2;
+DEALLOCATE PREPARE stmt2;
