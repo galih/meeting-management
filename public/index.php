@@ -42,13 +42,13 @@ $router->post('/meetings/{id}/status',  [MeetingController::class, 'updateStatus
 $router->post('/meetings/{id}/delete',  [MeetingController::class, 'destroy']);
 
 // === NOTULEN ===
-$router->get('/notulen/{id}',             [NotulisController::class,  'editor']);
-$router->get('/notulen/{id}/history',     [NotulisController::class,  'history']);
-$router->get('/notulen/{id}/export-pdf',  [ExportController::class,   'exportPdf']);
+$router->get('/notulen/{id}',             [NotulisController::class, 'editor']);
+$router->get('/notulen/{id}/history',     [NotulisController::class, 'history']);
+$router->get('/notulen/{id}/export-pdf',  [ExportController::class,  'exportPdf']);
 
 // === API NOTULEN ===
-$router->post('/api/notulen/save',        [NotulisController::class,  'save']);
-$router->get('/api/notulen/sync',         [NotulisController::class,  'sync']);
+$router->post('/api/notulen/save',        [NotulisController::class, 'save']);
+$router->get('/api/notulen/sync',         [NotulisController::class, 'sync']);
 
 // === API KOMENTAR (Sprint 3) ===
 $router->get('/api/notulen/{id}/comments',  [CommentController::class, 'index']);
@@ -74,6 +74,19 @@ $router->post('/departments',              [DepartmentController::class, 'store'
 $router->post('/departments/{id}/update',  [DepartmentController::class, 'update']);
 $router->post('/departments/{id}/delete',  [DepartmentController::class, 'delete']);
 $router->get('/api/departments',           [DepartmentController::class, 'apiList']);
+
+// === ATTACHMENTS (Sprint 4) ===
+$router->get('/api/meetings/{id}/attachments',  [AttachmentController::class, 'index']);
+$router->post('/api/meetings/{id}/attachments', [AttachmentController::class, 'upload']);
+$router->get('/attachments/{id}/download',      [AttachmentController::class, 'download']);
+$router->post('/api/attachments/{id}/delete',   [AttachmentController::class, 'delete']);
+
+// === RECURRING MEETINGS (Sprint 4) ===
+$router->get('/recurring',                    [RecurringController::class, 'index']);
+$router->post('/recurring',                   [RecurringController::class, 'store']);
+$router->post('/recurring/{id}/generate',     [RecurringController::class, 'generate']);
+$router->post('/recurring/{id}/delete',       [RecurringController::class, 'delete']);
+$router->post('/api/recurring/generate-all',  [RecurringController::class, 'generateAll']);
 
 // === API MEETINGS ===
 $router->get('/api/meetings/calendar', [MeetingController::class, 'calendarApi']);
