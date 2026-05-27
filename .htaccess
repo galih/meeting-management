@@ -1,3 +1,9 @@
 RewriteEngine On
-RewriteRule ^wicara/?$ /wicara/public/index.php [L,QSA]
-RewriteRule ^wicara/(?!public/)(.*)$ /wicara/public/$1 [L,QSA]
+
+# Izinkan akses langsung ke file/folder yang memang ada (assets, dll)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Semua request diteruskan ke index.php di root
+RewriteRule ^wicara/(.*)$ /wicara/index.php [L,QSA]
+RewriteRule ^$ /wicara/index.php [L,QSA]
