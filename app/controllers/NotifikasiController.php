@@ -48,7 +48,12 @@ class NotifikasiController {
         // Tandai semua sebagai dibaca ketika halaman ini dibuka
         Notification::markAllRead($uid);
 
-        $pageTitle = 'Semua Notifikasi';
-        View::layout('notifications/index', compact('notifs', 'total', 'totalPage', 'page'));
+        View::layout('notifications/index', [
+            'pageTitle'  => 'Semua Notifikasi',
+            'notifs'     => $notifs,
+            'total'      => $total,
+            'totalPage'  => $totalPage,
+            'page'       => $page,
+        ]);
     }
 }

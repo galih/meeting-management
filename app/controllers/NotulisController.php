@@ -12,9 +12,24 @@ class NotulisController
         );
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
+        // Auto-create record notulen jika belum ada
         $notulen = Database::queryOne(
             "SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]
         );
+        if (!$notulen) {
+            $emptyContent = json_encode(['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0']);
+            Database::getInstance()->prepare(
+                "INSERT INTO notulen (meeting_id, content, version, created_by, updated_by) VALUES (?,?,1,?,?)"
+            )->execute([$meetingId, $emptyContent, Auth::id(), Auth::id()]);
+            $notulen = Database::queryOne(
+                "SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]
+            );
+        }
+
+        // Pastikan content selalu string JSON valid
+        if (empty($notulen['content'])) {
+            $notulen['content'] = json_encode(['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0']);
+        }
 
         $participants = Database::query(
             "SELECT u.id, u.name FROM meeting_participants mp
@@ -71,7 +86,6 @@ class NotulisController
             echo json_encode(['success' => false, 'message' => 'meeting_id wajib']); exit;
         }
 
-        // Normalise: jika content berupa array (EditorJS output), encode ke string JSON
         if (is_array($content)) {
             $content = json_encode($content);
         }
@@ -83,8 +97,7 @@ class NotulisController
         $db = Database::getInstance();
         if ($existing) {
             $db->prepare(
-                "INSERT INTO notulen_history (meeting_id, content, version, edited_by)
-                 VALUES (?,?,?,?)"
+                "INSERT INTO notulen_history (meeting_id, content, version, edited_by) VALUES (?,?,?,?)"
             )->execute([$meetingId, $existing['content'], $existing['version'], Auth::id()]);
             $db->prepare(
                 "UPDATE notulen SET content=?, version=version+1, updated_by=?, updated_at=NOW() WHERE meeting_id=?"
@@ -92,8 +105,7 @@ class NotulisController
             $version = ($existing['version'] ?? 0) + 1;
         } else {
             $db->prepare(
-                "INSERT INTO notulen (meeting_id, content, version, created_by, updated_by)
-                 VALUES (?,?,1,?,?)"
+                "INSERT INTO notulen (meeting_id, content, version, created_by, updated_by) VALUES (?,?,1,?,?)"
             )->execute([$meetingId, $content, Auth::id(), Auth::id()]);
             $version = 1;
         }
@@ -105,8 +117,8 @@ class NotulisController
     public static function sync(): void
     {
         Auth::requireAuth();
-        $meetingId      = (int)($_GET['meeting_id'] ?? 0);
-        $clientVersion  = (int)($_GET['version']    ?? 0);
+        $meetingId     = (int)($_GET['meeting_id'] ?? 0);
+        $clientVersion = (int)($_GET['version']    ?? 0);
 
         $notulen = Database::queryOne(
             "SELECT n.content, n.version, n.updated_at, u.name AS editor_name, u.id AS last_edited_by_id
