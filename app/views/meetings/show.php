@@ -9,7 +9,7 @@
       <div class="card-header">
         <h3 class="card-title">Detail Meeting</h3>
         <?php if (Auth::can('admin','sekretaris')): ?>
-        <div class="card-options">
+        <div class="card-options gap-1">
           <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
                   data-bs-target="#modalEditStatus">Ubah Status</button>
         </div>
@@ -24,39 +24,40 @@
               'completed'=>'green','cancelled'=>'red',default=>'secondary'
             } ?>"><?= ucfirst($meeting['status']) ?></span>
           </dd>
-
           <dt class="col-5 text-muted">Lokasi</dt>
           <dd class="col-7"><?= htmlspecialchars($meeting['location'] ?? '-') ?></dd>
-
           <dt class="col-5 text-muted">Mulai</dt>
           <dd class="col-7"><?= date('d M Y H:i', strtotime($meeting['start_datetime'])) ?></dd>
-
           <dt class="col-5 text-muted">Selesai</dt>
           <dd class="col-7"><?= date('d M Y H:i', strtotime($meeting['end_datetime'])) ?></dd>
-
           <dt class="col-5 text-muted">Dibuat oleh</dt>
           <dd class="col-7"><?= htmlspecialchars($meeting['creator_name']) ?></dd>
-
-          <dt class="col-5 text-muted">Dibuat</dt>
-          <dd class="col-7"><?= date('d M Y', strtotime($meeting['created_at'])) ?></dd>
         </dl>
-
         <?php if ($meeting['description']): ?>
         <hr>
-        <div class="text-muted small fw-semibold mb-1">Agenda / Deskripsi</div>
+        <div class="text-muted small fw-semibold mb-1">Agenda</div>
         <p class="mb-0 small"><?= nl2br(htmlspecialchars($meeting['description'])) ?></p>
         <?php endif; ?>
       </div>
-      <div class="card-footer">
-        <a href="/notulen/<?= $meeting['id'] ?>" class="btn btn-primary w-100">
-          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24"
-               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
-          </svg>
-          Buka Notulen
+      <!-- Action Buttons -->
+      <div class="card-footer d-grid gap-2">
+        <a href="/notulen/<?= $meeting['id'] ?>" class="btn btn-primary">
+          📝 Buka Notulen
         </a>
+        <a href="/notulen/<?= $meeting['id'] ?>/export-pdf"
+           target="_blank" class="btn btn-outline-danger">
+          🖨️ Export PDF
+        </a>
+        <?php if (Auth::can('admin','sekretaris')): ?>
+        <button class="btn btn-outline-primary" id="btn-send-invitation">
+          📧 Kirim Undangan
+        </button>
+        <?php if ($meeting['status'] === 'completed'): ?>
+        <button class="btn btn-outline-success" id="btn-send-summary">
+          📋 Kirim Ringkasan
+        </button>
+        <?php endif; ?>
+        <?php endif; ?>
       </div>
     </div>
 
@@ -72,7 +73,8 @@
         <?php foreach ($participants as $p): ?>
         <div class="list-group-item">
           <div class="d-flex align-items-center gap-2">
-            <span class="avatar avatar-sm" style="background:#f76707;color:white;font-size:12px;font-weight:700;">
+            <span class="avatar avatar-sm"
+                  style="background:#f76707;color:white;font-size:12px;font-weight:700;">
               <?= strtoupper(mb_substr($p['name'],0,1)) ?>
             </span>
             <div class="flex-fill">
@@ -97,30 +99,19 @@
         <?php if (Auth::can('admin','sekretaris')): ?>
         <div class="card-options">
           <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
-                  data-bs-target="#modalAddTL">
-            + Tambah
-          </button>
+                  data-bs-target="#modalAddTL">+ Tambah</button>
         </div>
         <?php endif; ?>
       </div>
-
       <?php if (empty($tindakLanjutList)): ?>
       <div class="card-body text-center text-muted py-5">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"
-             fill="none" stroke="currentColor" stroke-width="1" class="mb-3">
-          <polyline points="9 11 12 14 22 4"/>
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-        </svg>
         <p class="mb-0">Belum ada tindak lanjut untuk meeting ini</p>
       </div>
       <?php else: ?>
       <div class="table-responsive">
         <table class="table table-vcenter card-table">
           <thead>
-            <tr>
-              <th>Deskripsi</th><th>Ditugaskan ke</th>
-              <th>Deadline</th><th>Prioritas</th><th>Status</th>
-            </tr>
+            <tr><th>Deskripsi</th><th>PIC</th><th>Deadline</th><th>Prioritas</th><th>Status</th></tr>
           </thead>
           <tbody>
             <?php foreach ($tindakLanjutList as $tl):
@@ -128,27 +119,18 @@
                          && !in_array($tl['status'],['done','cancelled']);
             ?>
             <tr class="<?= $overdue ? 'table-danger' : '' ?>">
-              <td>
-                <?= htmlspecialchars($tl['deskripsi']) ?>
-                <?php if ($overdue): ?>
-                <span class="badge bg-red ms-1 small">Terlambat</span>
-                <?php endif; ?>
+              <td><?= htmlspecialchars($tl['deskripsi']) ?>
+                <?php if ($overdue): ?><span class="badge bg-red ms-1 small">Terlambat</span><?php endif; ?>
               </td>
               <td><?= htmlspecialchars($tl['assigned_name'] ?? '-') ?></td>
-              <td class="text-muted">
-                <?= $tl['deadline'] ? date('d M Y', strtotime($tl['deadline'])) : '-' ?>
-              </td>
-              <td>
-                <span class="badge bg-<?= match($tl['priority']) {
-                  'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'
-                } ?>-lt"><?= ucfirst($tl['priority']) ?></span>
-              </td>
-              <td>
-                <span class="badge bg-<?= match($tl['status']) {
-                  'pending'=>'secondary','in_progress'=>'blue',
-                  'done'=>'green','cancelled'=>'red',default=>'secondary'
-                } ?>"><?= ucfirst(str_replace('_',' ',$tl['status'])) ?></span>
-              </td>
+              <td class="text-muted"><?= $tl['deadline'] ? date('d M Y', strtotime($tl['deadline'])) : '-' ?></td>
+              <td><span class="badge bg-<?= match($tl['priority']) {
+                'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'
+              } ?>-lt"><?= ucfirst($tl['priority']) ?></span></td>
+              <td><span class="badge bg-<?= match($tl['status']) {
+                'pending'=>'secondary','in_progress'=>'blue',
+                'done'=>'green','cancelled'=>'red',default=>'secondary'
+              } ?>"><?= ucfirst(str_replace('_',' ',$tl['status'])) ?></span></td>
             </tr>
             <?php endforeach; ?>
           </tbody>
@@ -173,9 +155,7 @@
         <div class="modal-body">
           <select name="status" class="form-select">
             <?php foreach (['scheduled','ongoing','completed','cancelled'] as $s): ?>
-            <option value="<?= $s ?>" <?= $meeting['status']===$s?'selected':'' ?>>
-              <?= ucfirst($s) ?>
-            </option>
+            <option value="<?= $s ?>" <?= $meeting['status']===$s?'selected':'' ?>><?= ucfirst($s) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -199,8 +179,7 @@
       <div class="modal-body">
         <div class="mb-3">
           <label class="form-label required">Deskripsi Tugas</label>
-          <textarea id="tl-deskripsi" class="form-control" rows="3" required
-                    placeholder="Tulis deskripsi tindak lanjut..."></textarea>
+          <textarea id="tl-deskripsi" class="form-control" rows="3" required></textarea>
         </div>
         <div class="row g-2">
           <div class="col-6">
@@ -214,13 +193,12 @@
           </div>
           <div class="col-6">
             <label class="form-label">Deadline</label>
-            <input type="date" id="tl-deadline" class="form-control"
-                   min="<?= date('Y-m-d') ?>">
+            <input type="date" id="tl-deadline" class="form-control" min="<?= date('Y-m-d') ?>">
           </div>
         </div>
         <div class="mt-2">
           <label class="form-label">Prioritas</label>
-          <div class="d-flex gap-2">
+          <div class="d-flex gap-3">
             <?php foreach (['low'=>'Rendah','medium'=>'Sedang','high'=>'Tinggi'] as $v=>$l): ?>
             <label class="form-check">
               <input type="radio" name="tl-priority" class="form-check-input"
@@ -242,31 +220,47 @@
 
 <?php $scripts = <<<JS
 <script>
-const MEETING_ID_SHOW = {$meeting['id']};
+const MID = {$meeting['id']};
 
+// Tambah Tindak Lanjut
 document.getElementById('btn-save-tl')?.addEventListener('click', async () => {
   const deskripsi = document.getElementById('tl-deskripsi').value.trim();
   if (!deskripsi) { alert('Deskripsi wajib diisi!'); return; }
-
-  const priority = document.querySelector('input[name="tl-priority"]:checked')?.value || 'medium';
+  const priority  = document.querySelector('input[name="tl-priority"]:checked')?.value || 'medium';
   const res = await fetch('/tindak-lanjut', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-      meeting_id:  MEETING_ID_SHOW,
-      deskripsi,
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      meeting_id: MID, deskripsi,
       assigned_to: document.getElementById('tl-assigned').value,
-      deadline:    document.getElementById('tl-deadline').value,
+      deadline: document.getElementById('tl-deadline').value,
       priority
     })
   });
+  const d = await res.json();
+  if (d.success) { bootstrap.Modal.getInstance(document.getElementById('modalAddTL')).hide(); location.reload(); }
+  else alert(d.message || 'Gagal menyimpan');
+});
+
+// Kirim Undangan
+document.getElementById('btn-send-invitation')?.addEventListener('click', async () => {
+  if (!confirm('Kirim undangan email ke semua peserta?')) return;
+  const btn = document.getElementById('btn-send-invitation');
+  btn.disabled = true; btn.textContent = '⏳ Mengirim...';
+  const res  = await fetch(`/meetings/{$meeting['id']}/send-invitations`, { method: 'POST' });
   const data = await res.json();
-  if (data.success) {
-    bootstrap.Modal.getInstance(document.getElementById('modalAddTL')).hide();
-    location.reload();
-  } else {
-    alert(data.message || 'Gagal menyimpan');
-  }
+  btn.disabled = false; btn.textContent = '📧 Kirim Undangan';
+  alert(data.message || (data.success ? 'Terkirim!' : 'Gagal.'));
+});
+
+// Kirim Ringkasan
+document.getElementById('btn-send-summary')?.addEventListener('click', async () => {
+  if (!confirm('Kirim ringkasan notulen ke semua peserta?')) return;
+  const btn = document.getElementById('btn-send-summary');
+  btn.disabled = true; btn.textContent = '⏳ Mengirim...';
+  const res  = await fetch(`/meetings/{$meeting['id']}/send-summary`, { method: 'POST' });
+  const data = await res.json();
+  btn.disabled = false; btn.textContent = '📋 Kirim Ringkasan';
+  alert(data.message || (data.success ? 'Terkirim!' : 'Gagal.'));
 });
 </script>
 JS; ?>

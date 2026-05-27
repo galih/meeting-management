@@ -49,6 +49,7 @@ $router->post('/meetings/{id}/delete',  [MeetingController::class, 'destroy']);
 // === NOTULEN ===
 $router->get('/notulen/{id}',           [NotulisController::class, 'editor']);
 $router->get('/notulen/{id}/history',   [NotulisController::class, 'history']);
+$router->get('/notulen/{id}/export-pdf',[ExportController::class,  'exportPdf']);
 
 // === API NOTULEN ===
 $router->post('/api/notulen/save',      [NotulisController::class, 'save']);
@@ -66,8 +67,13 @@ $router->post('/users',              [UserController::class, 'store']);
 $router->post('/users/{id}/update',  [UserController::class, 'update']);
 $router->post('/users/{id}/delete',  [UserController::class, 'delete']);
 
-// === API MEETINGS (Kalender) ===
+// === API MEETINGS ===
 $router->get('/api/meetings/calendar', [MeetingController::class, 'calendarApi']);
+
+// === EMAIL ===
+$router->post('/meetings/{id}/send-invitations', [EmailController::class, 'sendInvitations']);
+$router->post('/meetings/{id}/send-summary',     [EmailController::class, 'sendSummary']);
+$router->get('/api/email/send-reminders',        [EmailController::class, 'sendDeadlineReminders']);
 
 // === API NOTIFICATIONS ===
 $router->get('/api/notifications',        [NotifikasiController::class, 'index']);
