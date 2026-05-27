@@ -34,7 +34,7 @@ class TindakLanjutController
 
         $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
-        View::layout('tindak_lanjut/index', [
+        View::layout('tindak-lanjut/index', [
             'title'   => 'Tindak Lanjut',
             'items'   => $items,
             'users'   => $users,
