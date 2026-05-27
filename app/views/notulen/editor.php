@@ -1,3 +1,11 @@
+<?php
+$baseUrl   = rtrim(BASE_URL, '/');
+$tlUrl     = json_encode($baseUrl . '/tindak-lanjut');
+$pdfUrl    = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
+$histUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
+$backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
+?>
+
 <div class="row g-3">
 
   <!-- Editor Utama -->
@@ -18,13 +26,11 @@
             <span class="status-dot status-dot-animated bg-green d-inline-block me-1"></span>Live
           </span>
           <span id="save-status" class="text-muted small">Tersimpan</span>
-          <a href="/notulen/<?= $meeting['id'] ?>/export-pdf"
-             target="_blank" class="btn btn-sm btn-outline-danger ms-1">
+          <a href="<?= $pdfUrl ?>" target="_blank" class="btn btn-sm btn-outline-danger ms-1">
             🖨️ PDF
           </a>
-          <?php if (Auth::can('admin','sekretaris')): ?>
-          <a href="/notulen/<?= $meeting['id'] ?>/history"
-             class="btn btn-sm btn-outline-secondary ms-1">Riwayat</a>
+          <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
+          <a href="<?= $histUrl ?>" class="btn btn-sm btn-outline-secondary ms-1">Riwayat</a>
           <?php endif; ?>
         </div>
       </div>
@@ -52,14 +58,13 @@
       <div class="card-footer">
         <div class="d-flex gap-2 align-items-start">
           <span class="avatar avatar-sm" style="background:#f76707;color:#fff;font-weight:700;flex-shrink:0;">
-            <?= strtoupper(mb_substr($user['name'],0,1)) ?>
+            <?= strtoupper(mb_substr($user['name'], 0, 1)) ?>
           </span>
           <div class="flex-fill">
             <div class="position-relative">
               <textarea id="comment-input" class="form-control" rows="2"
                         placeholder="Tulis komentar... gunakan @nama untuk mention"></textarea>
-              <div id="mention-dropdown"
-                   class="dropdown-menu show p-1" style="display:none!important;"></div>
+              <div id="mention-dropdown" class="dropdown-menu show p-1" style="display:none!important;"></div>
             </div>
             <div class="d-flex justify-content-between align-items-center mt-1">
               <small class="text-muted" id="reply-indicator"></small>
@@ -89,13 +94,13 @@
           <dd class="col-7">
             <span class="badge bg-<?= match($meeting['status']) {
               'scheduled'=>'blue','ongoing'=>'orange',
-              'completed'=>'green','cancelled'=>'red',default=>'secondary'
+              'done'=>'green','cancelled'=>'red',default=>'secondary'
             } ?>-lt"><?= ucfirst($meeting['status']) ?></span>
           </dd>
         </dl>
       </div>
       <div class="card-footer py-2">
-        <a href="/meetings/<?= $meeting['id'] ?>" class="btn btn-sm btn-outline-secondary w-100">
+        <a href="<?= $backUrl ?>" class="btn btn-sm btn-outline-secondary w-100">
           &larr; Kembali ke Detail Meeting
         </a>
       </div>
@@ -105,7 +110,7 @@
     <div class="card">
       <div class="card-header">
         <h4 class="card-title">Tindak Lanjut</h4>
-        <?php if (Auth::can('admin','sekretaris')): ?>
+        <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
         <div class="card-options">
           <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
                   data-bs-target="#modalTL">+ Tambah</button>
@@ -119,19 +124,21 @@
         <?php foreach ($tindakLanjutList as $tl): ?>
         <div class="list-group-item px-3 py-2">
           <div class="d-flex justify-content-between align-items-start">
-            <span class="small fw-semibold"><?= htmlspecialchars($tl['deskripsi']) ?></span>
+            <span class="small fw-semibold"><?= htmlspecialchars($tl['description']) ?></span>
             <span class="badge bg-<?= match($tl['priority']) {
               'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'
             } ?>-lt ms-1" style="font-size:9px;"><?= ucfirst($tl['priority']) ?></span>
           </div>
           <div class="text-muted" style="font-size:11px;">
             👤 <?= htmlspecialchars($tl['assigned_name'] ?? '-') ?>
-            <?php if ($tl['deadline']): ?> | 📅 <?= date('d M Y', strtotime($tl['deadline'])) ?><?php endif; ?>
+            <?php if (!empty($tl['due_date'])): ?>
+              | 📅 <?= date('d M Y', strtotime($tl['due_date'])) ?>
+            <?php endif; ?>
           </div>
           <span class="badge bg-<?= match($tl['status']) {
             'pending'=>'secondary','in_progress'=>'blue',
             'done'=>'green','cancelled'=>'red',default=>'secondary'
-          } ?>" style="font-size:9px;"><?= ucfirst(str_replace('_',' ',$tl['status'])) ?></span>
+          } ?>" style="font-size:9px;"><?= ucfirst(str_replace('_', ' ', $tl['status'])) ?></span>
         </div>
         <?php endforeach; ?>
       </div>
@@ -141,7 +148,7 @@
 </div>
 
 <!-- Modal TL -->
-<?php if (Auth::can('admin','sekretaris')): ?>
+<?php if (Auth::hasRole('admin', 'sekretaris')): ?>
 <div class="modal modal-blur fade" id="modalTL" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -188,37 +195,48 @@
 <?php endif; ?>
 
 <?php
-$initContent = $notulen['content'] ?? '{}';
-$isEditor    = Auth::can('admin','sekretaris') ? 'true' : 'false';
-$meetingId   = $meeting['id'];
-$userId      = $user['id'];
-$usersJson   = json_encode(array_map(fn($u) => ['id'=>$u['id'],'name'=>$u['name']], $users));
-$scripts = <<<JS
+$initContent = htmlspecialchars($notulen['content'] ?? '{}', ENT_QUOTES, 'UTF-8');
+$isEditor    = Auth::hasRole('admin', 'sekretaris') ? 'true' : 'false';
+$meetingId   = (int)$meeting['id'];
+$userId      = (int)$user['id'];
+$usersJson   = json_encode(array_map(fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']], $users));
+$saveUrl     = json_encode($baseUrl . '/notulen/save');
+$syncUrl     = json_encode($baseUrl . '/notulen/sync');
+$commentUrl  = json_encode($baseUrl . '/api/comments');
+?>
 <script>
-const MEETING_ID      = {$meetingId};
-const CURRENT_USER_ID = {$userId};
-const IS_EDITOR       = {$isEditor};
-const INITIAL_CONTENT = `{$initContent}`;
-const ALL_USERS       = {$usersJson};
+const MEETING_ID      = <?= $meetingId ?>;
+const CURRENT_USER_ID = <?= $userId ?>;
+const IS_EDITOR       = <?= $isEditor ?>;
+const INITIAL_CONTENT = <?= json_encode($notulen['content'] ?? '{}') ?>;
+const ALL_USERS       = <?= $usersJson ?>;
+const SAVE_URL        = <?= $saveUrl ?>;
+const SYNC_URL        = <?= $syncUrl ?>;
+const COMMENT_URL     = <?= $commentUrl ?>;
 </script>
-<script src="/assets/js/notulen-realtime.js"></script>
-<script src="/assets/js/notulen-comments.js"></script>
+<script src="<?= $baseUrl ?>/assets/js/notulen-realtime.js"></script>
+<script src="<?= $baseUrl ?>/assets/js/notulen-comments.js"></script>
 <script>
 document.getElementById('btn-tl2-save')?.addEventListener('click', async () => {
   const desk = document.getElementById('tl2-desk').value.trim();
-  if (!desk) return;
-  const res = await fetch('/tindak-lanjut', {
-    method:'POST', headers:{'Content-Type':'application/json'},
+  if (!desk) { alert('Deskripsi wajib diisi!'); return; }
+  const res = await fetch(<?= $tlUrl ?>, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      meeting_id: MEETING_ID, deskripsi: desk,
+      meeting_id:  MEETING_ID,
+      description: desk,
       assigned_to: document.getElementById('tl2-assign').value,
-      deadline:    document.getElementById('tl2-deadline').value,
-      priority:    document.getElementById('tl2-priority').value
+      due_date:    document.getElementById('tl2-deadline').value,
+      priority:    document.getElementById('tl2-priority').value,
     })
   });
   const d = await res.json();
-  if (d.success) { bootstrap.Modal.getInstance(document.getElementById('modalTL')).hide(); location.reload(); }
+  if (d.success) {
+    bootstrap.Modal.getInstance(document.getElementById('modalTL')).hide();
+    location.reload();
+  } else {
+    alert(d.message || 'Gagal menyimpan');
+  }
 });
 </script>
-JS;
-?>

@@ -36,7 +36,6 @@ class TindakLanjutController
             $params
         );
 
-        // Summary stats (hitung dari data lengkap tanpa filter status/priority/search)
         $baseParams = !Auth::hasRole('admin', 'sekretaris') ? [Auth::id()] : ($userId ? [$userId] : []);
         $baseWhere  = !Auth::hasRole('admin', 'sekretaris')
             ? 'assigned_to = ?'
@@ -64,28 +63,56 @@ class TindakLanjutController
         ]);
     }
 
+    /**
+     * Menerima JSON (dari fetch di show.php / editor.php) ATAU POST form biasa
+     */
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $d = $_POST;
+
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        if (str_contains($contentType, 'application/json')) {
+            $d = json_decode(file_get_contents('php://input'), true) ?? [];
+        } else {
+            $d = $_POST;
+        }
+
+        $meetingId  = (int)($d['meeting_id']  ?? 0);
+        $desc       = trim($d['description']  ?? '');
+        $assignedTo = (int)($d['assigned_to'] ?? 0);
+        $dueDate    = ($d['due_date']  ?? '') ?: null;
+        $priority   = $d['priority']   ?? 'medium';
+
+        if (!$meetingId || !$desc) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'meeting_id dan description wajib']); exit;
+        }
 
         Database::getInstance()->prepare(
             "INSERT INTO tindak_lanjut
              (meeting_id, description, assigned_to, due_date, priority, created_by)
              VALUES (?,?,?,?,?,?)"
         )->execute([
-            (int)$d['meeting_id'],
-            trim($d['description']),
-            (int)$d['assigned_to'],
-            $d['due_date'] ?: null,
-            $d['priority'] ?? 'medium',
+            $meetingId,
+            $desc,
+            $assignedTo ?: null,
+            $dueDate,
+            $priority,
             Auth::id(),
         ]);
 
-        Notification::send((int)$d['assigned_to'], 'tindak_lanjut',
-            "Anda mendapat tugas tindak lanjut baru: {$d['description']}",
-            '/tindak-lanjut'
-        );
+        if ($assignedTo) {
+            Notification::send($assignedTo, 'tindak_lanjut',
+                "Anda mendapat tugas tindak lanjut baru: {$desc}",
+                '/tindak-lanjut'
+            );
+        }
+
+        // Kalau JSON request, balas JSON; kalau form POST biasa, redirect
+        if (str_contains($contentType, 'application/json')) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true]); exit;
+        }
 
         $_SESSION['flash_success'] = 'Tindak lanjut berhasil ditambahkan.';
         header('Location: ' . BASE_URL . '/tindak-lanjut'); exit;

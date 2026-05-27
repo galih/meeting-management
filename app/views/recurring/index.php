@@ -1,3 +1,8 @@
+<?php
+$baseUrl = rtrim(BASE_URL, '/');
+$storeUrl = $baseUrl . '/recurring';
+?>
+
 <?php if (!empty($_SESSION['flash_success'])): ?>
 <div class="alert alert-success alert-dismissible mb-3">
   <?= htmlspecialchars($_SESSION['flash_success']) ?>
@@ -30,8 +35,10 @@
 <div class="row row-cards">
   <?php foreach ($list as $r):
     $freqLabel = ['daily'=>'Harian','weekly'=>'Mingguan','biweekly'=>'2 Mingguan','monthly'=>'Bulanan'];
-    $days = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-    $dayLabel = $r['day_of_week'] !== null ? $days[$r['day_of_week']] : ($r['day_of_month'] ? 'Tgl '.$r['day_of_month'] : '-');
+    $days      = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+    $dayLabel  = $r['day_of_week'] !== null
+      ? $days[$r['day_of_week']]
+      : ($r['day_of_month'] ? 'Tgl ' . $r['day_of_month'] : '-');
   ?>
   <div class="col-md-6 col-lg-4">
     <div class="card">
@@ -39,18 +46,18 @@
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-start mb-2">
           <h4 class="card-title mb-0"><?= htmlspecialchars($r['title']) ?></h4>
-          <span class="badge bg-orange-lt text-orange"><?= $freqLabel[$r['frequency']] ?></span>
+          <span class="badge bg-orange-lt text-orange"><?= $freqLabel[$r['frequency']] ?? $r['frequency'] ?></span>
         </div>
         <div class="text-muted small mb-2">
           📍 <?= htmlspecialchars($r['location'] ?? '-') ?><br>
-          🕐 <?= substr($r['start_time'],0,5) ?> – <?= substr($r['end_time'],0,5) ?>
+          🕐 <?= substr($r['start_time'], 0, 5) ?> – <?= substr($r['end_time'], 0, 5) ?>
           &nbsp;|&nbsp; 📅 <?= $dayLabel ?><br>
           👤 <?= htmlspecialchars($r['creator_name']) ?>
-          <?php if ($r['dept_name']): ?>&nbsp;|&nbsp; 🏢 <?= htmlspecialchars($r['dept_name']) ?><?php endif; ?>
+          <?php if (!empty($r['dept_name'])): ?>&nbsp;|&nbsp; 🏢 <?= htmlspecialchars($r['dept_name']) ?><?php endif; ?>
         </div>
         <div class="d-flex justify-content-between text-muted" style="font-size:11px;">
-          <span>Generated: <strong><?= $r['total_generated'] ?> meeting</strong></span>
-          <?php if ($r['end_date']): ?>
+          <span>Generated: <strong><?= (int)$r['total_generated'] ?> meeting</strong></span>
+          <?php if (!empty($r['end_date'])): ?>
           <span>Berakhir: <?= date('d M Y', strtotime($r['end_date'])) ?></span>
           <?php else: ?>
           <span class="text-green">♾️ Tanpa batas</span>
@@ -59,9 +66,15 @@
       </div>
       <div class="card-footer d-flex gap-2">
         <button class="btn btn-sm btn-outline-primary flex-fill btn-generate"
-                data-id="<?= $r['id'] ?>">⚡ Generate</button>
+                data-id="<?= $r['id'] ?>"
+                data-url="<?= $baseUrl ?>/recurring/<?= $r['id'] ?>/generate">
+          ⚡ Generate
+        </button>
         <button class="btn btn-sm btn-outline-danger btn-del-recurring"
-                data-id="<?= $r['id'] ?>">Hapus</button>
+                data-id="<?= $r['id'] ?>"
+                data-url="<?= $baseUrl ?>/recurring/<?= $r['id'] ?>/delete">
+          Hapus
+        </button>
       </div>
     </div>
   </div>
@@ -73,7 +86,7 @@
 <div class="modal modal-blur fade" id="modalAddRecurring" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
-      <form method="POST" action="/recurring">
+      <form method="POST" action="<?= $storeUrl ?>">
         <div class="modal-header">
           <h5 class="modal-title">Buat Recurring Meeting</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -160,7 +173,7 @@
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-link" data-bs-dismiss="modal">Batal</button>
-          <button type="submit" class="btn btn-primary">Buat & Generate Meeting Pertama</button>
+          <button type="submit" class="btn btn-primary">Buat &amp; Generate Meeting Pertama</button>
         </div>
       </form>
     </div>
@@ -168,7 +181,6 @@
 </div>
 
 <script>
-// Toggle field day_of_week / day_of_month sesuai frekuensi
 document.getElementById('rec-frequency')?.addEventListener('change', function() {
   const isMonthly = this.value === 'monthly';
   const isDaily   = this.value === 'daily';
@@ -176,11 +188,10 @@ document.getElementById('rec-frequency')?.addEventListener('change', function() 
   document.getElementById('row-day-of-month').style.display = isMonthly ? '' : 'none';
 });
 
-// Generate manual per recurring
 document.querySelectorAll('.btn-generate').forEach(btn => {
   btn.addEventListener('click', async () => {
     btn.disabled = true; btn.textContent = '⏳ Proses...';
-    const res  = await fetch(`/recurring/${btn.dataset.id}/generate`, { method: 'POST' });
+    const res  = await fetch(btn.dataset.url, { method: 'POST' });
     const data = await res.json();
     btn.disabled = false; btn.textContent = '⚡ Generate';
     alert(data.message);
@@ -188,25 +199,24 @@ document.querySelectorAll('.btn-generate').forEach(btn => {
   });
 });
 
-// Generate semua
 document.getElementById('btn-generate-all')?.addEventListener('click', async () => {
   if (!confirm('Generate semua recurring meeting 4 minggu ke depan?')) return;
   const btn = document.getElementById('btn-generate-all');
   btn.disabled = true; btn.textContent = '⏳ Proses...';
-  const res  = await fetch('/api/recurring/generate-all', { method: 'POST' });
+  const res  = await fetch('<?= $baseUrl ?>/api/recurring/generate-all', { method: 'POST' });
   const data = await res.json();
   btn.disabled = false; btn.textContent = '⚡ Generate Semua';
-  alert(`Total ${data.total_generated} meeting berhasil digenerate.`);
-  if (data.total_generated > 0) location.reload();
+  alert(`Total ${data.total_generated ?? 0} meeting berhasil digenerate.`);
+  if ((data.total_generated ?? 0) > 0) location.reload();
 });
 
-// Hapus recurring
 document.querySelectorAll('.btn-del-recurring').forEach(btn => {
   btn.addEventListener('click', async () => {
     if (!confirm('Hapus recurring meeting ini? Meeting yang sudah digenerate tidak ikut terhapus.')) return;
-    const res = await fetch(`/recurring/${btn.dataset.id}/delete`, { method: 'POST' });
+    const res = await fetch(btn.dataset.url, { method: 'POST' });
     const d   = await res.json();
-    if (d.success) btn.closest('.col-md-6').remove();
+    if (d.success) btn.closest('.col-md-6, .col-lg-4').remove();
+    else alert(d.message || 'Gagal hapus');
   });
 });
 </script>

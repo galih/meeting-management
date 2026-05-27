@@ -22,11 +22,27 @@ class NotulisController
             [$meetingId]
         );
 
+        // Dibutuhkan oleh view: daftar user untuk modal TL
+        $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
+
+        // Daftar tindak lanjut untuk sidebar
+        $tindakLanjutList = Database::query(
+            "SELECT tl.*, u.name AS assigned_name
+             FROM tindak_lanjut tl
+             LEFT JOIN users u ON u.id = tl.assigned_to
+             WHERE tl.meeting_id = ?
+             ORDER BY tl.created_at DESC",
+            [$meetingId]
+        );
+
         View::layout('notulen/editor', [
-            'title'        => 'Notulen — ' . $meeting['title'],
-            'meeting'      => $meeting,
-            'notulen'      => $notulen,
-            'participants' => $participants,
+            'title'            => 'Notulen — ' . $meeting['title'],
+            'meeting'          => $meeting,
+            'notulen'          => $notulen,
+            'participants'     => $participants,
+            'users'            => $users,
+            'tindakLanjutList' => $tindakLanjutList,
+            'user'             => Auth::user(),
         ]);
     }
 
@@ -48,11 +64,13 @@ class NotulisController
     public static function save(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $meetingId = (int)($_POST['meeting_id'] ?? 0);
-        $content   = $_POST['content'] ?? '';
-        $version   = (int)($_POST['version'] ?? 1);
+        // Terima JSON (dari fetch) atau POST form biasa
+        $input     = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $meetingId = (int)($input['meeting_id'] ?? 0);
+        $content   = $input['content'] ?? '';
 
         if (!$meetingId) {
+            header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'meeting_id wajib']); exit;
         }
 
