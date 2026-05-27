@@ -1,6 +1,6 @@
 Options -Indexes
 RewriteEngine On
-RewriteBase /wicara/
+RewriteBase /wicara/public/
 
 # Izinkan akses langsung ke file/folder yang ada (assets, uploads, dll)
 RewriteCond %{REQUEST_FILENAME} !-f
