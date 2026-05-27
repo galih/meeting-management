@@ -1,11 +1,11 @@
 <?php
 /**
- * Meeting Management App — Web Installer
+ * Meeting Management App — Web Installer v1.4.0
  * Letakkan file ini di root folder, buka via browser sekali saja.
  * Hapus file ini setelah instalasi selesai!
  */
 
-define('INSTALLER_VERSION', '1.3.0');
+define('INSTALLER_VERSION', '1.4.0');
 define('MIN_PHP', '8.1.0');
 
 session_start();
@@ -30,7 +30,6 @@ function checkWritable(): array {
     ];
     $results = [];
     foreach ($paths as $p) {
-        // Buat folder jika belum ada
         if (!is_dir($p)) @mkdir($p, 0755, true);
         $results[$p] = is_writable($p);
     }
@@ -58,7 +57,7 @@ function createDatabase(PDO $pdo, string $dbname): void {
 function importSqlFile(PDO $pdo, string $filePath): bool|string {
     if (!file_exists($filePath)) return "File tidak ditemukan: {$filePath}";
     $sql = file_get_contents($filePath);
-    // Hapus komentar
+    // Hapus komentar SQL
     $sql = preg_replace('/--[^\n]*/', '', $sql);
     $sql = preg_replace('#/\*.*?\*/#s', '', $sql);
     $statements = array_filter(array_map('trim', explode(';', $sql)));
@@ -72,13 +71,15 @@ function importSqlFile(PDO $pdo, string $filePath): bool|string {
     }
 }
 
+/**
+ * Hanya impor schema.sql terpadu (sudah mencakup semua sprint).
+ * File sprint terpisah hanya untuk upgrade manual instance lama.
+ */
 function importAllSchemas(PDO $pdo): array {
     $files = [
-        'Schema utama'         => __DIR__ . '/database/schema.sql',
-        'Sprint 1 (Email/PDF)' => __DIR__ . '/database/sprint1_migration.sql',
-        'Sprint 3 (Dept/Komentar)' => __DIR__ . '/database/sprint3_migration.sql',
-        'Sprint 4 (Lampiran/Recurring)' => __DIR__ . '/database/sprint4_migration.sql',
+        'Schema utama' => __DIR__ . '/database/schema.sql',
     ];
+
     $results = [];
     foreach ($files as $label => $path) {
         if (!file_exists($path)) {
@@ -91,7 +92,7 @@ function importAllSchemas(PDO $pdo): array {
             'status' => $res === true ? 'ok' : 'error',
             'msg'    => $res === true ? 'Berhasil diimport.' : $res,
         ];
-        if ($res !== true) break; // Hentikan jika schema utama gagal
+        if ($res !== true) break;
     }
     return $results;
 }
@@ -130,7 +131,7 @@ PHP;
 }
 
 function writeMailConfig(array $cfg): bool {
-    if (empty($cfg['driver']) || $cfg['driver'] === 'skip') return true; // opsional
+    if (empty($cfg['driver']) || $cfg['driver'] === 'skip') return true;
     $driver    = $cfg['driver'];
     $fromEmail = addslashes($cfg['from_email'] ?? '');
     $fromName  = addslashes($cfg['from_name']  ?? 'Meeting Management App');
@@ -160,9 +161,9 @@ PHP;
 
 function updateAdminUser(PDO $pdo, array $admin): void {
     $hash = password_hash($admin['password'], PASSWORD_BCRYPT, ['cost' => 12]);
-    $pdo->prepare("UPDATE users SET name=?, email=?, password=? WHERE role_id=(
-        SELECT id FROM roles WHERE name='admin' LIMIT 1
-    ) LIMIT 1")->execute([$admin['name'], $admin['email'], $hash]);
+    $pdo->prepare(
+        "UPDATE users SET name=?, email=?, password=? WHERE role='admin' LIMIT 1"
+    )->execute([$admin['name'], $admin['email'], $hash]);
 }
 
 function isInstalled(): bool {
@@ -176,7 +177,7 @@ $step    = (int) ($_GET['step'] ?? 1);
 $errors  = [];
 $success = [];
 
-// Step 2 — Test koneksi DB, simpan ke session
+// Step 2 — Test koneksi DB
 if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $dbCfg = [
         'host'     => trim($_POST['db_host']  ?? 'localhost'),
@@ -194,7 +195,7 @@ if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Step 3 — Simpan config App + Admin + Email ke session
+// Step 3 — Simpan config App + Admin + Email
 if ($step === 3 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $_SESSION['installer_app'] = [
         'app_name' => trim($_POST['app_name'] ?? 'Meeting Management App'),
@@ -206,18 +207,18 @@ if ($step === 3 && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'password' => $_POST['admin_password']   ?? '',
     ];
     $_SESSION['installer_mail'] = [
-        'driver'      => $_POST['mail_driver']     ?? 'mail',
-        'from_email'  => trim($_POST['mail_from']  ?? ''),
-        'from_name'   => trim($_POST['mail_name']  ?? 'Meeting Management App'),
-        'smtp_host'   => trim($_POST['smtp_host']  ?? ''),
-        'smtp_port'   => trim($_POST['smtp_port']  ?? '587'),
-        'smtp_secure' => $_POST['smtp_secure']     ?? 'tls',
-        'smtp_user'   => trim($_POST['smtp_user']  ?? ''),
-        'smtp_pass'   => $_POST['smtp_pass']       ?? '',
+        'driver'      => $_POST['mail_driver']    ?? 'mail',
+        'from_email'  => trim($_POST['mail_from'] ?? ''),
+        'from_name'   => trim($_POST['mail_name'] ?? 'Meeting Management App'),
+        'smtp_host'   => trim($_POST['smtp_host'] ?? ''),
+        'smtp_port'   => trim($_POST['smtp_port'] ?? '587'),
+        'smtp_secure' => $_POST['smtp_secure']    ?? 'tls',
+        'smtp_user'   => trim($_POST['smtp_user'] ?? ''),
+        'smtp_pass'   => $_POST['smtp_pass']      ?? '',
     ];
     $errs = [];
-    if (empty($_SESSION['installer_admin']['email']))          $errs[] = 'Email admin wajib diisi.';
-    if (strlen($_SESSION['installer_admin']['password']) < 8)  $errs[] = 'Password minimal 8 karakter.';
+    if (empty($_SESSION['installer_admin']['email']))         $errs[] = 'Email admin wajib diisi.';
+    if (strlen($_SESSION['installer_admin']['password']) < 8) $errs[] = 'Password minimal 8 karakter.';
     if ($_POST['admin_password'] !== $_POST['admin_password_confirm']) $errs[] = 'Konfirmasi password tidak cocok.';
     if ($errs) {
         $errors = $errs;
@@ -244,7 +245,7 @@ if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST') {
         createDatabase($pdo, $dbCfg['dbname']);
         $success[] = 'Database <strong>' . htmlspecialchars($dbCfg['dbname']) . '</strong> siap.';
 
-        // 3. Import semua schema (schema.sql + sprint migrations)
+        // 3. Import schema terpadu (schema.sql sudah mencakup semua fitur)
         $importResults = importAllSchemas($pdo);
         foreach ($importResults as $r) {
             if ($r['status'] === 'error') throw new Exception("Import {$r['label']} gagal: {$r['msg']}");
@@ -252,7 +253,7 @@ if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $success[] = "{$icon} {$r['label']}: {$r['msg']}";
         }
 
-        // 4. Update admin
+        // 4. Update akun admin
         updateAdminUser($pdo, $adminCfg);
         $success[] = 'Akun admin berhasil dikonfigurasi.';
 
@@ -275,7 +276,7 @@ if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
         $success[] = 'Folder <code>public/uploads/attachments</code> siap.';
 
-        // 7. Bersihkan session
+        // 7. Bersihkan session installer
         unset($_SESSION['installer_db'], $_SESSION['installer_app'],
               $_SESSION['installer_admin'], $_SESSION['installer_mail']);
 
@@ -399,24 +400,23 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
       </div>
       <?php endif; ?>
 
-      <!-- Cek ketersediaan file migrasi -->
       <div class="mt-3">
-        <div class="section-title">📁 File Migrasi Database</div>
+        <div class="section-title">📁 File Schema Database</div>
         <?php
         $sqlFiles = [
-            'database/schema.sql'              => 'Schema Utama',
-            'database/sprint1_migration.sql'   => 'Sprint 1 — Email & PDF',
-            'database/sprint3_migration.sql'   => 'Sprint 3 — Departemen & Komentar',
-            'database/sprint4_migration.sql'   => 'Sprint 4 — Lampiran & Recurring',
+            'database/schema.sql' => 'Schema Utama (mencakup semua fitur)',
         ];
         foreach ($sqlFiles as $file => $label): ?>
         <div class="d-flex justify-content-between small py-1 border-bottom">
           <span><?= $label ?> <code class="text-muted">(<?= $file ?>)</code></span>
           <?= file_exists($file)
             ? '<span class="badge bg-green-lt text-green">✓ Ada</span>'
-            : '<span class="badge bg-yellow-lt text-yellow">⚠ Tidak Ada</span>' ?>
+            : '<span class="badge bg-red-lt text-red">✗ Tidak Ditemukan</span>' ?>
         </div>
         <?php endforeach; ?>
+        <small class="text-muted mt-1 d-block">
+          ℹ️ File sprint migration (sprint1–sprint4) hanya diperlukan untuk upgrade instance lama, bukan fresh install.
+        </small>
       </div>
 
     </div>
@@ -485,7 +485,6 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
         <div class="alert alert-danger"><?= implode('<br>', $errors) ?></div>
         <?php endif; ?>
 
-        <!-- Pengaturan Aplikasi -->
         <div class="section-title">⚙️ Pengaturan Aplikasi</div>
         <div class="row g-3">
           <div class="col-12">
@@ -501,7 +500,6 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
           </div>
         </div>
 
-        <!-- Akun Admin -->
         <div class="section-title">👤 Akun Admin</div>
         <div class="row g-3">
           <div class="col-12">
@@ -527,14 +525,13 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
           </div>
         </div>
 
-        <!-- Konfigurasi Email -->
-        <div class="section-title">✉️ Konfigurasi Email <small class="text-muted fw-normal">(opsional — bisa diatur manual nanti)</small></div>
+        <div class="section-title">✉️ Konfigurasi Email <small class="text-muted fw-normal">(opsional)</small></div>
         <div class="row g-3">
           <div class="col-12">
             <label class="form-label">Driver Email</label>
             <select name="mail_driver" class="form-select" id="mail-driver">
               <option value="skip" <?= ($mailCfgSession['driver']??'skip')==='skip'?'selected':'' ?>>⏭️ Lewati (atur manual nanti)</option>
-              <option value="mail" <?= ($mailCfgSession['driver']??'')==='mail'?'selected':'' ?>>📧 PHP mail() — Shared Hosting Biasa</option>
+              <option value="mail" <?= ($mailCfgSession['driver']??'')==='mail'?'selected':'' ?>>📧 PHP mail() — Shared Hosting</option>
               <option value="smtp" <?= ($mailCfgSession['driver']??'')==='smtp'?'selected':'' ?>>🔐 SMTP — Gmail / Mailgun / Custom</option>
             </select>
           </div>
@@ -549,8 +546,6 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
             <input type="text" name="mail_name" class="form-control"
                    value="<?= htmlspecialchars($mailCfgSession['from_name'] ?? 'Meeting Management App') ?>">
           </div>
-
-          <!-- SMTP Fields -->
           <div class="col-12 smtp-fields" id="smtp-fields">
             <div class="row g-2">
               <div class="col-md-6">
@@ -586,9 +581,8 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
               💡 Gmail: aktifkan <em>2-Step Verification</em> lalu buat <em>App Password</em> di pengaturan akun Google.
             </small>
           </div>
-
-        </div><!-- /row email -->
-      </div><!-- /card-body -->
+        </div>
+      </div>
       <div class="card-footer d-flex justify-content-between">
         <a href="install.php?step=2" class="btn btn-outline-secondary">&larr; Kembali</a>
         <button type="submit" class="btn btn-primary">Lanjut &rarr;</button>
@@ -638,17 +632,14 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
       <div class="section-title">📁 Yang Akan Diimport</div>
       <?php
       $sqlFiles = [
-          'database/schema.sql'            => 'Schema Utama (tabel inti)',
-          'database/sprint1_migration.sql' => 'Sprint 1 — Email Queue & Export Log',
-          'database/sprint3_migration.sql' => 'Sprint 3 — Departemen & Komentar',
-          'database/sprint4_migration.sql' => 'Sprint 4 — Lampiran & Recurring',
+          'database/schema.sql' => 'Schema Utama — semua tabel & relasi',
       ];
       foreach ($sqlFiles as $file => $label): ?>
       <div class="d-flex justify-content-between small py-1 border-bottom">
         <span><?= $label ?></span>
         <?= file_exists($file)
-          ? '<span class="badge bg-green-lt text-green">✓ Akan diimport</span>'
-          : '<span class="badge bg-yellow-lt text-yellow">⏭ Tidak ada, dilewati</span>' ?>
+          ? '<span class="badge bg-green-lt text-green">✓ Siap diimport</span>'
+          : '<span class="badge bg-red-lt text-red">✗ File tidak ditemukan!</span>' ?>
       </div>
       <?php endforeach; ?>
 
@@ -715,7 +706,6 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
 
 </div><!-- /installer-wrap -->
 
-<!-- Toggle SMTP fields -->
 <script>
 function toggleMailFields() {
   const driver  = document.getElementById('mail-driver')?.value;
@@ -732,7 +722,6 @@ toggleMailFields();
 </script>
 
 <?php
-// Self-delete endpoint
 if (($_GET['action'] ?? '') === 'self_delete') {
     header('Content-Type: application/json');
     echo json_encode(['success' => (bool) @unlink(__FILE__)]);
