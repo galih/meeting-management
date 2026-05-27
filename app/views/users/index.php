@@ -1,0 +1,216 @@
+<?php
+if (!empty($_SESSION['flash_success'])):
+?>
+<div class="alert alert-success alert-dismissible mb-3">
+  <?= htmlspecialchars($_SESSION['flash_success']) ?>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php unset($_SESSION['flash_success']); endif; ?>
+
+<?php if (!empty($_SESSION['flash_error'])): ?>
+<div class="alert alert-danger alert-dismissible mb-3">
+  <?= htmlspecialchars($_SESSION['flash_error']) ?>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php unset($_SESSION['flash_error']); endif; ?>
+
+<div class="card">
+  <div class="card-header">
+    <div class="col">
+      <form method="GET" action="/users" class="d-flex gap-2">
+        <input type="text" name="q" value="<?= htmlspecialchars($search) ?>"
+               class="form-control form-control-sm" style="width:220px;"
+               placeholder="Cari nama atau email...">
+        <button class="btn btn-sm btn-outline-secondary">Cari</button>
+        <?php if ($search): ?>
+        <a href="/users" class="btn btn-sm btn-ghost-secondary">Reset</a>
+        <?php endif; ?>
+      </form>
+    </div>
+    <div class="card-options">
+      <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAddUser">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg> Tambah User
+      </button>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-vcenter card-table table-hover">
+      <thead>
+        <tr>
+          <th style="width:40px;">#</th>
+          <th>Nama</th><th>Email</th><th>Role</th><th>Status</th>
+          <th>Dibuat</th><th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (empty($users)): ?>
+        <tr><td colspan="7" class="text-center text-muted py-5">Tidak ada pengguna ditemukan</td></tr>
+        <?php endif; ?>
+        <?php foreach ($users as $i => $u): ?>
+        <tr>
+          <td class="text-muted"><?= ($page-1)*10+$i+1 ?></td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <span class="avatar avatar-sm"
+                    style="background:#f76707;color:#fff;font-weight:700;flex-shrink:0;">
+                <?= strtoupper(mb_substr($u['name'],0,1)) ?>
+              </span>
+              <div>
+                <div class="fw-semibold"><?= htmlspecialchars($u['name']) ?></div>
+              </div>
+            </div>
+          </td>
+          <td class="text-muted"><?= htmlspecialchars($u['email']) ?></td>
+          <td>
+            <span class="badge bg-<?= match($u['role_name']) {
+              'admin'=>'red','sekretaris'=>'orange','peserta'=>'blue',default=>'secondary'
+            } ?>-lt"><?= ucfirst($u['role_name']) ?></span>
+          </td>
+          <td>
+            <?php if ($u['is_active']): ?>
+            <span class="badge bg-green-lt">
+              <span class="status-dot bg-green d-inline-block me-1"></span>Aktif
+            </span>
+            <?php else: ?>
+            <span class="badge bg-secondary-lt">Nonaktif</span>
+            <?php endif; ?>
+          </td>
+          <td class="text-muted small"><?= date('d M Y', strtotime($u['created_at'])) ?></td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary me-1"
+                    onclick='openEdit(<?= htmlspecialchars(json_encode($u), ENT_QUOTES) ?>)'>
+              Edit
+            </button>
+            <?php if ($u['is_active'] && $u['id'] != Auth::id()): ?>
+            <form method="POST" action="/users/<?= $u['id'] ?>/delete" class="d-inline"
+                  onsubmit="return confirm('Nonaktifkan user ini?')">
+              <button class="btn btn-sm btn-outline-danger">Nonaktifkan</button>
+            </form>
+            <?php endif; ?>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  <?php if ($totalPage > 1): ?>
+  <div class="card-footer d-flex align-items-center">
+    <p class="m-0 text-muted small">
+      Menampilkan <strong><?= count($users) ?></strong> dari <strong><?= $total ?></strong> pengguna
+    </p>
+    <ul class="pagination m-0 ms-auto">
+      <?php for ($p = 1; $p <= $totalPage; $p++): ?>
+      <li class="page-item <?= $p==$page?'active':'' ?>">
+        <a class="page-link" href="/users?page=<?= $p ?>&q=<?= urlencode($search) ?>"><?= $p ?></a>
+      </li>
+      <?php endfor; ?>
+    </ul>
+  </div>
+  <?php endif; ?>
+</div>
+
+<!-- Modal Tambah User -->
+<div class="modal modal-blur fade" id="modalAddUser" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" action="/users">
+        <div class="modal-header">
+          <h5 class="modal-title">Tambah Pengguna Baru</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label required">Nama Lengkap</label>
+            <input type="text" name="name" class="form-control" required placeholder="Nama lengkap">
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Email</label>
+            <input type="email" name="email" class="form-control" required placeholder="email@domain.com">
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Password</label>
+            <input type="password" name="password" class="form-control" required
+                   minlength="8" placeholder="Minimal 8 karakter">
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Role</label>
+            <select name="role_id" class="form-select" required>
+              <?php foreach ($roles as $r): ?>
+              <option value="<?= $r['id'] ?>"><?= ucfirst($r['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit User -->
+<div class="modal modal-blur fade" id="modalEditUser" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" id="formEdit">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit Pengguna</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label required">Nama Lengkap</label>
+            <input type="text" name="name" id="edit-name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Email</label>
+            <input type="email" name="email" id="edit-email" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Password Baru
+              <small class="text-muted">(kosongkan jika tidak berubah)</small>
+            </label>
+            <input type="password" name="password" class="form-control" minlength="8">
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Role</label>
+            <select name="role_id" id="edit-role" class="form-select">
+              <?php foreach ($roles as $r): ?>
+              <option value="<?= $r['id'] ?>"><?= ucfirst($r['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="mb-0">
+            <label class="form-check">
+              <input type="checkbox" name="is_active" id="edit-active" class="form-check-input">
+              <span class="form-check-label">Pengguna Aktif</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary">Update</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function openEdit(u) {
+  document.getElementById('edit-name').value    = u.name;
+  document.getElementById('edit-email').value   = u.email;
+  document.getElementById('edit-role').value    = u.role_id;
+  document.getElementById('edit-active').checked = u.is_active == 1;
+  document.getElementById('formEdit').action    = '/users/' + u.id + '/update';
+  new bootstrap.Modal(document.getElementById('modalEditUser')).show();
+}
+</script>

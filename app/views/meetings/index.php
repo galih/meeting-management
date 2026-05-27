@@ -1,0 +1,205 @@
+<?php
+$allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
+?>
+
+<!-- Flash Messages -->
+<?php if (!empty($_SESSION['flash_success'])): ?>
+<div class="alert alert-success alert-dismissible mt-2">
+  <?= htmlspecialchars($_SESSION['flash_success']) ?>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php unset($_SESSION['flash_success']); endif; ?>
+
+<?php if (!empty($_SESSION['flash_error'])): ?>
+<div class="alert alert-danger alert-dismissible mt-2">
+  <?= htmlspecialchars($_SESSION['flash_error']) ?>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php unset($_SESSION['flash_error']); endif; ?>
+
+<!-- Tab: Kalender vs List -->
+<div class="card">
+  <div class="card-header">
+    <ul class="nav nav-tabs card-header-tabs" id="meetingTabs">
+      <li class="nav-item">
+        <a class="nav-link active" href="#" data-view="calendar">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>Kalender
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" href="#" data-view="list">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+            <line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1"/>
+            <circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/>
+          </svg>Daftar
+        </a>
+      </li>
+    </ul>
+    <?php if (Auth::can('admin','sekretaris')): ?>
+    <div class="card-options">
+      <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalMeeting">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
+             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Buat Meeting
+      </button>
+    </div>
+    <?php endif; ?>
+  </div>
+
+  <div class="card-body">
+    <!-- Kalender View -->
+    <div id="view-calendar">
+      <div id="calendar" style="min-height:600px;"></div>
+    </div>
+
+    <!-- List View -->
+    <div id="view-list" style="display:none;">
+      <div class="table-responsive">
+        <table class="table table-vcenter card-table table-hover">
+          <thead>
+            <tr>
+              <th>Judul Meeting</th><th>Lokasi</th><th>Mulai</th>
+              <th>Selesai</th><th>Peserta</th><th>Status</th><th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php if (empty($meetings)): ?>
+            <tr><td colspan="7" class="text-center text-muted py-5">Belum ada meeting</td></tr>
+            <?php endif; ?>
+            <?php foreach ($meetings as $m): ?>
+            <tr>
+              <td>
+                <div class="fw-semibold"><?= htmlspecialchars($m['title']) ?></div>
+                <div class="text-muted small">oleh <?= htmlspecialchars($m['creator_name']) ?></div>
+              </td>
+              <td class="text-muted"><?= htmlspecialchars($m['location'] ?? '-') ?></td>
+              <td><?= date('d M Y', strtotime($m['start_datetime'])) ?><br>
+                  <small class="text-muted"><?= date('H:i', strtotime($m['start_datetime'])) ?></small></td>
+              <td><?= date('d M Y', strtotime($m['end_datetime'])) ?><br>
+                  <small class="text-muted"><?= date('H:i', strtotime($m['end_datetime'])) ?></small></td>
+              <td><span class="badge bg-blue-lt"><?= $m['total_peserta'] ?> orang</span></td>
+              <td>
+                <span class="badge bg-<?= match($m['status']) {
+                  'scheduled'=>'blue','ongoing'=>'orange',
+                  'completed'=>'green','cancelled'=>'red',default=>'secondary'
+                } ?>"><?= ucfirst($m['status']) ?></span>
+              </td>
+              <td>
+                <a href="/meetings/<?= $m['id'] ?>" class="btn btn-sm btn-outline-primary">Detail</a>
+              </td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Buat Meeting -->
+<div class="modal modal-blur fade" id="modalMeeting" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" action="/meetings">
+        <div class="modal-header">
+          <h5 class="modal-title">Buat Meeting Baru</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label required">Judul Meeting</label>
+              <input type="text" name="title" class="form-control" required
+                     placeholder="Contoh: Rapat Evaluasi Bulanan Q2">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label required">Tanggal & Jam Mulai</label>
+              <input type="datetime-local" name="start_datetime" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label required">Tanggal & Jam Selesai</label>
+              <input type="datetime-local" name="end_datetime" class="form-control" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Lokasi / Link Video</label>
+              <input type="text" name="location" class="form-control"
+                     placeholder="Ruang Rapat A / https://meet.google.com/...">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Peserta</label>
+              <select name="participants[]" class="form-select" multiple size="5">
+                <?php foreach ($allUsers as $u): ?>
+                <option value="<?= $u['id'] ?>"><?= htmlspecialchars($u['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <small class="text-muted">Tahan Ctrl / Cmd untuk pilih lebih dari satu</small>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Deskripsi / Agenda</label>
+              <textarea name="description" class="form-control" rows="3"
+                        placeholder="Tulis agenda meeting..."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-primary ms-auto">Buat Meeting</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<?php $scripts = <<<'JS'
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Tab switching
+  document.querySelectorAll('[data-view]').forEach(tab => {
+    tab.addEventListener('click', e => {
+      e.preventDefault();
+      document.querySelectorAll('[data-view]').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const v = tab.dataset.view;
+      document.getElementById('view-calendar').style.display = v === 'calendar' ? '' : 'none';
+      document.getElementById('view-list').style.display     = v === 'list'     ? '' : 'none';
+      if (v === 'calendar') calendar.render();
+    });
+  });
+
+  // FullCalendar
+  const calendarEl = document.getElementById('calendar');
+  const calendar   = new FullCalendar.Calendar(calendarEl, {
+    initialView:  'dayGridMonth',
+    locale:       'id',
+    height:       650,
+    headerToolbar: {
+      left:   'prev,next today',
+      center: 'title',
+      right:  'dayGridMonth,timeGridWeek,listWeek'
+    },
+    buttonText: { today:'Hari ini', month:'Bulan', week:'Minggu', list:'Agenda' },
+    events: {
+      url:     '/api/meetings/calendar',
+      failure: () => { console.error('Gagal memuat events kalender'); }
+    },
+    eventClick: info => { window.location.href = '/meetings/' + info.event.id; },
+    eventDidMount: info => {
+      const loc = info.event.extendedProps.location || 'Lokasi belum diset';
+      info.el.setAttribute('title', info.event.title + '\n📍 ' + loc);
+    }
+  });
+  calendar.render();
+});
+</script>
+JS;
+?>
