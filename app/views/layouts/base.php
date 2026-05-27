@@ -1,7 +1,11 @@
 <?php
+// base.php hanya dipakai saat user sudah login
+if (!Auth::check()) {
+    header('Location: ' . BASE_URL . '/login'); exit;
+}
 $user          = Auth::user();
 $currentUri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
+$unreadCount   = Notification::countUnread((int)$user['id']);
 ?>
 <!doctype html>
 <html lang="id" data-bs-theme="light">
@@ -97,7 +101,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
           <div class="nav-item dropdown">
             <a href="#" class="nav-link d-flex align-items-center lh-1 text-reset p-0" data-bs-toggle="dropdown">
               <span class="avatar avatar-sm me-2" style="background:#f76707;color:white;font-weight:700;">
-                <?= strtoupper(mb_substr($user['name'],0,1)) ?>
+                <?= strtoupper(mb_substr($user['name'], 0, 1)) ?>
               </span>
               <div class="d-none d-xl-block">
                 <div class="fw-semibold" style="font-size:13px;"><?= htmlspecialchars($user['name']) ?></div>
