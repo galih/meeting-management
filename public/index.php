@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+// DEBUG SEMENTARA — hapus setelah masalah ditemukan
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
+
 session_start();
 define('ROOT_PATH', dirname(__DIR__));
 define('APP_PATH',  ROOT_PATH . '/app');
@@ -105,9 +110,7 @@ $router->get('/notifications',            [NotifikasiController::class, 'page'])
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Strip subfolder prefix agar router bekerja di subfolder manapun.
-// Contoh: /wicara/public/login → /login
-// Ambil base path dari script name: /wicara/public/index.php → /wicara/public
+// Strip subfolder prefix otomatis — tidak hardcode nama subfolder
 $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
 if ($scriptDir !== '' && str_starts_with($uri, $scriptDir)) {
     $uri = substr($uri, strlen($scriptDir));
