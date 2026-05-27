@@ -1,11 +1,4 @@
-# Root .htaccess — subfolder /wicara/ di shared hosting cPanel
 RewriteEngine On
-
-# Kondisi: bukan file/folder nyata DAN belum menuju /wicara/public
 RewriteCond %{REQUEST_URI} !^/wicara/public/
-RewriteCond %{DOCUMENT_ROOT}/wicara/public%{REQUEST_URI} !-f
-RewriteCond %{DOCUMENT_ROOT}/wicara/public%{REQUEST_URI} !-d
-
-# Redirect ke public/index.php dengan query string utuh
 RewriteRule ^wicara/(.*)$ /wicara/public/$1 [L,QSA]
 RewriteRule ^$ /wicara/public/ [L,QSA]
