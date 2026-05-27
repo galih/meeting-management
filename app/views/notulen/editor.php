@@ -4,6 +4,12 @@ $tlUrl     = json_encode($baseUrl . '/tindak-lanjut');
 $pdfUrl    = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
 $histUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
 $backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
+
+// Decode content dari DB ke array/object agar EditorJS langsung terima sebagai object
+$contentDecoded = json_decode($notulen['content'] ?? '{}');
+if (!$contentDecoded || !isset($contentDecoded->blocks)) {
+    $contentDecoded = (object)['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0'];
+}
 ?>
 
 <div class="row g-3">
@@ -195,24 +201,23 @@ $backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
 <?php endif; ?>
 
 <?php
-$initContent = htmlspecialchars($notulen['content'] ?? '{}', ENT_QUOTES, 'UTF-8');
-$isEditor    = Auth::hasRole('admin', 'sekretaris') ? 'true' : 'false';
-$meetingId   = (int)$meeting['id'];
-$userId      = (int)$user['id'];
-$usersJson   = json_encode(array_map(fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']], $users));
-$saveUrl     = json_encode($baseUrl . '/notulen/save');
-$syncUrl     = json_encode($baseUrl . '/notulen/sync');
-$commentUrl  = json_encode($baseUrl . '/api/comments');
+$isEditor  = Auth::hasRole('admin', 'sekretaris') ? 'true' : 'false';
+$meetingId = (int)$meeting['id'];
+$userId    = (int)$user['id'];
+$usersJson = json_encode(array_map(fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']], $users));
+// URL harus sesuai route di index.php
+$saveUrl   = json_encode($baseUrl . '/api/notulen/save');
+$syncUrl   = json_encode($baseUrl . '/api/notulen/sync');
 ?>
 <script>
 const MEETING_ID      = <?= $meetingId ?>;
 const CURRENT_USER_ID = <?= $userId ?>;
 const IS_EDITOR       = <?= $isEditor ?>;
-const INITIAL_CONTENT = <?= json_encode($notulen['content'] ?? '{}') ?>;
+// Pass sebagai JS object langsung — EditorJS butuh object, bukan string
+const INITIAL_CONTENT = <?= json_encode($contentDecoded) ?>;
 const ALL_USERS       = <?= $usersJson ?>;
 const SAVE_URL        = <?= $saveUrl ?>;
 const SYNC_URL        = <?= $syncUrl ?>;
-const COMMENT_URL     = <?= $commentUrl ?>;
 </script>
 <script src="<?= $baseUrl ?>/assets/js/notulen-realtime.js"></script>
 <script src="<?= $baseUrl ?>/assets/js/notulen-comments.js"></script>
