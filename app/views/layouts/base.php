@@ -50,7 +50,6 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
     <header class="navbar navbar-expand-md d-none d-lg-flex d-print-none sticky-top bg-white border-bottom">
       <div class="container-xl">
         <div class="me-auto">
-          <div class="page-pretitle text-muted small">MeetingApp</div>
           <h2 class="page-title mb-0"><?= htmlspecialchars($pageTitle ?? '') ?></h2>
         </div>
         <div class="navbar-nav flex-row align-items-center order-md-last gap-3">
