@@ -83,8 +83,12 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
           </td>
           <td class="text-muted small"><?= date('d M Y', strtotime($u['created_at'])) ?></td>
           <td>
-            <button class="btn btn-sm btn-outline-primary me-1"
-                    onclick='openEdit(<?= htmlspecialchars(json_encode($u), ENT_QUOTES) ?>)'>
+            <?php
+              // Encode JSON dengan flag aman: escape forward slash & unicode, aman untuk data-attribute HTML
+              $uJson = htmlspecialchars(json_encode($u, JSON_HEX_QUOT | JSON_HEX_APOS | JSON_HEX_TAG | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+            ?>
+            <button class="btn btn-sm btn-outline-primary me-1 btn-edit"
+                    data-user="<?= $uJson ?>">
               Edit
             </button>
             <?php if ($u['is_active'] && $u['id'] != Auth::id()): ?>
@@ -230,15 +234,30 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
 <script>
 const baseUrl = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
 
-function openEdit(u) {
-  document.getElementById('edit-name').value     = u.name;
-  document.getElementById('edit-email').value    = u.email;
-  document.getElementById('edit-role').value     = u.role;
-  document.getElementById('edit-dept').value     = u.department_id ?? '';
-  document.getElementById('edit-active').checked = u.is_active == 1;
-  document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
-  new bootstrap.Modal(document.getElementById('modalEditUser')).show();
-}
+// Pakai event delegation + data-attribute — aman dari karakter spesial di nama/email
+document.querySelectorAll('.btn-edit').forEach(btn => {
+  btn.addEventListener('click', function () {
+    // data-user sudah di-decode otomatis oleh browser dari HTML entities
+    const raw = this.getAttribute('data-user');
+    let u;
+    try {
+      u = JSON.parse(raw);
+    } catch (e) {
+      console.error('JSON parse error:', e, raw);
+      alert('Gagal membuka form edit. Silakan refresh halaman.');
+      return;
+    }
+
+    document.getElementById('edit-name').value     = u.name  ?? '';
+    document.getElementById('edit-email').value    = u.email ?? '';
+    document.getElementById('edit-role').value     = u.role  ?? 'peserta';
+    document.getElementById('edit-dept').value     = u.department_id ?? '';
+    document.getElementById('edit-active').checked = u.is_active == 1;
+    document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
+
+    new bootstrap.Modal(document.getElementById('modalEditUser')).show();
+  });
+});
 
 document.querySelectorAll('.btn-nonaktif').forEach(btn => {
   btn.addEventListener('click', async function () {
@@ -247,7 +266,10 @@ document.querySelectorAll('.btn-nonaktif').forEach(btn => {
     const d   = await res.json();
     if (d.success) {
       const row = document.getElementById('row-' + this.dataset.id);
-      if (row) row.querySelector('.badge').outerHTML = '<span class="badge bg-secondary-lt">Nonaktif</span>';
+      if (row) {
+        const badge = row.querySelector('.badge');
+        if (badge) badge.outerHTML = '<span class="badge bg-secondary-lt">Nonaktif</span>';
+      }
       this.remove();
     } else {
       alert(d.message || 'Gagal menonaktifkan user');
