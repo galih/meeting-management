@@ -26,7 +26,6 @@ class NotulisController
             );
         }
 
-        // Pastikan content selalu string JSON valid
         if (empty($notulen['content'])) {
             $notulen['content'] = json_encode(['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0']);
         }
@@ -61,7 +60,16 @@ class NotulisController
 
     public static function history(int $meetingId): void
     {
-        Auth::requireAuth();
+        Auth::requireRole('admin', 'sekretaris');
+
+        $meeting = Database::queryOne(
+            "SELECT m.*, u.name AS creator_name
+             FROM meetings m LEFT JOIN users u ON u.id=m.created_by
+             WHERE m.id=?",
+            [$meetingId]
+        );
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
+
         $history = Database::query(
             "SELECT nh.*, u.name AS editor_name
              FROM notulen_history nh
@@ -70,8 +78,12 @@ class NotulisController
              ORDER BY nh.created_at DESC",
             [$meetingId]
         );
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'history' => $history]); exit;
+
+        View::layout('notulen/history', [
+            'pageTitle' => 'Riwayat Notulen — ' . $meeting['title'],
+            'meeting'   => $meeting,
+            'history'   => $history,
+        ]);
     }
 
     public static function save(): void
