@@ -19,11 +19,18 @@ class Router {
             $pattern = preg_replace('/\{[^}]+\}/', '([^/]+)', $path);
             if (preg_match("#^{$pattern}$#", $uri, $matches)) {
                 array_shift($matches);
+
+                // Cast parameter numerik ke int agar cocok dengan type-hint int di controller
+                $params = array_map(
+                    fn($v) => ctype_digit($v) ? (int)$v : $v,
+                    $matches
+                );
+
                 if (is_array($handler)) {
                     [$class, $action] = $handler;
-                    (new $class)->$action(...$matches);
+                    (new $class)->$action(...$params);
                 } else {
-                    $handler(...$matches);
+                    $handler(...$params);
                 }
                 return;
             }
