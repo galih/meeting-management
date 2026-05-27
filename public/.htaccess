@@ -1,11 +1,12 @@
 Options -Indexes
 RewriteEngine On
+RewriteBase /
 
-# Izinkan akses langsung ke file/folder yang ada (assets, dll)
+# Izinkan akses langsung ke file/folder yang ada (assets, uploads, dll)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Semua request lainnya diteruskan ke index.php
+# Semua request lain diteruskan ke index.php
 RewriteRule ^ index.php [QSA,L]
 
 # Security Headers
@@ -30,23 +31,22 @@ RewriteRule ^ index.php [QSA,L]
 # Browser Caching untuk assets statis
 <IfModule mod_expires.c>
     ExpiresActive On
-    ExpiresByType text/css             "access plus 1 month"
+    ExpiresByType text/css               "access plus 1 month"
     ExpiresByType application/javascript "access plus 1 month"
-    ExpiresByType image/png            "access plus 1 year"
-    ExpiresByType image/jpg            "access plus 1 year"
-    ExpiresByType image/jpeg           "access plus 1 year"
-    ExpiresByType image/gif            "access plus 1 year"
-    ExpiresByType image/svg+xml        "access plus 1 year"
-    ExpiresByType image/x-icon         "access plus 1 year"
+    ExpiresByType image/png              "access plus 1 year"
+    ExpiresByType image/jpeg             "access plus 1 year"
+    ExpiresByType image/gif              "access plus 1 year"
+    ExpiresByType image/svg+xml          "access plus 1 year"
+    ExpiresByType image/x-icon           "access plus 1 year"
     ExpiresByType application/font-woff2 "access plus 1 year"
 </IfModule>
 
 # PHP Settings (shared hosting)
 <IfModule mod_php8.c>
     php_value upload_max_filesize 10M
-    php_value post_max_size 10M
-    php_value max_execution_time 60
-    php_value memory_limit 256M
-    php_flag display_errors Off
-    php_flag log_errors On
+    php_value post_max_size       10M
+    php_value max_execution_time  60
+    php_value memory_limit        256M
+    php_flag  display_errors      Off
+    php_flag  log_errors          On
 </IfModule>

@@ -1,4 +1,13 @@
-# Root .htaccess — redirect semua request ke /public
+# Root .htaccess — arahkan semua request ke /public
+# Pastikan mod_rewrite aktif di server
 RewriteEngine On
-RewriteRule ^$ public/ [L]
-RewriteRule (.*) public/$1 [L]
+
+# Jangan redirect jika request sudah ke /public
+RewriteCond %{REQUEST_URI} !^/public/
+
+# Jangan redirect file/folder yang benar-benar ada di root
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Teruskan semua request ke /public
+RewriteRule ^(.*)$ public/$1 [L,QSA]
