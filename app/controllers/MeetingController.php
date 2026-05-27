@@ -18,8 +18,8 @@ class MeetingController
             $params[] = "%{$search}%";
             $params[] = "%{$search}%";
         }
-        if ($status)   { $where[] = 'm.status = ?';          $params[] = $status; }
-        if ($dept)     { $where[] = 'm.department_id = ?';   $params[] = (int)$dept; }
+        if ($status)   { $where[] = 'm.status = ?';               $params[] = $status; }
+        if ($dept)     { $where[] = 'm.department_id = ?';        $params[] = (int)$dept; }
         if ($dateFrom) { $where[] = 'DATE(m.start_datetime) >= ?'; $params[] = $dateFrom; }
         if ($dateTo)   { $where[] = 'DATE(m.start_datetime) <= ?'; $params[] = $dateTo; }
 
@@ -38,7 +38,7 @@ class MeetingController
         $departments = Database::query("SELECT id, name FROM departments WHERE is_active=1 ORDER BY name");
 
         View::layout('meetings/index', [
-            'title'       => 'Daftar Meeting',
+            'pageTitle'   => 'Daftar Meeting',
             'meetings'    => $meetings,
             'departments' => $departments,
             'search'      => $search,
@@ -65,7 +65,7 @@ class MeetingController
             trim($d['location']    ?? ''),
             $d['start_datetime'],
             $d['end_datetime'],
-            $d['color']          ?? '#206bc4',
+            $d['color']          ?? '#f76707',
             !empty($d['department_id']) ? (int)$d['department_id'] : null,
             Auth::id(),
         ]);
@@ -77,12 +77,14 @@ class MeetingController
                 "INSERT IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?,?)"
             )->execute([$meetingId, (int)$uid]);
         }
-        foreach ($participants as $uid) {
-            Notification::send((int)$uid, 'meeting_invite',
-                "Anda diundang ke meeting: {$d['title']}",
-                "/meetings/{$meetingId}"
-            );
-        }
+
+        // Kirim notifikasi ke setiap peserta
+        Notification::sendBulk(
+            $participants,
+            'meeting_invite',
+            "Anda diundang ke meeting: {$d['title']}",
+            BASE_URL . "/meetings/{$meetingId}"
+        );
 
         $_SESSION['flash_success'] = 'Meeting berhasil dibuat.';
         header('Location: ' . BASE_URL . "/meetings/{$meetingId}"); exit;
@@ -122,7 +124,7 @@ class MeetingController
         $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
         View::layout('meetings/show', [
-            'title'            => $meeting['title'],
+            'pageTitle'        => $meeting['title'],
             'meeting'          => $meeting,
             'participants'     => $participants,
             'tindakLanjutList' => $tindakLanjutList,
