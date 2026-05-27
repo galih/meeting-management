@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 class AuthController
 {
-    /**
-     * Cek remember token saat app boot
-     */
     public static function checkRememberToken(): void
     {
         if (!isset($_SESSION['user']) && isset($_COOKIE['remember_token'])) {
@@ -17,41 +14,36 @@ class AuthController
         }
     }
 
-    /**
-     * GET /login
-     */
+    // GET /login
     public static function loginForm(): void
     {
-        if (Auth::check()) { header('Location: ' . BASE_URL . '/'); exit; }
-        View::layout('auth/login', ['title' => 'Login']);
+        if (Auth::check()) { header('Location: ' . BASE_URL . '/dashboard'); exit; }
+        View::standalone('auth/login', ['title' => 'Login']);
     }
 
-    /**
-     * POST /login
-     */
+    // POST /login
     public static function login(): void
     {
-        $username = trim($_POST['username'] ?? '');
-        $password = $_POST['password']       ?? '';
+        $email    = trim($_POST['email']    ?? '');
+        $password = $_POST['password']      ?? '';
         $remember = !empty($_POST['remember']);
 
-        if (empty($username) || empty($password)) {
-            $_SESSION['flash_error'] = 'Username dan password wajib diisi.';
+        if (empty($email) || empty($password)) {
+            $_SESSION['login_error'] = 'Email dan password wajib diisi.';
             header('Location: ' . BASE_URL . '/login'); exit;
         }
 
         $user = Database::queryOne(
-            "SELECT * FROM users WHERE username=? AND is_active=1", [$username]
+            "SELECT * FROM users WHERE email=? AND is_active=1", [$email]
         );
 
         if (!$user || !password_verify($password, $user['password'])) {
-            $_SESSION['flash_error'] = 'Username atau password salah.';
+            $_SESSION['login_error'] = 'Email atau password salah.';
             header('Location: ' . BASE_URL . '/login'); exit;
         }
 
         self::setSession($user);
 
-        // Remember me — 30 hari
         if ($remember) {
             $token = bin2hex(random_bytes(32));
             Database::getInstance()->prepare(
@@ -60,19 +52,16 @@ class AuthController
             setcookie('remember_token', $token, time() + 60*60*24*30, '/', '', false, true);
         }
 
-        // Update last login
         Database::getInstance()->prepare(
             "UPDATE users SET last_login=NOW() WHERE id=?"
         )->execute([$user['id']]);
 
-        $redirect = $_SESSION['redirect_after_login'] ?? BASE_URL . '/';
+        $redirect = $_SESSION['redirect_after_login'] ?? BASE_URL . '/dashboard';
         unset($_SESSION['redirect_after_login']);
         header('Location: ' . $redirect); exit;
     }
 
-    /**
-     * GET /logout
-     */
+    // GET /logout
     public static function logout(): void
     {
         if (isset($_COOKIE['remember_token'])) {
@@ -85,14 +74,12 @@ class AuthController
         header('Location: ' . BASE_URL . '/login'); exit;
     }
 
-    /**
-     * GET|POST /forgot-password
-     */
+    // GET|POST /forgot-password
     public static function forgotPassword(): void
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = trim($_POST['username'] ?? '');
-            $user     = Database::queryOne("SELECT * FROM users WHERE username=?", [$username]);
+            $email = trim($_POST['email'] ?? '');
+            $user  = Database::queryOne("SELECT * FROM users WHERE email=?", [$email]);
             if ($user) {
                 $token   = bin2hex(random_bytes(32));
                 $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
@@ -102,19 +89,17 @@ class AuthController
                 try {
                     Mailer::send($user['email'], 'Reset Password — ' . APP_NAME,
                         "Halo {$user['name']},\n\nKlik link berikut untuk reset password:\n"
-                        . APP_URL . "/reset-password?token={$token}\n\nLink berlaku 1 jam."
+                        . BASE_URL . "/reset-password?token={$token}\n\nLink berlaku 1 jam."
                     );
                 } catch (\Throwable) {}
             }
-            $_SESSION['flash_success'] = 'Jika username terdaftar, link reset akan dikirim ke email Anda.';
+            $_SESSION['flash_success'] = 'Jika email terdaftar, link reset akan dikirim.';
             header('Location: ' . BASE_URL . '/forgot-password'); exit;
         }
-        View::layout('auth/forgot_password', ['title' => 'Lupa Password']);
+        View::standalone('auth/forgot-password', ['title' => 'Lupa Password']);
     }
 
-    /**
-     * GET|POST /reset-password
-     */
+    // GET|POST /reset-password
     public static function resetPassword(): void
     {
         $token = $_GET['token'] ?? $_POST['token'] ?? '';
@@ -146,21 +131,19 @@ class AuthController
             header('Location: ' . BASE_URL . '/login'); exit;
         }
 
-        View::layout('auth/reset_password', [
+        View::standalone('auth/reset-password', [
             'title' => 'Reset Password',
             'token' => $token,
         ]);
     }
 
-    // ── Helper ──────────────────────────────────────────────────
     private static function setSession(array $user): void
     {
         $_SESSION['user'] = [
-            'id'       => $user['id'],
-            'username' => $user['username'],
-            'name'     => $user['name'],
-            'email'    => $user['email'],
-            'role'     => $user['role'],
+            'id'    => $user['id'],
+            'name'  => $user['name'],
+            'email' => $user['email'],
+            'role'  => $user['role'],
         ];
     }
 }

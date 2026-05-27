@@ -1,11 +1,7 @@
 <?php
-// base.php hanya dipakai saat user sudah login
-if (!Auth::check()) {
-    header('Location: ' . BASE_URL . '/login'); exit;
-}
 $user          = Auth::user();
 $currentUri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$unreadCount   = Notification::countUnread((int)$user['id']);
+$unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
 ?>
 <!doctype html>
 <html lang="id" data-bs-theme="light">
@@ -101,11 +97,11 @@ $unreadCount   = Notification::countUnread((int)$user['id']);
           <div class="nav-item dropdown">
             <a href="#" class="nav-link d-flex align-items-center lh-1 text-reset p-0" data-bs-toggle="dropdown">
               <span class="avatar avatar-sm me-2" style="background:#f76707;color:white;font-weight:700;">
-                <?= strtoupper(mb_substr($user['name'], 0, 1)) ?>
+                <?= strtoupper(mb_substr($user['name'] ?? 'U', 0, 1)) ?>
               </span>
               <div class="d-none d-xl-block">
-                <div class="fw-semibold" style="font-size:13px;"><?= htmlspecialchars($user['name']) ?></div>
-                <div class="text-muted" style="font-size:11px;"><?= ucfirst($user['role']) ?></div>
+                <div class="fw-semibold" style="font-size:13px;"><?= htmlspecialchars($user['name'] ?? '') ?></div>
+                <div class="text-muted" style="font-size:11px;"><?= ucfirst($user['role'] ?? '') ?></div>
               </div>
             </a>
             <div class="dropdown-menu dropdown-menu-end">
