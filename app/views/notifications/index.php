@@ -1,15 +1,22 @@
 <?php
+$baseUrl   = rtrim(BASE_URL, '/');
 $typeIcons = [
-    'meeting_invite'    => ['icon'=>'📅','color'=>'blue'],
-    'notulen_update'    => ['icon'=>'📝','color'=>'orange'],
-    'tindak_lanjut_due' => ['icon'=>'⚠️','color'=>'red'],
+    'meeting_invite'    => ['icon' => '📅', 'color' => 'blue'],
+    'tindak_lanjut'     => ['icon' => '✅', 'color' => 'orange'],
+    'tindak_lanjut_due' => ['icon' => '⚠️', 'color' => 'red'],
+    'notulen_update'    => ['icon' => '📝', 'color' => 'orange'],
 ];
 ?>
 
 <div class="card">
   <div class="card-header">
     <h3 class="card-title">Semua Notifikasi</h3>
-    <div class="card-options text-muted small">Total: <?= $total ?> notifikasi</div>
+    <div class="card-options">
+      <span class="text-muted small">Total: <?= $total ?? 0 ?> notifikasi</span>
+      <?php if (($total ?? 0) > 0): ?>
+      <button class="btn btn-sm btn-ghost-secondary ms-2" id="btnMarkAll">Tandai semua dibaca</button>
+      <?php endif; ?>
+    </div>
   </div>
 
   <div class="list-group list-group-flush">
@@ -25,42 +32,53 @@ $typeIcons = [
     <?php endif; ?>
 
     <?php foreach ($notifs as $n):
-      $cfg  = $typeIcons[$n['type']] ?? ['icon'=>'🔔','color'=>'secondary'];
-      $data = json_decode($n['data'] ?? '{}', true);
-      $link = isset($data['meeting_id']) ? '/meetings/'.$data['meeting_id'] : '#';
+      $cfg  = $typeIcons[$n['type']] ?? ['icon' => '🔔', 'color' => 'secondary'];
+      $link = !empty($n['link']) ? $baseUrl . $n['link'] : '#';
     ?>
-    <a href="<?= $link ?>" class="list-group-item list-group-item-action <?= $n['is_read'] ? '' : 'bg-orange-lt' ?>">
+    <div class="list-group-item <?= $n['is_read'] ? '' : 'bg-orange-lt' ?>">
       <div class="d-flex align-items-start gap-3">
         <span style="font-size:24px;flex-shrink:0;"><?= $cfg['icon'] ?></span>
         <div class="flex-fill">
           <div class="d-flex justify-content-between">
-            <span class="fw-semibold <?= $n['is_read'] ? 'text-muted' : '' ?>">
-              <?= htmlspecialchars($n['title']) ?>
-            </span>
+            <a href="<?= htmlspecialchars($link) ?>" class="fw-semibold <?= $n['is_read'] ? 'text-muted' : 'text-dark' ?> text-decoration-none">
+              <?= htmlspecialchars($n['message']) ?>
+            </a>
             <small class="text-muted text-nowrap ms-3">
               <?= date('d M Y H:i', strtotime($n['created_at'])) ?>
             </small>
           </div>
-          <p class="mb-0 text-muted small"><?= htmlspecialchars($n['message']) ?></p>
         </div>
         <?php if (!$n['is_read']): ?>
         <span class="status-dot status-dot-animated bg-orange flex-shrink-0 mt-1"></span>
         <?php endif; ?>
       </div>
-    </a>
+    </div>
     <?php endforeach; ?>
   </div>
 
-  <!-- Pagination -->
-  <?php if ($totalPage > 1): ?>
+  <?php if (($totalPage ?? 1) > 1): ?>
   <div class="card-footer d-flex justify-content-center">
     <ul class="pagination">
       <?php for ($i = 1; $i <= $totalPage; $i++): ?>
-      <li class="page-item <?= $i === $page ? 'active' : '' ?>">
-        <a class="page-link" href="/notifications?page=<?= $i ?>"><?= $i ?></a>
+      <li class="page-item <?= $i === ($page ?? 1) ? 'active' : '' ?>">
+        <a class="page-link" href="<?= $baseUrl ?>/notifications?page=<?= $i ?>"><?= $i ?></a>
       </li>
       <?php endfor; ?>
     </ul>
   </div>
   <?php endif; ?>
 </div>
+
+<script>
+const notifBaseUrl = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+document.getElementById('btnMarkAll')?.addEventListener('click', async function () {
+  await fetch(notifBaseUrl + '/api/notifications/read', {
+    method:  'POST',
+    headers: {'Content-Type':'application/json'},
+    body:    JSON.stringify({ all: true })
+  });
+  document.querySelectorAll('.bg-orange-lt').forEach(el => el.classList.remove('bg-orange-lt'));
+  document.querySelectorAll('.status-dot-animated').forEach(el => el.remove());
+  this.remove();
+});
+</script>

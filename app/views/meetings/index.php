@@ -1,8 +1,8 @@
 <?php
-$allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
+$baseUrl  = rtrim(BASE_URL, '/');
+$allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 ?>
 
-<!-- Flash Messages -->
 <?php if (!empty($_SESSION['flash_success'])): ?>
 <div class="alert alert-success alert-dismissible mt-2">
   <?= htmlspecialchars($_SESSION['flash_success']) ?>
@@ -17,7 +17,6 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
 </div>
 <?php unset($_SESSION['flash_error']); endif; ?>
 
-<!-- Tab: Kalender vs List -->
 <div class="card">
   <div class="card-header">
     <ul class="nav nav-tabs card-header-tabs" id="meetingTabs">
@@ -37,13 +36,13 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
           <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24"
                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
-            <line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1"/>
-            <circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/>
+            <line x1="8" y1="18" x2="21" y2="18"/>
+            <circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/>
           </svg>Daftar
         </a>
       </li>
     </ul>
-    <?php if (Auth::can('admin','sekretaris')): ?>
+    <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
     <div class="card-options">
       <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalMeeting">
         <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24"
@@ -80,7 +79,7 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
             <tr>
               <td>
                 <div class="fw-semibold"><?= htmlspecialchars($m['title']) ?></div>
-                <div class="text-muted small">oleh <?= htmlspecialchars($m['creator_name']) ?></div>
+                <div class="text-muted small">oleh <?= htmlspecialchars($m['creator_name'] ?? '-') ?></div>
               </td>
               <td class="text-muted"><?= htmlspecialchars($m['location'] ?? '-') ?></td>
               <td><?= date('d M Y', strtotime($m['start_datetime'])) ?><br>
@@ -91,11 +90,11 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
               <td>
                 <span class="badge bg-<?= match($m['status']) {
                   'scheduled'=>'blue','ongoing'=>'orange',
-                  'completed'=>'green','cancelled'=>'red',default=>'secondary'
+                  'done'=>'green','cancelled'=>'red',default=>'secondary'
                 } ?>"><?= ucfirst($m['status']) ?></span>
               </td>
               <td>
-                <a href="/meetings/<?= $m['id'] ?>" class="btn btn-sm btn-outline-primary">Detail</a>
+                <a href="<?= $baseUrl ?>/meetings/<?= $m['id'] ?>" class="btn btn-sm btn-outline-primary">Detail</a>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -110,7 +109,7 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
 <div class="modal modal-blur fade" id="modalMeeting" tabindex="-1" role="dialog">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content">
-      <form method="POST" action="/meetings">
+      <form method="POST" action="<?= $baseUrl ?>/meetings">
         <div class="modal-header">
           <h5 class="modal-title">Buat Meeting Baru</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -134,6 +133,19 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
               <label class="form-label">Lokasi / Link Video</label>
               <input type="text" name="location" class="form-control"
                      placeholder="Ruang Rapat A / https://meet.google.com/...">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Departemen</label>
+              <select name="department_id" class="form-select">
+                <option value="">-- Semua --</option>
+                <?php foreach ($departments as $dept): ?>
+                <option value="<?= $dept['id'] ?>"><?= htmlspecialchars($dept['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Warna Kalender</label>
+              <input type="color" name="color" class="form-control form-control-color" value="#206bc4">
             </div>
             <div class="col-12">
               <label class="form-label">Peserta</label>
@@ -160,10 +172,12 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1");
   </div>
 </div>
 
-<?php $scripts = <<<'JS'
+<?php
+$calendarApiUrl = $baseUrl . '/api/meetings/calendar';
+$meetingBaseUrl = $baseUrl . '/meetings/';
+?>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  // Tab switching
   document.querySelectorAll('[data-view]').forEach(tab => {
     tab.addEventListener('click', e => {
       e.preventDefault();
@@ -176,7 +190,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  // FullCalendar
   const calendarEl = document.getElementById('calendar');
   const calendar   = new FullCalendar.Calendar(calendarEl, {
     initialView:  'dayGridMonth',
@@ -189,17 +202,17 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     buttonText: { today:'Hari ini', month:'Bulan', week:'Minggu', list:'Agenda' },
     events: {
-      url:     '/api/meetings/calendar',
+      url:     <?= json_encode($calendarApiUrl) ?>,
       failure: () => { console.error('Gagal memuat events kalender'); }
     },
-    eventClick: info => { window.location.href = '/meetings/' + info.event.id; },
+    eventClick: info => {
+      window.location.href = <?= json_encode($meetingBaseUrl) ?> + info.event.id;
+    },
     eventDidMount: info => {
       const loc = info.event.extendedProps.location || 'Lokasi belum diset';
-      info.el.setAttribute('title', info.event.title + '\n📍 ' + loc);
+      info.el.setAttribute('title', info.event.title + '\n\uD83D\uDCCD ' + loc);
     }
   });
   calendar.render();
 });
 </script>
-JS;
-?>

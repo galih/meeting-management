@@ -1,3 +1,7 @@
+<?php
+$baseUrl = rtrim(BASE_URL, '/');
+?>
+
 <?php if (!empty($_SESSION['flash_success'])): ?>
 <div class="alert alert-success alert-dismissible mb-3">
   <?= htmlspecialchars($_SESSION['flash_success']) ?>
@@ -5,14 +9,21 @@
 </div>
 <?php unset($_SESSION['flash_success']); endif; ?>
 
+<?php if (!empty($_SESSION['flash_error'])): ?>
+<div class="alert alert-danger alert-dismissible mb-3">
+  <?= htmlspecialchars($_SESSION['flash_error']) ?>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php unset($_SESSION['flash_error']); endif; ?>
+
 <div class="row row-cards">
   <?php foreach ($departments as $dept): ?>
-  <div class="col-md-6 col-lg-4">
+  <div class="col-md-6 col-lg-4" id="dept-col-<?= $dept['id'] ?>">
     <div class="card">
       <div class="card-body">
         <div class="d-flex align-items-center gap-3 mb-3">
           <span class="avatar avatar-md rounded" style="background:#f76707;color:#fff;font-size:16px;font-weight:800;">
-            <?= htmlspecialchars($dept['code'] ?? mb_substr($dept['name'],0,2)) ?>
+            <?= htmlspecialchars($dept['code'] ?? mb_substr($dept['name'], 0, 2)) ?>
           </span>
           <div>
             <div class="fw-bold"><?= htmlspecialchars($dept['name']) ?></div>
@@ -29,7 +40,9 @@
                 onclick='openEditDept(<?= htmlspecialchars(json_encode($dept), ENT_QUOTES) ?>)'>
           Edit
         </button>
-        <button class="btn btn-sm btn-outline-danger" data-id="<?= $dept['id'] ?>" onclick="deleteDept(this)">
+        <button class="btn btn-sm btn-outline-danger btn-del-dept"
+                data-id="<?= $dept['id'] ?>"
+                data-url="<?= $baseUrl ?>/departments/<?= $dept['id'] ?>/delete">
           Hapus
         </button>
       </div>
@@ -56,7 +69,7 @@
 <div class="modal modal-blur fade" id="modalAddDept" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <form method="POST" action="/departments">
+      <form method="POST" action="<?= $baseUrl ?>/departments">
         <div class="modal-header">
           <h5 class="modal-title">Tambah Departemen</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -70,8 +83,7 @@
             </div>
             <div class="col-4">
               <label class="form-label">Kode</label>
-              <input type="text" name="code" class="form-control" maxlength="10"
-                     placeholder="IT">
+              <input type="text" name="code" class="form-control" maxlength="10" placeholder="IT">
             </div>
             <div class="col-12">
               <label class="form-label">Deskripsi</label>
@@ -141,18 +153,27 @@
 </div>
 
 <script>
+const deptBaseUrl = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+
 function openEditDept(d) {
   document.getElementById('edit-dept-name').value = d.name;
-  document.getElementById('edit-dept-code').value = d.code || '';
+  document.getElementById('edit-dept-code').value = d.code  || '';
   document.getElementById('edit-dept-desc').value = d.description || '';
   document.getElementById('edit-dept-head').value = d.head_id || '';
-  document.getElementById('formEditDept').action   = '/departments/' + d.id + '/update';
+  document.getElementById('formEditDept').action  = deptBaseUrl + '/departments/' + d.id + '/update';
   new bootstrap.Modal(document.getElementById('modalEditDept')).show();
 }
-async function deleteDept(btn) {
-  if (!confirm('Hapus departemen ini?')) return;
-  const res = await fetch('/departments/' + btn.dataset.id + '/delete', { method: 'POST' });
-  const d   = await res.json();
-  if (d.success) btn.closest('.col-md-6').remove();
-}
+
+document.querySelectorAll('.btn-del-dept').forEach(btn => {
+  btn.addEventListener('click', async function () {
+    if (!confirm('Hapus departemen ini?')) return;
+    const res = await fetch(this.dataset.url, { method: 'POST' });
+    const d   = await res.json();
+    if (d.success) {
+      document.getElementById('dept-col-' + this.dataset.id)?.remove();
+    } else {
+      alert(d.message || 'Gagal menghapus departemen');
+    }
+  });
+});
 </script>
