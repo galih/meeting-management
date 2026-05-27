@@ -3,7 +3,6 @@ class ExportController
 {
     /**
      * GET /notulen/{id}/export-pdf
-     * Buka halaman HTML printable untuk dijadikan PDF
      */
     public static function exportPdf(int $meetingId): void
     {
@@ -18,9 +17,11 @@ class ExportController
         );
         if (!$meeting) { http_response_code(404); die('Meeting tidak ditemukan.'); }
 
-        $notulen = Database::queryOne(
+        // queryOne() bisa return false jika belum ada notulen — fallback ke array kosong
+        $notulenRaw = Database::queryOne(
             "SELECT * FROM notulen WHERE meeting_id = ?", [$meetingId]
-        ) ?? ['content' => null];
+        );
+        $notulen = is_array($notulenRaw) ? $notulenRaw : ['content' => null, 'meeting_id' => $meetingId];
 
         $participants = Database::query(
             "SELECT u.id, u.name, mp.status
@@ -41,7 +42,6 @@ class ExportController
 
         $user = Auth::user();
 
-        // Log export (tabel opsional — abaikan jika belum ada)
         try {
             Database::getInstance()->prepare(
                 "INSERT INTO notulen_exports (meeting_id, exported_by, format)
