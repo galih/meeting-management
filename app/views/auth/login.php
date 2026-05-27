@@ -1,6 +1,6 @@
 <?php
-if (Auth::check()) { header('Location: /'); exit; }
-$error = $_SESSION['login_error'] ?? null;
+if (Auth::check()) { header('Location: ' . BASE_URL . '/dashboard'); exit; }
+$error   = $_SESSION['login_error'] ?? null;
 unset($_SESSION['login_error']);
 $success = $_SESSION['flash_success'] ?? null;
 unset($_SESSION['flash_success']);
@@ -12,7 +12,7 @@ unset($_SESSION['flash_success']);
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Login &mdash; <?= APP_NAME ?></title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/css/tabler.min.css"/>
-  <link rel="stylesheet" href="/assets/css/custom.css"/>
+  <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css"/>
 </head>
 <body class="d-flex flex-column">
 <div class="page page-center">
@@ -51,7 +51,7 @@ unset($_SESSION['flash_success']);
         <div class="alert alert-success"><?= htmlspecialchars($success) ?></div>
         <?php endif; ?>
 
-        <form method="POST" action="/login" autocomplete="on">
+        <form method="POST" action="<?= BASE_URL ?>/login" autocomplete="on">
           <div class="mb-3">
             <label class="form-label required">Alamat Email</label>
             <input type="email" name="email" class="form-control" required
@@ -62,7 +62,7 @@ unset($_SESSION['flash_success']);
             <label class="form-label">
               Password
               <span class="form-label-description">
-                <a href="/forgot-password" style="color:#f76707;">Lupa password?</a>
+                <a href="<?= BASE_URL ?>/forgot-password" style="color:#f76707;">Lupa password?</a>
               </span>
             </label>
             <div class="input-group input-group-flat">

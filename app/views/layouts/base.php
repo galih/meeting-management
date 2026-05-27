@@ -11,10 +11,12 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
   <meta name="description" content="Aplikasi Manajemen Meeting">
   <title><?= htmlspecialchars($pageTitle ?? 'Dashboard') ?> &mdash; <?= APP_NAME ?></title>
 
-  <!-- Tabler Core Latest -->
+  <!-- Tabler Core -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/css/tabler.min.css"/>
   <!-- FullCalendar -->
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet"/>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css"/>
 
   <style>
     :root {
@@ -32,9 +34,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
     .navbar-brand  { text-decoration: none; }
     .badge.bg-orange { background-color: #f76707 !important; }
     .status-dot.bg-orange { background-color: #f76707 !important; }
-    /* Scrollbar tipis untuk sidebar */
     .navbar-vertical { scrollbar-width: thin; }
-    /* Transisi hover sidebar */
     .navbar-vertical .nav-link { transition: background .15s, color .15s; }
     .navbar-vertical .nav-link:hover { background: rgba(247,103,7,.08); }
   </style>
@@ -87,7 +87,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
                   </div>
                 </div>
                 <div class="card-footer text-center py-2">
-                  <a href="/notifications" style="color:#f76707;" class="small">Lihat semua notifikasi &rarr;</a>
+                  <a href="<?= BASE_URL ?>/notifications" style="color:#f76707;" class="small">Lihat semua notifikasi &rarr;</a>
                 </div>
               </div>
             </div>
@@ -105,9 +105,9 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
               </div>
             </a>
             <div class="dropdown-menu dropdown-menu-end">
-              <a href="/profile" class="dropdown-item">Profil Saya</a>
+              <a href="<?= BASE_URL ?>/profile" class="dropdown-item">Profil Saya</a>
               <div class="dropdown-divider"></div>
-              <a href="/logout" class="dropdown-item text-danger">Logout</a>
+              <a href="<?= BASE_URL ?>/logout" class="dropdown-item text-danger">Logout</a>
             </div>
           </div>
 
@@ -158,7 +158,9 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/table@latest"></script>
-<script src="/assets/js/notifications.js"></script>
+<!-- Inject BASE_URL ke JS global -->
+<script>const BASE_URL = '<?= BASE_URL ?>';</script>
+<script src="<?= BASE_URL ?>/assets/js/notifications.js"></script>
 <?= $scripts ?? '' ?>
 </body>
 </html>
