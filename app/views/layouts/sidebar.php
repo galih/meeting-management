@@ -1,8 +1,17 @@
 <?php
-$user       = Auth::user();
-$currentUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$user    = Auth::user();
+$baseUrl = rtrim(BASE_URL, '/');
+
+// Strip base path dari REQUEST_URI agar isActive tetap bekerja di subdirektori
+$scriptDir  = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
+$fullUri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$currentUri = ($scriptDir !== '' && str_starts_with($fullUri, $scriptDir))
+    ? substr($fullUri, strlen($scriptDir))
+    : $fullUri;
+$currentUri = $currentUri ?: '/';
 
 function isActive(string $path, string $current): string {
+    if ($path === '/') return $current === '/' ? 'active' : '';
     return str_starts_with($current, $path) ? 'active' : '';
 }
 ?>
@@ -13,7 +22,7 @@ function isActive(string $path, string $current): string {
     </button>
 
     <!-- Brand -->
-    <a href="/" class="navbar-brand navbar-brand-autodark">
+    <a href="<?= $baseUrl ?>/" class="navbar-brand navbar-brand-autodark">
       <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
            fill="none" stroke="#f76707" stroke-width="2">
         <rect x="3" y="4" width="18" height="18" rx="2"/>
@@ -29,7 +38,7 @@ function isActive(string $path, string $current): string {
 
         <!-- Dashboard -->
         <li class="nav-item">
-          <a class="nav-link <?= $currentUri === '/' ? 'active' : '' ?>" href="/">
+          <a class="nav-link <?= isActive('/', $currentUri) ?>" href="<?= $baseUrl ?>/">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="2">
@@ -43,7 +52,7 @@ function isActive(string $path, string $current): string {
 
         <!-- Kalender Meeting -->
         <li class="nav-item">
-          <a class="nav-link <?= isActive('/meetings', $currentUri) ?>" href="/meetings">
+          <a class="nav-link <?= isActive('/meetings', $currentUri) ?>" href="<?= $baseUrl ?>/meetings">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="2">
@@ -59,7 +68,7 @@ function isActive(string $path, string $current): string {
 
         <!-- Tindak Lanjut -->
         <li class="nav-item">
-          <a class="nav-link <?= isActive('/tindak-lanjut', $currentUri) ?>" href="/tindak-lanjut">
+          <a class="nav-link <?= isActive('/tindak-lanjut', $currentUri) ?>" href="<?= $baseUrl ?>/tindak-lanjut">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="2">
@@ -73,7 +82,7 @@ function isActive(string $path, string $current): string {
 
         <!-- Notifikasi -->
         <li class="nav-item">
-          <a class="nav-link <?= isActive('/notifications', $currentUri) ?>" href="/notifications">
+          <a class="nav-link <?= isActive('/notifications', $currentUri) ?>" href="<?= $baseUrl ?>/notifications">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="2">
@@ -92,7 +101,7 @@ function isActive(string $path, string $current): string {
         </li>
 
         <li class="nav-item">
-          <a class="nav-link <?= isActive('/users', $currentUri) ?>" href="/users">
+          <a class="nav-link <?= isActive('/users', $currentUri) ?>" href="<?= $baseUrl ?>/users">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
               <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
                    fill="none" stroke="currentColor" stroke-width="2">
@@ -105,6 +114,34 @@ function isActive(string $path, string $current): string {
             <span class="nav-link-title">Manajemen User</span>
           </a>
         </li>
+
+        <li class="nav-item">
+          <a class="nav-link <?= isActive('/departments', $currentUri) ?>" href="<?= $baseUrl ?>/departments">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="7" width="20" height="14" rx="2"/>
+                <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+              </svg>
+            </span>
+            <span class="nav-link-title">Departemen</span>
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link <?= isActive('/recurring', $currentUri) ?>" href="<?= $baseUrl ?>/recurring">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon" width="24" height="24" viewBox="0 0 24 24"
+                   fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="17 1 21 5 17 9"/>
+                <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+                <polyline points="7 23 3 19 7 15"/>
+                <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+              </svg>
+            </span>
+            <span class="nav-link-title">Recurring Meeting</span>
+          </a>
+        </li>
         <?php endif; ?>
 
       </ul>
@@ -112,13 +149,13 @@ function isActive(string $path, string $current): string {
       <!-- User Bottom -->
       <div class="mt-auto border-top pt-3 pb-2 px-3 d-flex align-items-center gap-2">
         <span class="avatar" style="background:#f76707;color:white;font-weight:700;flex-shrink:0;">
-          <?= strtoupper(mb_substr($user['name'],0,1)) ?>
+          <?= strtoupper(mb_substr($user['name'], 0, 1)) ?>
         </span>
         <div class="flex-fill overflow-hidden">
           <div class="fw-semibold text-truncate" style="font-size:13px;"><?= htmlspecialchars($user['name']) ?></div>
           <div class="text-muted" style="font-size:11px;"><?= ucfirst($user['role']) ?></div>
         </div>
-        <a href="/logout" class="btn btn-ghost-danger btn-icon btn-sm ms-auto" title="Logout">
+        <a href="<?= $baseUrl ?>/logout" class="btn btn-ghost-danger btn-icon btn-sm ms-auto" title="Logout">
           <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
                fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
