@@ -17,7 +17,7 @@ class AuthController
     // GET /login
     public static function loginForm(): void
     {
-        if (Auth::check()) { header('Location: ' . BASE_URL . '/dashboard'); exit; }
+        if (Auth::check()) { header('Location: ' . BASE_URL . '/'); exit; }
         View::standalone('auth/login', ['title' => 'Login']);
     }
 
@@ -56,7 +56,7 @@ class AuthController
             "UPDATE users SET last_login=NOW() WHERE id=?"
         )->execute([$user['id']]);
 
-        $redirect = $_SESSION['redirect_after_login'] ?? BASE_URL . '/dashboard';
+        $redirect = $_SESSION['redirect_after_login'] ?? BASE_URL . '/';
         unset($_SESSION['redirect_after_login']);
         header('Location: ' . $redirect); exit;
     }
@@ -144,7 +144,8 @@ class AuthController
             'username' => $user['username'],
             'name'     => $user['name'],
             'email'    => $user['email'],
-            'role'     => $user['role'],
+            // Lowercase agar Auth::hasRole('admin','sekretaris') tidak case-sensitive
+            'role'     => strtolower(trim($user['role'] ?? '')),
         ];
     }
 }
