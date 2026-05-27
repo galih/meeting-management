@@ -77,6 +77,17 @@ $baseUrl = rtrim(BASE_URL, '/');
         </button>
         <?php endif; ?>
         <?php endif; ?>
+
+        <?php if (Auth::hasRole('admin')): ?>
+        <hr class="my-1">
+        <form method="POST"
+              action="<?= $baseUrl ?>/meetings/<?= $meeting['id'] ?>/delete"
+              onsubmit="return confirm('Yakin ingin menghapus meeting \"<?= htmlspecialchars(addslashes($meeting['title'])) ?>\"?\n\nSemua notulen, peserta, dan tindak lanjut terkait akan ikut terhapus.')">
+          <button type="submit" class="btn btn-danger w-100">
+            🗑️ Hapus Meeting
+          </button>
+        </form>
+        <?php endif; ?>
       </div>
     </div>
 
