@@ -1,29 +1,20 @@
 <?php
 /**
  * PdfExporter — Export notulen ke PDF menggunakan mPDF atau fallback HTML print
- * 
+ *
  * Untuk mengaktifkan mPDF: composer require mpdf/mpdf
  * Tanpa composer (shared hosting): gunakan fallback HTML printable
  */
 class PdfExporter
 {
-    /**
-     * Export notulen ke PDF
-     * Return: string path file PDF atau HTML printable
-     */
     public static function export(array $meeting, array $notulen, array $participants, array $tindakLanjutList, array $exportedBy): string
     {
-        // Cek apakah mPDF tersedia (via composer)
         if (class_exists('\Mpdf\Mpdf')) {
             return self::exportViaMpdf($meeting, $notulen, $participants, $tindakLanjutList, $exportedBy);
         }
-        // Fallback: kirim HTML printable ke browser
         return self::exportViaHtml($meeting, $notulen, $participants, $tindakLanjutList);
     }
 
-    /**
-     * Generate konten notulen dari JSON Editor.js ke HTML
-     */
     public static function editorJsToHtml(?string $jsonContent): string
     {
         if (empty($jsonContent)) return '<p><em>Belum ada notulen.</em></p>';
@@ -56,7 +47,7 @@ class PdfExporter
     {
         $html = '<ul style="list-style:none;padding-left:0;">';
         foreach ($data['items'] ?? [] as $item) {
-            $check = ($item['checked'] ?? false) ? '✅' : '⬜';
+            $check = ($item['checked'] ?? false) ? '&#x2705;' : '&#x2B1C;';
             $text  = htmlspecialchars_decode($item['text'] ?? '');
             $html .= "<li>{$check} {$text}</li>";
         }
@@ -65,29 +56,26 @@ class PdfExporter
 
     private static function buildHtmlContent(array $meeting, array $notulen, array $participants, array $tindakLanjutList): string
     {
-        $appName  = defined('APP_NAME') ? APP_NAME : 'Meeting Management';
-        $title    = htmlspecialchars($meeting['title']);
-        $location = htmlspecialchars($meeting['location'] ?? '-');
-        $start    = date('d F Y H:i', strtotime($meeting['start_datetime']));
-        $end      = date('d F Y H:i', strtotime($meeting['end_datetime']));
-        $creator  = htmlspecialchars($meeting['creator_name'] ?? '-');
+        $appName   = defined('APP_NAME') ? APP_NAME : 'Meeting Management';
+        $title     = htmlspecialchars($meeting['title']);
+        $location  = htmlspecialchars($meeting['location'] ?? '-');
+        $start     = date('d F Y H:i', strtotime($meeting['start_datetime']));
+        $end       = date('d F Y H:i', strtotime($meeting['end_datetime']));
+        $creator   = htmlspecialchars($meeting['creator_name'] ?? '-');
         $printDate = date('d F Y H:i');
 
-        // Peserta
         $pesertaList = implode(', ', array_map(fn($p) => htmlspecialchars($p['name']), $participants));
-
-        // Isi notulen
         $notulenHtml = self::editorJsToHtml($notulen['content'] ?? null);
 
-        // Tindak lanjut rows
+        // Tindak lanjut rows — pakai kolom yang benar: description, due_date
         $tlRows = '';
         foreach ($tindakLanjutList as $i => $tl) {
-            $no      = $i + 1;
-            $desk    = htmlspecialchars($tl['deskripsi']);
-            $pic     = htmlspecialchars($tl['assigned_name'] ?? '-');
-            $dl      = $tl['deadline'] ? date('d M Y', strtotime($tl['deadline'])) : '-';
-            $prio    = ucfirst($tl['priority']);
-            $status  = ucfirst(str_replace('_', ' ', $tl['status']));
+            $no     = $i + 1;
+            $desk   = htmlspecialchars($tl['description'] ?? '-');
+            $pic    = htmlspecialchars($tl['assigned_name'] ?? '-');
+            $dl     = !empty($tl['due_date']) ? date('d M Y', strtotime($tl['due_date'])) : '-';
+            $prio   = ucfirst($tl['priority']   ?? '-');
+            $status = ucfirst(str_replace('_', ' ', $tl['status'] ?? '-'));
             $tlRows .= "<tr><td>{$no}</td><td>{$desk}</td><td>{$pic}</td><td>{$dl}</td><td>{$prio}</td><td>{$status}</td></tr>";
         }
         $tlTable = $tlRows
@@ -130,13 +118,11 @@ class PdfExporter
 </head>
 <body>
 
-  <!-- Tombol Print (hilang saat cetak) -->
   <div class="no-print" style="margin-bottom:20px;">
-    <button onclick="window.print()" style="background:#f76707;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:14px;cursor:pointer;">🖨️ Cetak / Simpan PDF</button>
-    <button onclick="window.close()" style="margin-left:8px;padding:10px 24px;border-radius:6px;cursor:pointer;">✕ Tutup</button>
+    <button onclick="window.print()" style="background:#f76707;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:14px;cursor:pointer;">&#x1F5A8; Cetak / Simpan PDF</button>
+    <button onclick="window.close()" style="margin-left:8px;padding:10px 24px;border-radius:6px;cursor:pointer;">&times; Tutup</button>
   </div>
 
-  <!-- Kop Surat -->
   <div class="kop">
     <div class="kop-title">
       <h1>{$appName}</h1>
@@ -144,7 +130,6 @@ class PdfExporter
     </div>
   </div>
 
-  <!-- Info Meeting -->
   <div class="meta">
     <table>
       <tr><td class="label">Judul Meeting</td><td>: <strong>{$title}</strong></td></tr>
@@ -156,22 +141,15 @@ class PdfExporter
     </table>
   </div>
 
-  <!-- Isi Notulen -->
-  <h2>📝 Isi Notulen</h2>
+  <h2>&#x1F4DD; Isi Notulen</h2>
   {$notulenHtml}
 
-  <!-- Tindak Lanjut -->
-  <h2>✅ Tindak Lanjut</h2>
+  <h2>&#x2705; Tindak Lanjut</h2>
   {$tlTable}
 
-  <!-- Kolom TTD -->
   <div class="ttd">
-    <div class="ttd-item">
-      <div class="line">Notulis</div>
-    </div>
-    <div class="ttd-item">
-      <div class="line">Pimpinan Rapat</div>
-    </div>
+    <div class="ttd-item"><div class="line">Notulis</div></div>
+    <div class="ttd-item"><div class="line">Pimpinan Rapat</div></div>
   </div>
 
   <div class="footer">
@@ -197,7 +175,6 @@ HTML;
 
     private static function exportViaHtml(array $meeting, array $notulen, array $participants, array $tindakLanjutList): string
     {
-        // Simpan HTML sementara & buka di tab baru untuk di-print/save PDF
         return self::buildHtmlContent($meeting, $notulen, $participants, $tindakLanjutList);
     }
 }
