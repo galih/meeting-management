@@ -1,4 +1,6 @@
 <?php
+declare(strict_types=1);
+
 class AuthController
 {
     /**
@@ -20,8 +22,8 @@ class AuthController
      */
     public static function loginForm(): void
     {
-        if (Auth::check()) { header('Location: /'); exit; }
-        View::render('layouts/auth', 'auth/login', ['title' => 'Login']);
+        if (Auth::check()) { header('Location: ' . BASE_URL . '/'); exit; }
+        View::layout('auth/login', ['title' => 'Login']);
     }
 
     /**
@@ -35,7 +37,7 @@ class AuthController
 
         if (empty($username) || empty($password)) {
             $_SESSION['flash_error'] = 'Username dan password wajib diisi.';
-            header('Location: /login'); exit;
+            header('Location: ' . BASE_URL . '/login'); exit;
         }
 
         $user = Database::queryOne(
@@ -44,7 +46,7 @@ class AuthController
 
         if (!$user || !password_verify($password, $user['password'])) {
             $_SESSION['flash_error'] = 'Username atau password salah.';
-            header('Location: /login'); exit;
+            header('Location: ' . BASE_URL . '/login'); exit;
         }
 
         self::setSession($user);
@@ -63,7 +65,7 @@ class AuthController
             "UPDATE users SET last_login=NOW() WHERE id=?"
         )->execute([$user['id']]);
 
-        $redirect = $_SESSION['redirect_after_login'] ?? '/';
+        $redirect = $_SESSION['redirect_after_login'] ?? BASE_URL . '/';
         unset($_SESSION['redirect_after_login']);
         header('Location: ' . $redirect); exit;
     }
@@ -80,12 +82,11 @@ class AuthController
             setcookie('remember_token', '', time() - 3600, '/');
         }
         session_destroy();
-        header('Location: /login'); exit;
+        header('Location: ' . BASE_URL . '/login'); exit;
     }
 
     /**
      * GET|POST /forgot-password
-     * Reset via username (kirim link ke email terdaftar)
      */
     public static function forgotPassword(): void
     {
@@ -106,9 +107,9 @@ class AuthController
                 } catch (\Throwable) {}
             }
             $_SESSION['flash_success'] = 'Jika username terdaftar, link reset akan dikirim ke email Anda.';
-            header('Location: /forgot-password'); exit;
+            header('Location: ' . BASE_URL . '/forgot-password'); exit;
         }
-        View::render('layouts/auth', 'auth/forgot_password', ['title' => 'Lupa Password']);
+        View::layout('auth/forgot_password', ['title' => 'Lupa Password']);
     }
 
     /**
@@ -123,7 +124,7 @@ class AuthController
 
         if (!$user) {
             $_SESSION['flash_error'] = 'Link reset tidak valid atau sudah kadaluarsa.';
-            header('Location: /login'); exit;
+            header('Location: ' . BASE_URL . '/login'); exit;
         }
 
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -131,21 +132,21 @@ class AuthController
             $confirm = $_POST['password_confirm'] ?? '';
             if (strlen($pass) < 8) {
                 $_SESSION['flash_error'] = 'Password minimal 8 karakter.';
-                header('Location: /reset-password?token=' . $token); exit;
+                header('Location: ' . BASE_URL . '/reset-password?token=' . $token); exit;
             }
             if ($pass !== $confirm) {
                 $_SESSION['flash_error'] = 'Konfirmasi password tidak cocok.';
-                header('Location: /reset-password?token=' . $token); exit;
+                header('Location: ' . BASE_URL . '/reset-password?token=' . $token); exit;
             }
             $hash = password_hash($pass, PASSWORD_BCRYPT, ['cost' => 12]);
             Database::getInstance()->prepare(
                 "UPDATE users SET password=?, reset_token=NULL, reset_token_expires=NULL WHERE id=?"
             )->execute([$hash, $user['id']]);
             $_SESSION['flash_success'] = 'Password berhasil direset. Silakan login.';
-            header('Location: /login'); exit;
+            header('Location: ' . BASE_URL . '/login'); exit;
         }
 
-        View::render('layouts/auth', 'auth/reset_password', [
+        View::layout('auth/reset_password', [
             'title' => 'Reset Password',
             'token' => $token,
         ]);

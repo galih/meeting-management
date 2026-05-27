@@ -10,7 +10,7 @@ class Auth
     {
         if (empty($_SESSION['user'])) {
             $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
-            header('Location: /login');
+            header('Location: ' . BASE_URL . '/login');
             exit;
         }
     }
