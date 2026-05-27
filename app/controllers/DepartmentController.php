@@ -13,7 +13,7 @@ class DepartmentController
              ORDER BY d.name ASC"
         );
         $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
-        View::render('layouts/base', 'departments/index', [
+        View::layout('departments/index', [
             'title'       => 'Manajemen Departemen',
             'departments' => $departments,
             'allUsers'    => $allUsers,
@@ -23,19 +23,19 @@ class DepartmentController
     public static function store(): void
     {
         Auth::requireRole('admin');
-        $name    = trim($_POST['name'] ?? '');
-        $code    = strtoupper(trim($_POST['code'] ?? ''));
-        $desc    = trim($_POST['description'] ?? '');
-        $headId  = !empty($_POST['head_id']) ? (int)$_POST['head_id'] : null;
+        $name   = trim($_POST['name'] ?? '');
+        $code   = strtoupper(trim($_POST['code'] ?? ''));
+        $desc   = trim($_POST['description'] ?? '');
+        $headId = !empty($_POST['head_id']) ? (int)$_POST['head_id'] : null;
         if (empty($name)) {
             $_SESSION['flash_error'] = 'Nama departemen wajib diisi.';
-            header('Location: /departments'); exit;
+            header('Location: ' . BASE_URL . '/departments'); exit;
         }
         Database::getInstance()->prepare(
             "INSERT INTO departments (name, code, description, head_id) VALUES (?,?,?,?)"
         )->execute([$name, $code ?: null, $desc, $headId]);
         $_SESSION['flash_success'] = "Departemen {$name} berhasil ditambahkan.";
-        header('Location: /departments'); exit;
+        header('Location: ' . BASE_URL . '/departments'); exit;
     }
 
     public static function update(int $id): void
@@ -49,7 +49,7 @@ class DepartmentController
             "UPDATE departments SET name=?, code=?, description=?, head_id=? WHERE id=?"
         )->execute([$name, $code ?: null, $desc, $headId, $id]);
         $_SESSION['flash_success'] = 'Departemen berhasil diupdate.';
-        header('Location: /departments'); exit;
+        header('Location: ' . BASE_URL . '/departments'); exit;
     }
 
     public static function delete(int $id): void
@@ -62,7 +62,6 @@ class DepartmentController
         echo json_encode(['success' => true]); exit;
     }
 
-    /** API: daftar departemen untuk dropdown */
     public static function apiList(): void
     {
         Auth::requireAuth();

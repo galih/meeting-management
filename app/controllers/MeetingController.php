@@ -1,9 +1,6 @@
 <?php
 class MeetingController
 {
-    /**
-     * GET /meetings
-     */
     public static function index(): void
     {
         Auth::requireAuth();
@@ -21,22 +18,10 @@ class MeetingController
             $params[] = "%{$search}%";
             $params[] = "%{$search}%";
         }
-        if ($status) {
-            $where[]  = 'm.status = ?';
-            $params[] = $status;
-        }
-        if ($dept) {
-            $where[]  = 'm.department_id = ?';
-            $params[] = (int)$dept;
-        }
-        if ($dateFrom) {
-            $where[]  = 'DATE(m.start_datetime) >= ?';
-            $params[] = $dateFrom;
-        }
-        if ($dateTo) {
-            $where[]  = 'DATE(m.start_datetime) <= ?';
-            $params[] = $dateTo;
-        }
+        if ($status) { $where[] = 'm.status = ?'; $params[] = $status; }
+        if ($dept)   { $where[] = 'm.department_id = ?'; $params[] = (int)$dept; }
+        if ($dateFrom) { $where[] = 'DATE(m.start_datetime) >= ?'; $params[] = $dateFrom; }
+        if ($dateTo)   { $where[] = 'DATE(m.start_datetime) <= ?'; $params[] = $dateTo; }
 
         $whereStr = implode(' AND ', $where);
         $meetings = Database::query(
@@ -52,7 +37,7 @@ class MeetingController
 
         $departments = Database::query("SELECT id, name FROM departments WHERE is_active=1 ORDER BY name");
 
-        View::render('layouts/base', 'meetings/index', [
+        View::layout('meetings/index', [
             'title'       => 'Daftar Meeting',
             'meetings'    => $meetings,
             'departments' => $departments,
@@ -64,14 +49,10 @@ class MeetingController
         ]);
     }
 
-    /**
-     * POST /meetings
-     */
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $d = $_POST;
-
+        $d  = $_POST;
         $db = Database::getInstance();
         $db->prepare(
             "INSERT INTO meetings
@@ -90,15 +71,12 @@ class MeetingController
         ]);
         $meetingId = (int)$db->lastInsertId();
 
-        // Simpan peserta
         $participants = (array)($d['participants'] ?? []);
         foreach ($participants as $uid) {
             $db->prepare(
                 "INSERT IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?,?)"
             )->execute([$meetingId, (int)$uid]);
         }
-
-        // Notifikasi peserta
         foreach ($participants as $uid) {
             Notification::send((int)$uid, 'meeting_invite',
                 "Anda diundang ke meeting: {$d['title']}",
@@ -107,12 +85,9 @@ class MeetingController
         }
 
         $_SESSION['flash_success'] = 'Meeting berhasil dibuat.';
-        header("Location: /meetings/{$meetingId}"); exit;
+        header('Location: ' . BASE_URL . "/meetings/{$meetingId}"); exit;
     }
 
-    /**
-     * GET /meetings/{id}
-     */
     public static function show(int $id): void
     {
         Auth::requireAuth();
@@ -138,7 +113,7 @@ class MeetingController
 
         $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
-        View::render('layouts/base', 'meetings/show', [
+        View::layout('meetings/show', [
             'title'        => $meeting['title'],
             'meeting'      => $meeting,
             'participants' => $participants,
@@ -146,13 +121,10 @@ class MeetingController
         ]);
     }
 
-    /**
-     * POST /meetings/{id}/status
-     */
     public static function updateStatus(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $status = $_POST['status'] ?? '';
+        $status  = $_POST['status'] ?? '';
         $allowed = ['scheduled', 'ongoing', 'done', 'cancelled'];
         if (!in_array($status, $allowed)) {
             header('Content-Type: application/json');
@@ -165,21 +137,14 @@ class MeetingController
         echo json_encode(['success' => true]); exit;
     }
 
-    /**
-     * POST /meetings/{id}/delete
-     */
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin');
         Database::getInstance()->prepare("DELETE FROM meetings WHERE id=?")->execute([$id]);
         $_SESSION['flash_success'] = 'Meeting berhasil dihapus.';
-        header('Location: /meetings'); exit;
+        header('Location: ' . BASE_URL . '/meetings'); exit;
     }
 
-    /**
-     * GET /api/meetings/calendar
-     * Data JSON untuk FullCalendar
-     */
     public static function calendarApi(): void
     {
         Auth::requireAuth();
@@ -200,7 +165,7 @@ class MeetingController
             'start' => $m['start'],
             'end'   => $m['end'],
             'color' => $m['color'],
-            'url'   => '/meetings/' . $m['id'],
+            'url'   => BASE_URL . '/meetings/' . $m['id'],
             'extendedProps' => ['status' => $m['status']],
         ], $meetings);
 

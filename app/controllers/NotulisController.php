@@ -1,9 +1,6 @@
 <?php
 class NotulisController
 {
-    /**
-     * GET /notulen/{id}
-     */
     public static function editor(int $meetingId): void
     {
         Auth::requireAuth();
@@ -25,7 +22,7 @@ class NotulisController
             [$meetingId]
         );
 
-        View::render('layouts/base', 'notulen/editor', [
+        View::layout('notulen/editor', [
             'title'        => 'Notulen — ' . $meeting['title'],
             'meeting'      => $meeting,
             'notulen'      => $notulen,
@@ -33,9 +30,6 @@ class NotulisController
         ]);
     }
 
-    /**
-     * GET /notulen/{id}/history
-     */
     public static function history(int $meetingId): void
     {
         Auth::requireAuth();
@@ -51,9 +45,6 @@ class NotulisController
         echo json_encode(['success' => true, 'history' => $history]); exit;
     }
 
-    /**
-     * POST /api/notulen/save
-     */
     public static function save(): void
     {
         Auth::requireRole('admin', 'sekretaris');
@@ -71,12 +62,10 @@ class NotulisController
 
         $db = Database::getInstance();
         if ($existing) {
-            // Simpan ke history sebelum update
             $db->prepare(
                 "INSERT INTO notulen_history (meeting_id, content, version, edited_by)
                  VALUES (?,?,?,?)"
             )->execute([$meetingId, $existing['content'], $existing['version'], Auth::id()]);
-
             $db->prepare(
                 "UPDATE notulen SET content=?, version=version+1, updated_by=?, updated_at=NOW() WHERE meeting_id=?"
             )->execute([$content, Auth::id(), $meetingId]);
@@ -91,10 +80,6 @@ class NotulisController
         echo json_encode(['success' => true, 'message' => 'Notulen disimpan.']); exit;
     }
 
-    /**
-     * GET /api/notulen/sync
-     * Ambil konten notulen terbaru (untuk auto-sync multi-user)
-     */
     public static function sync(): void
     {
         Auth::requireAuth();

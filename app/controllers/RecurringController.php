@@ -1,10 +1,6 @@
 <?php
 class RecurringController
 {
-    /**
-     * GET /recurring
-     * Halaman daftar recurring meeting
-     */
     public static function index(): void
     {
         Auth::requireRole('admin', 'sekretaris');
@@ -20,7 +16,7 @@ class RecurringController
         $users       = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
         $departments = Database::query("SELECT id, name FROM departments WHERE is_active=1 ORDER BY name");
 
-        View::render('layouts/base', 'recurring/index', [
+        View::layout('recurring/index', [
             'title'       => 'Recurring Meeting',
             'list'        => $list,
             'users'       => $users,
@@ -28,15 +24,10 @@ class RecurringController
         ]);
     }
 
-    /**
-     * POST /recurring
-     * Buat recurring meeting baru
-     */
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $d = $_POST;
-
+        $d  = $_POST;
         $db = Database::getInstance();
         $db->prepare(
             "INSERT INTO recurring_meetings
@@ -60,7 +51,6 @@ class RecurringController
         ]);
         $recurringId = (int)$db->lastInsertId();
 
-        // Simpan peserta default
         $participants = $_POST['participants'] ?? [];
         foreach ($participants as $uid) {
             $db->prepare(
@@ -68,17 +58,12 @@ class RecurringController
             )->execute([$recurringId, (int)$uid]);
         }
 
-        // Generate meeting pertama langsung
         self::generateNext($recurringId);
 
         $_SESSION['flash_success'] = 'Recurring meeting berhasil dibuat & meeting pertama sudah digenerate.';
-        header('Location: /recurring'); exit;
+        header('Location: ' . BASE_URL . '/recurring'); exit;
     }
 
-    /**
-     * POST /recurring/{id}/generate
-     * Generate meeting berikutnya secara manual
-     */
     public static function generate(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
@@ -91,9 +76,6 @@ class RecurringController
         ]); exit;
     }
 
-    /**
-     * POST /recurring/{id}/delete
-     */
     public static function delete(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
@@ -104,10 +86,6 @@ class RecurringController
         echo json_encode(['success' => true]); exit;
     }
 
-    /**
-     * POST /api/recurring/generate-all
-     * Generate semua recurring yang aktif — bisa dipanggil via cron
-     */
     public static function generateAll(): void
     {
         $recurrings = Database::query(
@@ -123,7 +101,6 @@ class RecurringController
         echo json_encode(['success' => true, 'total_generated' => $total]); exit;
     }
 
-    // ── Core Generator ──────────────────────────────────────
     private static function generateNext(int $recurringId): int
     {
         $r = Database::queryOne(
@@ -131,19 +108,15 @@ class RecurringController
         );
         if (!$r || !$r['is_active']) return 0;
 
-        // Tentukan tanggal mulai generate
-        $from = $r['last_generated']
+        $from  = $r['last_generated']
             ? date('Y-m-d', strtotime($r['last_generated'] . ' +1 day'))
             : $r['start_date'];
-
-        // Generate hingga 4 minggu ke depan
         $until = date('Y-m-d', strtotime('+4 weeks'));
         if ($r['end_date'] && $r['end_date'] < $until) $until = $r['end_date'];
 
-        $dates    = self::getDates($r, $from, $until);
-        $count    = 0;
-        $lastDate = null;
-
+        $dates        = self::getDates($r, $from, $until);
+        $count        = 0;
+        $lastDate     = null;
         $participants = Database::query(
             "SELECT user_id FROM recurring_participants WHERE recurring_id=?", [$recurringId]
         );
@@ -152,9 +125,7 @@ class RecurringController
         foreach ($dates as $date) {
             $startDt = $date . ' ' . $r['start_time'];
             $endDt   = $date . ' ' . $r['end_time'];
-
-            // Cek duplikat
-            $exists = Database::queryOne(
+            $exists  = Database::queryOne(
                 "SELECT id FROM meetings WHERE recurring_id=? AND DATE(start_datetime)=?",
                 [$recurringId, $date]
             );
@@ -172,7 +143,6 @@ class RecurringController
             ]);
             $meetingId = (int)$db->lastInsertId();
 
-            // Tambahkan peserta default
             foreach ($participants as $p) {
                 $db->prepare(
                     "INSERT IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?,?)"
@@ -190,9 +160,6 @@ class RecurringController
         return $count;
     }
 
-    /**
-     * Kalkulasi tanggal-tanggal yang sesuai frekuensi dalam rentang $from - $until
-     */
     private static function getDates(array $r, string $from, string $until): array
     {
         $dates   = [];
@@ -201,22 +168,22 @@ class RecurringController
 
         while ($current <= $end) {
             $dateStr = date('Y-m-d', $current);
-            $dow     = (int)date('N', $current); // 1=Senin, 7=Minggu
+            $dow     = (int)date('N', $current);
             $dom     = (int)date('j', $current);
 
             $match = match($r['frequency']) {
-                'daily'     => true,
-                'weekly'    => $r['day_of_week'] !== null
-                                   ? (int)$r['day_of_week'] === ($dow % 7)
-                                   : true,
-                'biweekly'  => $r['day_of_week'] !== null
-                                   ? ((int)$r['day_of_week'] === ($dow % 7))
-                                     && (floor((strtotime($dateStr) - strtotime($r['start_date'])) / (86400 * 14)) % 2 == 0)
-                                   : false,
-                'monthly'   => $r['day_of_month'] !== null
-                                   ? $dom === (int)$r['day_of_month']
-                                   : false,
-                default     => false,
+                'daily'    => true,
+                'weekly'   => $r['day_of_week'] !== null
+                                  ? (int)$r['day_of_week'] === ($dow % 7)
+                                  : true,
+                'biweekly' => $r['day_of_week'] !== null
+                                  ? ((int)$r['day_of_week'] === ($dow % 7))
+                                    && (floor((strtotime($dateStr) - strtotime($r['start_date'])) / (86400 * 14)) % 2 == 0)
+                                  : false,
+                'monthly'  => $r['day_of_month'] !== null
+                                  ? $dom === (int)$r['day_of_month']
+                                  : false,
+                default    => false,
             };
 
             if ($match) $dates[] = $dateStr;
