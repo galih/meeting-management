@@ -1,5 +1,5 @@
 -- ============================================================
--- Meeting Management App — Database Schema v1.5.0
+-- Meeting Management App — Database Schema v1.6.0
 -- MySQL 8+, charset utf8mb4
 --
 -- CATATAN: File ini dijalankan oleh installer SETELAH
@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at           TIMESTAMP     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- Seed admin default (password: Admin@12345)
+-- Seed admin default — password di-override oleh installer saat setup
+-- Password fallback: Admin@12345
 INSERT IGNORE INTO users (username, name, email, password, role) VALUES
   ('admin', 'Administrator', 'admin@meetingapp.id',
    '$2y$12$TKh8H1.PfunNGBz/znOlJuuBVZ7XMM/YpW5BWl8gBuIV9hWaX4Iye', 'admin');
