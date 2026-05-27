@@ -1,11 +1,12 @@
 <?php
+$baseUrl    = rtrim(BASE_URL, '/');
 $statConfig = [
-    ['key'=>'total_meetings',  'label'=>'Total Meeting',     'color'=>'blue',   'suffix'=>''],
-    ['key'=>'meeting_today',   'label'=>'Meeting Hari Ini',  'color'=>'orange', 'suffix'=>''],
-    ['key'=>'tl_pending',      'label'=>'Tugas Pending',     'color'=>'yellow', 'suffix'=>''],
-    ['key'=>'tl_overdue',      'label'=>'Tugas Terlambat',   'color'=>'red',    'suffix'=>''],
-    ['key'=>'tl_done',         'label'=>'Tugas Selesai',     'color'=>'green',  'suffix'=>''],
-    ['key'=>'notif_unread',    'label'=>'Notif Belum Dibaca','color'=>'purple', 'suffix'=>''],
+    ['key'=>'total_meetings',  'label'=>'Total Meeting',      'color'=>'blue',   'suffix'=>''],
+    ['key'=>'meeting_today',   'label'=>'Meeting Hari Ini',   'color'=>'orange', 'suffix'=>''],
+    ['key'=>'tl_pending',      'label'=>'Tugas Pending',      'color'=>'yellow', 'suffix'=>''],
+    ['key'=>'tl_overdue',      'label'=>'Tugas Terlambat',    'color'=>'red',    'suffix'=>''],
+    ['key'=>'tl_done',         'label'=>'Tugas Selesai',      'color'=>'green',  'suffix'=>''],
+    ['key'=>'notif_unread',    'label'=>'Notif Belum Dibaca', 'color'=>'purple', 'suffix'=>''],
 ];
 if ($user['role'] === 'admin') {
     array_splice($statConfig, 1, 0, [['key'=>'total_users','label'=>'Total User Aktif','color'=>'teal','suffix'=>'']]);
@@ -18,9 +19,7 @@ if ($user['role'] === 'admin') {
   <div class="col-sm-6 col-lg-3">
     <div class="card">
       <div class="card-body">
-        <div class="d-flex align-items-center">
-          <div class="subheader mb-2 text-muted"><?= $sc['label'] ?></div>
-        </div>
+        <div class="subheader mb-2 text-muted"><?= $sc['label'] ?></div>
         <div class="h1 mb-0"><?= number_format((int)($stats[$sc['key']] ?? 0)) ?><?= $sc['suffix'] ?></div>
         <div class="d-flex mt-2">
           <span class="text-<?= $sc['color'] ?> d-flex align-items-center">
@@ -49,7 +48,7 @@ if ($user['role'] === 'admin') {
           </svg>Meeting Mendatang (7 Hari)
         </h3>
         <div class="card-options">
-          <a href="/meetings" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
+          <a href="<?= $baseUrl ?>/meetings" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
         </div>
       </div>
       <div class="list-group list-group-flush">
@@ -57,10 +56,10 @@ if ($user['role'] === 'admin') {
         <div class="list-group-item text-center text-muted py-4">Tidak ada meeting mendatang</div>
         <?php endif; ?>
         <?php foreach ($upcoming as $m):
-          $start     = new DateTime($m['start_datetime']);
-          $isToday   = $start->format('Y-m-d') === date('Y-m-d');
+          $start   = new DateTime($m['start_datetime']);
+          $isToday = $start->format('Y-m-d') === date('Y-m-d');
         ?>
-        <a href="/meetings/<?= $m['id'] ?>" class="list-group-item list-group-item-action">
+        <a href="<?= $baseUrl ?>/meetings/<?= $m['id'] ?>" class="list-group-item list-group-item-action">
           <div class="row align-items-center">
             <div class="col-auto">
               <div class="text-center" style="width:40px;">
@@ -78,7 +77,7 @@ if ($user['role'] === 'admin') {
               <div class="text-muted small">
                 🕐 <?= $start->format('H:i') ?> &nbsp;|&nbsp;
                 📍 <?= htmlspecialchars($m['location'] ?? 'Lokasi belum diset') ?> &nbsp;|&nbsp;
-                👥 <?= $m['total_peserta'] ?> peserta
+                👥 <?= (int)$m['total_peserta'] ?> peserta
               </div>
             </div>
           </div>
@@ -100,7 +99,7 @@ if ($user['role'] === 'admin') {
           </svg>Tindak Lanjut Terdekat
         </h3>
         <div class="card-options">
-          <a href="/tindak-lanjut" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
+          <a href="<?= $baseUrl ?>/tindak-lanjut" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
         </div>
       </div>
       <div class="list-group list-group-flush">
@@ -108,21 +107,22 @@ if ($user['role'] === 'admin') {
         <div class="list-group-item text-center text-muted py-4">Tidak ada tindak lanjut aktif</div>
         <?php endif; ?>
         <?php foreach ($tlDeadline as $tl):
-          $isOverdue = $tl['deadline'] && $tl['deadline'] < date('Y-m-d');
+          // kolom DB: due_date, description (bukan deadline / deskripsi)
+          $isOverdue = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d');
         ?>
         <div class="list-group-item <?= $isOverdue ? 'bg-red-lt' : '' ?>">
           <div class="d-flex justify-content-between align-items-start">
             <div>
-              <div class="fw-semibold"><?= htmlspecialchars($tl['deskripsi']) ?></div>
+              <div class="fw-semibold"><?= htmlspecialchars($tl['description']) ?></div>
               <div class="text-muted small">
                 📋 <?= htmlspecialchars($tl['meeting_title']) ?> &nbsp;|&nbsp;
                 👤 <?= htmlspecialchars($tl['assigned_name'] ?? 'Belum ditugaskan') ?>
               </div>
             </div>
             <div class="text-end ms-2">
-              <?php if ($tl['deadline']): ?>
+              <?php if (!empty($tl['due_date'])): ?>
               <div class="<?= $isOverdue ? 'text-danger fw-bold' : 'text-muted' ?> small">
-                <?= date('d M', strtotime($tl['deadline'])) ?>
+                <?= date('d M', strtotime($tl['due_date'])) ?>
                 <?= $isOverdue ? ' ⚠️' : '' ?>
               </div>
               <?php endif; ?>
@@ -143,7 +143,7 @@ if ($user['role'] === 'admin') {
       <div class="card-header">
         <h3 class="card-title">Aktivitas Terbaru</h3>
         <div class="card-options">
-          <a href="/notifications" class="btn btn-sm btn-outline-secondary">Semua Notifikasi</a>
+          <a href="<?= $baseUrl ?>/notifications" class="btn btn-sm btn-outline-secondary">Semua Notifikasi</a>
         </div>
       </div>
       <div class="table-responsive">
@@ -154,27 +154,25 @@ if ($user['role'] === 'admin') {
             <tr><td colspan="4" class="text-center text-muted py-4">Belum ada aktivitas</td></tr>
             <?php endif; ?>
             <?php foreach ($recentActivity as $act):
-              $icons = ['meeting_invite'=>'📅','notulen_update'=>'📝','tindak_lanjut_due'=>'⚠️'];
+              $icons = ['meeting_invite'=>'📅','notulen_update'=>'📝','tindak_lanjut_due'=>'⚠️','tindak_lanjut'=>'✅'];
               $icon  = $icons[$act['type']] ?? '🔔';
-              $data  = json_decode($act['data'] ?? '{}', true);
             ?>
             <tr>
               <td><span class="badge bg-blue-lt"><?= $icon ?> <?= htmlspecialchars($act['type']) ?></span></td>
               <td>
-                <div class="fw-semibold"><?= htmlspecialchars($act['title']) ?></div>
                 <div class="text-muted small"><?= htmlspecialchars($act['message']) ?></div>
               </td>
               <td class="text-muted small">
                 <?php
                   $diff = time() - strtotime($act['created_at']);
-                  if ($diff < 60)      echo $diff . 'd lalu';
-                  elseif ($diff < 3600) echo floor($diff/60) . 'm lalu';
-                  elseif ($diff < 86400) echo floor($diff/3600) . 'j lalu';
-                  else echo date('d M Y', strtotime($act['created_at']));
+                  if ($diff < 60)        echo $diff . 's lalu';
+                  elseif ($diff < 3600)  echo floor($diff / 60) . 'm lalu';
+                  elseif ($diff < 86400) echo floor($diff / 3600) . 'j lalu';
+                  else                   echo date('d M Y', strtotime($act['created_at']));
                 ?>
               </td>
               <td>
-                <?= $act['is_read'] 
+                <?= $act['is_read']
                   ? '<span class="badge bg-green-lt">Dibaca</span>'
                   : '<span class="badge bg-orange-lt">Baru</span>' ?>
               </td>

@@ -5,7 +5,6 @@ class DashboardController {
 
     public function index(): void {
         Auth::requireLogin();
-        $db   = Database::getInstance();
         $user = Auth::user();
         $uid  = (int)$user['id'];
 
@@ -35,8 +34,8 @@ class DashboardController {
         // ── Meeting mendatang (7 hari ke depan) ─────────────────────
         if ($user['role'] === 'admin') {
             $upcoming = Database::query(
-                "SELECT m.*, u.name as creator_name,
-                        COUNT(mp.id) as total_peserta
+                "SELECT m.*, u.name AS creator_name,
+                        COUNT(mp.id) AS total_peserta
                  FROM meetings m
                  JOIN users u ON m.created_by = u.id
                  LEFT JOIN meeting_participants mp ON m.id = mp.meeting_id
@@ -47,8 +46,8 @@ class DashboardController {
             );
         } else {
             $upcoming = Database::query(
-                "SELECT m.*, u.name as creator_name,
-                        COUNT(mp2.id) as total_peserta
+                "SELECT m.*, u.name AS creator_name,
+                        COUNT(mp2.id) AS total_peserta
                  FROM meetings m
                  JOIN users u ON m.created_by = u.id
                  JOIN meeting_participants mp ON m.id = mp.meeting_id
@@ -65,7 +64,7 @@ class DashboardController {
         // ── Tindak lanjut deadline terdekat ─────────────────────────
         $tlDeadline = ($user['role'] === 'admin')
             ? Database::query(
-                "SELECT tl.*, m.title as meeting_title, u.name as assigned_name
+                "SELECT tl.*, m.title AS meeting_title, u.name AS assigned_name
                  FROM tindak_lanjut tl
                  JOIN meetings m ON tl.meeting_id = m.id
                  LEFT JOIN users u ON tl.assigned_to = u.id
@@ -73,7 +72,7 @@ class DashboardController {
                  ORDER BY tl.due_date ASC LIMIT 5"
               )
             : Database::query(
-                "SELECT tl.*, m.title as meeting_title, u.name as assigned_name
+                "SELECT tl.*, m.title AS meeting_title, u.name AS assigned_name
                  FROM tindak_lanjut tl
                  JOIN meetings m ON tl.meeting_id = m.id
                  LEFT JOIN users u ON tl.assigned_to = u.id
@@ -84,20 +83,23 @@ class DashboardController {
 
         // ── Aktivitas terbaru ────────────────────────────────────────
         $recentActivity = Database::query(
-            "SELECT n.*, u.name as actor_name
-             FROM notifications n
-             LEFT JOIN users u ON u.id = ?
-             WHERE n.user_id = ?
-             ORDER BY n.created_at DESC LIMIT 8",
-            [$uid, $uid]
+            "SELECT * FROM notifications
+             WHERE user_id = ?
+             ORDER BY created_at DESC LIMIT 8",
+            [$uid]
         );
 
         // ── Notifikasi unread untuk navbar ───────────────────────────
         $notifications = Notification::getUnread($uid, 5);
 
-        $pageTitle = 'Dashboard';
-        View::layout('dashboard/index', compact(
-            'user', 'stats', 'upcoming', 'tlDeadline', 'recentActivity', 'notifications'
-        ));
+        View::layout('dashboard/index', [
+            'pageTitle'      => 'Dashboard',
+            'user'           => $user,
+            'stats'          => $stats,
+            'upcoming'       => $upcoming,
+            'tlDeadline'     => $tlDeadline,
+            'recentActivity' => $recentActivity,
+            'notifications'  => $notifications,
+        ]);
     }
 }
