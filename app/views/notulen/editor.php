@@ -18,6 +18,10 @@
             <span class="status-dot status-dot-animated bg-green d-inline-block me-1"></span>Live
           </span>
           <span id="save-status" class="text-muted small">Tersimpan</span>
+          <a href="/notulen/<?= $meeting['id'] ?>/export-pdf"
+             target="_blank" class="btn btn-sm btn-outline-danger ms-1">
+            🖨️ PDF
+          </a>
           <?php if (Auth::can('admin','sekretaris')): ?>
           <a href="/notulen/<?= $meeting['id'] ?>/history"
              class="btn btn-sm btn-outline-secondary ms-1">Riwayat</a>
@@ -26,6 +30,43 @@
       </div>
       <div class="card-body p-0">
         <div id="editorjs" class="p-3" style="min-height:480px;"></div>
+      </div>
+    </div>
+
+    <!-- Panel Komentar -->
+    <div class="card mt-3" id="comment-panel">
+      <div class="card-header">
+        <h4 class="card-title">
+          💬 Diskusi
+          <span class="badge bg-orange-lt text-orange ms-1" id="comment-count">0</span>
+        </h4>
+        <div class="card-options">
+          <button class="btn btn-sm btn-outline-primary" id="btn-toggle-resolved">
+            Tampilkan Selesai
+          </button>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        <div id="comment-list" class="px-3 py-2"></div>
+      </div>
+      <div class="card-footer">
+        <div class="d-flex gap-2 align-items-start">
+          <span class="avatar avatar-sm" style="background:#f76707;color:#fff;font-weight:700;flex-shrink:0;">
+            <?= strtoupper(mb_substr($user['name'],0,1)) ?>
+          </span>
+          <div class="flex-fill">
+            <div class="position-relative">
+              <textarea id="comment-input" class="form-control" rows="2"
+                        placeholder="Tulis komentar... gunakan @nama untuk mention"></textarea>
+              <div id="mention-dropdown"
+                   class="dropdown-menu show p-1" style="display:none!important;"></div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-1">
+              <small class="text-muted" id="reply-indicator"></small>
+              <button class="btn btn-sm btn-primary" id="btn-submit-comment">Kirim</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -85,9 +126,7 @@
           </div>
           <div class="text-muted" style="font-size:11px;">
             👤 <?= htmlspecialchars($tl['assigned_name'] ?? '-') ?>
-            <?php if ($tl['deadline']): ?>
-            | 📅 <?= date('d M Y', strtotime($tl['deadline'])) ?>
-            <?php endif; ?>
+            <?php if ($tl['deadline']): ?> | 📅 <?= date('d M Y', strtotime($tl['deadline'])) ?><?php endif; ?>
           </div>
           <span class="badge bg-<?= match($tl['status']) {
             'pending'=>'secondary','in_progress'=>'blue',
@@ -101,7 +140,7 @@
   </div>
 </div>
 
-<!-- Modal Tindak Lanjut -->
+<!-- Modal TL -->
 <?php if (Auth::can('admin','sekretaris')): ?>
 <div class="modal modal-blur fade" id="modalTL" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
@@ -150,24 +189,28 @@
 
 <?php
 $initContent = $notulen['content'] ?? '{}';
+$isEditor    = Auth::can('admin','sekretaris') ? 'true' : 'false';
+$meetingId   = $meeting['id'];
+$userId      = $user['id'];
+$usersJson   = json_encode(array_map(fn($u) => ['id'=>$u['id'],'name'=>$u['name']], $users));
 $scripts = <<<JS
 <script>
-const MEETING_ID      = {$meeting['id']};
-const CURRENT_USER_ID = {$user['id']};
-const IS_EDITOR       = {$( Auth::can('admin','sekretaris') ? 'true' : 'false' )};
+const MEETING_ID      = {$meetingId};
+const CURRENT_USER_ID = {$userId};
+const IS_EDITOR       = {$isEditor};
 const INITIAL_CONTENT = `{$initContent}`;
+const ALL_USERS       = {$usersJson};
 </script>
 <script src="/assets/js/notulen-realtime.js"></script>
+<script src="/assets/js/notulen-comments.js"></script>
 <script>
 document.getElementById('btn-tl2-save')?.addEventListener('click', async () => {
   const desk = document.getElementById('tl2-desk').value.trim();
   if (!desk) return;
   const res = await fetch('/tindak-lanjut', {
-    method:  'POST',
-    headers: {'Content-Type':'application/json'},
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({
-      meeting_id:  MEETING_ID,
-      deskripsi:   desk,
+      meeting_id: MEETING_ID, deskripsi: desk,
       assigned_to: document.getElementById('tl2-assign').value,
       deadline:    document.getElementById('tl2-deadline').value,
       priority:    document.getElementById('tl2-priority').value
