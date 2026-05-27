@@ -6,17 +6,12 @@ class AuthController
      */
     public static function checkRememberToken(): void
     {
-        if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
+        if (!isset($_SESSION['user']) && isset($_COOKIE['remember_token'])) {
             $token = $_COOKIE['remember_token'];
             $user  = Database::queryOne(
                 "SELECT * FROM users WHERE remember_token=? AND is_active=1", [$token]
             );
-            if ($user) {
-                $_SESSION['user_id']   = $user['id'];
-                $_SESSION['user_name'] = $user['name'];
-                $_SESSION['user_role'] = $user['role'];
-                $_SESSION['user_email']= $user['email'];
-            }
+            if ($user) self::setSession($user);
         }
     }
 
@@ -53,10 +48,7 @@ class AuthController
         }
 
         // Set session
-        $_SESSION['user_id']    = $user['id'];
-        $_SESSION['user_name']  = $user['name'];
-        $_SESSION['user_role']  = $user['role'];
-        $_SESSION['user_email'] = $user['email'];
+        self::setSession($user);
 
         // Remember me — 30 hari
         if ($remember) {
@@ -72,7 +64,10 @@ class AuthController
             "UPDATE users SET last_login=NOW() WHERE id=?"
         )->execute([$user['id']]);
 
-        header('Location: /'); exit;
+        // Redirect ke halaman sebelumnya jika ada
+        $redirect = $_SESSION['redirect_after_login'] ?? '/';
+        unset($_SESSION['redirect_after_login']);
+        header('Location: ' . $redirect); exit;
     }
 
     /**
@@ -80,11 +75,10 @@ class AuthController
      */
     public static function logout(): void
     {
-        // Hapus remember token
         if (isset($_COOKIE['remember_token'])) {
             Database::getInstance()->prepare(
                 "UPDATE users SET remember_token=NULL WHERE id=?"
-            )->execute([$_SESSION['user_id'] ?? 0]);
+            )->execute([Auth::id()]);
             setcookie('remember_token', '', time() - 3600, '/');
         }
         session_destroy();
@@ -105,14 +99,12 @@ class AuthController
                 Database::getInstance()->prepare(
                     "UPDATE users SET reset_token=?, reset_token_expires=? WHERE id=?"
                 )->execute([$token, $expires, $user['id']]);
-                // Kirim email reset (opsional, skip jika Mailer belum dikonfigurasi)
                 try {
-                    Mailer::send($email, 'Reset Password', 
-                        "Klik link berikut untuk reset password: " . APP_URL . "/reset-password?token={$token}"
+                    Mailer::send($email, 'Reset Password — ' . APP_NAME,
+                        "Klik link berikut untuk reset password:\n" . APP_URL . "/reset-password?token={$token}\n\nLink berlaku 1 jam."
                     );
                 } catch (\Throwable) {}
             }
-            // Selalu tampilkan pesan sukses (keamanan)
             $_SESSION['flash_success'] = 'Jika email terdaftar, link reset akan dikirim ke inbox Anda.';
             header('Location: /forgot-password'); exit;
         }
@@ -157,5 +149,16 @@ class AuthController
             'title' => 'Reset Password',
             'token' => $token,
         ]);
+    }
+
+    // ── Helper ──────────────────────────────────────────────────
+    private static function setSession(array $user): void
+    {
+        $_SESSION['user'] = [
+            'id'    => $user['id'],
+            'name'  => $user['name'],
+            'email' => $user['email'],
+            'role'  => $user['role'],
+        ];
     }
 }
