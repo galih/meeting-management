@@ -1,0 +1,15 @@
+RewriteEngine On
+RewriteBase /
+
+# Izinkan akses langsung ke file/folder yang ada
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Semua request ke index.php
+RewriteRule ^(.*)$ index.php [L,QSA]
+
+# Security headers
+Options -Indexes
+Header always set X-Frame-Options SAMEORIGIN
+Header always set X-Content-Type-Options nosniff
+Header always set X-XSS-Protection "1; mode=block"
