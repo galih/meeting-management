@@ -1,5 +1,4 @@
+# Root .htaccess — redirect semua request ke /public
 RewriteEngine On
-
-# Redirect ke /public jika akses dari root
-RewriteCond %{REQUEST_URI} !^/public/
-RewriteRule ^(.*)$ public/$1 [L]
+RewriteRule ^$ public/ [L]
+RewriteRule (.*) public/$1 [L]
