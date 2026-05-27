@@ -19,9 +19,14 @@ class View {
 
     /**
      * Render view dengan layout base.php (wajib sudah login)
+     * Jika $data['scripts'] berisi string HTML <script>, akan di-inject
+     * setelah CDN scripts di base.php (lewat <?= $scripts ?? '' ?>).
      */
     public static function layout(string $view, array $data = []): void {
+        // Render content dulu, pisahkan $scripts agar tidak ikut di-extract ke $content
+        $scripts = $data['scripts'] ?? '';
         $data['content'] = self::render($view, $data);
+        $data['scripts'] = $scripts;
         extract($data);
         include APP_PATH . '/views/layouts/base.php';
     }

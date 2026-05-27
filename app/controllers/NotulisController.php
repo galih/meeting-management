@@ -47,6 +47,61 @@ class NotulisController
             [$meetingId]
         );
 
+        $baseUrl   = rtrim(BASE_URL, '/');
+        $isEditor  = Auth::hasRole('admin', 'sekretaris') ? 'true' : 'false';
+        $meetingIdInt = (int)$meeting['id'];
+        $userId    = (int)Auth::id();
+        $usersJson = json_encode(array_map(fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']], $users));
+        $saveUrl   = json_encode($baseUrl . '/api/notulen/save');
+        $syncUrl   = json_encode($baseUrl . '/api/notulen/sync');
+        $tlUrl     = json_encode($baseUrl . '/tindak-lanjut');
+
+        // Decode content untuk EditorJS
+        $contentDecoded = json_decode($notulen['content'] ?? '{}');
+        if (!$contentDecoded || !isset($contentDecoded->blocks)) {
+            $contentDecoded = (object)['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0'];
+        }
+        $contentJson = json_encode($contentDecoded);
+
+        // Scripts di-inject SETELAH CDN EditorJS via $scripts
+        $scripts = <<<HTML
+<script>
+const MEETING_ID      = {$meetingIdInt};
+const CURRENT_USER_ID = {$userId};
+const IS_EDITOR       = {$isEditor};
+const INITIAL_CONTENT = {$contentJson};
+const ALL_USERS       = {$usersJson};
+const SAVE_URL        = {$saveUrl};
+const SYNC_URL        = {$syncUrl};
+</script>
+<script src="{$baseUrl}/assets/js/notulen-realtime.js"></script>
+<script src="{$baseUrl}/assets/js/notulen-comments.js"></script>
+<script>
+document.getElementById('btn-tl2-save')?.addEventListener('click', async () => {
+  const desk = document.getElementById('tl2-desk').value.trim();
+  if (!desk) { alert('Deskripsi wajib diisi!'); return; }
+  const res = await fetch({$tlUrl}, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      meeting_id:  MEETING_ID,
+      description: desk,
+      assigned_to: document.getElementById('tl2-assign').value,
+      due_date:    document.getElementById('tl2-deadline').value,
+      priority:    document.getElementById('tl2-priority').value,
+    })
+  });
+  const d = await res.json();
+  if (d.success) {
+    bootstrap.Modal.getInstance(document.getElementById('modalTL')).hide();
+    location.reload();
+  } else {
+    alert(d.message || 'Gagal menyimpan');
+  }
+});
+</script>
+HTML;
+
         View::layout('notulen/editor', [
             'pageTitle'        => 'Notulen — ' . $meeting['title'],
             'meeting'          => $meeting,
@@ -55,6 +110,7 @@ class NotulisController
             'users'            => $users,
             'tindakLanjutList' => $tindakLanjutList,
             'user'             => Auth::user(),
+            'scripts'          => $scripts,
         ]);
     }
 

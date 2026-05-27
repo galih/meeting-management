@@ -1,15 +1,8 @@
 <?php
 $baseUrl   = rtrim(BASE_URL, '/');
-$tlUrl     = json_encode($baseUrl . '/tindak-lanjut');
 $pdfUrl    = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
 $histUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
 $backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
-
-// Decode content dari DB ke array/object agar EditorJS langsung terima sebagai object
-$contentDecoded = json_decode($notulen['content'] ?? '{}');
-if (!$contentDecoded || !isset($contentDecoded->blocks)) {
-    $contentDecoded = (object)['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0'];
-}
 ?>
 
 <div class="row g-3">
@@ -199,49 +192,3 @@ if (!$contentDecoded || !isset($contentDecoded->blocks)) {
   </div>
 </div>
 <?php endif; ?>
-
-<?php
-$isEditor  = Auth::hasRole('admin', 'sekretaris') ? 'true' : 'false';
-$meetingId = (int)$meeting['id'];
-$userId    = (int)$user['id'];
-$usersJson = json_encode(array_map(fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']], $users));
-// URL harus sesuai route di index.php
-$saveUrl   = json_encode($baseUrl . '/api/notulen/save');
-$syncUrl   = json_encode($baseUrl . '/api/notulen/sync');
-?>
-<script>
-const MEETING_ID      = <?= $meetingId ?>;
-const CURRENT_USER_ID = <?= $userId ?>;
-const IS_EDITOR       = <?= $isEditor ?>;
-// Pass sebagai JS object langsung — EditorJS butuh object, bukan string
-const INITIAL_CONTENT = <?= json_encode($contentDecoded) ?>;
-const ALL_USERS       = <?= $usersJson ?>;
-const SAVE_URL        = <?= $saveUrl ?>;
-const SYNC_URL        = <?= $syncUrl ?>;
-</script>
-<script src="<?= $baseUrl ?>/assets/js/notulen-realtime.js"></script>
-<script src="<?= $baseUrl ?>/assets/js/notulen-comments.js"></script>
-<script>
-document.getElementById('btn-tl2-save')?.addEventListener('click', async () => {
-  const desk = document.getElementById('tl2-desk').value.trim();
-  if (!desk) { alert('Deskripsi wajib diisi!'); return; }
-  const res = await fetch(<?= $tlUrl ?>, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      meeting_id:  MEETING_ID,
-      description: desk,
-      assigned_to: document.getElementById('tl2-assign').value,
-      due_date:    document.getElementById('tl2-deadline').value,
-      priority:    document.getElementById('tl2-priority').value,
-    })
-  });
-  const d = await res.json();
-  if (d.success) {
-    bootstrap.Modal.getInstance(document.getElementById('modalTL')).hide();
-    location.reload();
-  } else {
-    alert(d.message || 'Gagal menyimpan');
-  }
-});
-</script>
