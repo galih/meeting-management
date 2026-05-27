@@ -101,6 +101,17 @@ $router->get('/api/notifications',        [NotifikasiController::class, 'index']
 $router->post('/api/notifications/read',  [NotifikasiController::class, 'markRead']);
 $router->get('/notifications',            [NotifikasiController::class, 'page']);
 
+// ── Dispatch ─────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+// Strip subfolder prefix agar router bekerja di subfolder manapun.
+// Contoh: /wicara/public/login → /login
+// Ambil base path dari script name: /wicara/public/index.php → /wicara/public
+$scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
+if ($scriptDir !== '' && str_starts_with($uri, $scriptDir)) {
+    $uri = substr($uri, strlen($scriptDir));
+}
+$uri = $uri ?: '/';
+
 $router->dispatch($method, $uri);
