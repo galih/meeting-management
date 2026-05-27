@@ -4,8 +4,10 @@ class TindakLanjutController
     public static function index(): void
     {
         Auth::requireAuth();
-        $status = $_GET['status'] ?? '';
-        $userId = (int)($_GET['user_id'] ?? 0);
+        $status   = $_GET['status']   ?? '';
+        $priority = $_GET['priority'] ?? '';
+        $search   = trim($_GET['q']   ?? '');
+        $userId   = (int)($_GET['user_id'] ?? 0);
 
         $where  = ['1=1'];
         $params = [];
@@ -18,10 +20,12 @@ class TindakLanjutController
             $params[] = $userId;
         }
 
-        if ($status) { $where[] = 'tl.status = ?'; $params[] = $status; }
+        if ($status)   { $where[] = 'tl.status = ?';   $params[] = $status; }
+        if ($priority) { $where[] = 'tl.priority = ?'; $params[] = $priority; }
+        if ($search)   { $where[] = 'tl.description LIKE ?'; $params[] = "%{$search}%"; }
 
         $whereStr = implode(' AND ', $where);
-        $items    = Database::query(
+        $tindakLanjutList = Database::query(
             "SELECT tl.*, m.title AS meeting_title,
                     u.name AS assignee_name
              FROM tindak_lanjut tl
@@ -32,14 +36,31 @@ class TindakLanjutController
             $params
         );
 
+        // Summary stats (hitung dari data lengkap tanpa filter status/priority/search)
+        $baseParams = !Auth::hasRole('admin', 'sekretaris') ? [Auth::id()] : ($userId ? [$userId] : []);
+        $baseWhere  = !Auth::hasRole('admin', 'sekretaris')
+            ? 'assigned_to = ?'
+            : ($userId ? 'assigned_to = ?' : '1=1');
+
+        $summary = [
+            'total'       => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere}", $baseParams)['c'] ?? 0),
+            'pending'     => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND status='pending'", $baseParams)['c'] ?? 0),
+            'in_progress' => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND status='in_progress'", $baseParams)['c'] ?? 0),
+            'done'        => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND status='done'", $baseParams)['c'] ?? 0),
+            'overdue'     => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND due_date < CURDATE() AND status NOT IN ('done','cancelled')", $baseParams)['c'] ?? 0),
+        ];
+
         $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
         View::layout('tindak-lanjut/index', [
-            'title'   => 'Tindak Lanjut',
-            'items'   => $items,
-            'users'   => $users,
-            'status'  => $status,
-            'user_id' => $userId,
+            'pageTitle'        => 'Tindak Lanjut',
+            'tindakLanjutList' => $tindakLanjutList,
+            'summary'          => $summary,
+            'users'            => $users,
+            'status'           => $status,
+            'priority'         => $priority,
+            'search'           => $search,
+            'user_id'          => $userId,
         ]);
     }
 
@@ -56,7 +77,7 @@ class TindakLanjutController
             (int)$d['meeting_id'],
             trim($d['description']),
             (int)$d['assigned_to'],
-            $d['due_date'],
+            $d['due_date'] ?: null,
             $d['priority'] ?? 'medium',
             Auth::id(),
         ]);
@@ -73,16 +94,19 @@ class TindakLanjutController
     public static function updateStatus(int $id): void
     {
         Auth::requireAuth();
-        $status  = $_POST['status'] ?? '';
+        $input   = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $status  = $input['status'] ?? '';
         $allowed = ['pending', 'in_progress', 'done', 'cancelled'];
         if (!in_array($status, $allowed)) {
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Status tidak valid']); exit;
         }
         $tl = Database::queryOne("SELECT * FROM tindak_lanjut WHERE id=?", [$id]);
-        if (!$tl) { echo json_encode(['success' => false]); exit; }
+        if (!$tl) { header('Content-Type: application/json'); echo json_encode(['success' => false]); exit; }
         if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
-            http_response_code(403); echo json_encode(['success' => false, 'message' => 'Akses ditolak']); exit;
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak']); exit;
         }
         $completedAt = $status === 'done' ? date('Y-m-d H:i:s') : null;
         Database::getInstance()->prepare(
