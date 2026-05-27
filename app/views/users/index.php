@@ -1,6 +1,9 @@
 <?php
-if (!empty($_SESSION['flash_success'])):
+$baseUrl = rtrim(BASE_URL, '/');
+$roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Peserta'];
 ?>
+
+<?php if (!empty($_SESSION['flash_success'])): ?>
 <div class="alert alert-success alert-dismissible mb-3">
   <?= htmlspecialchars($_SESSION['flash_success']) ?>
   <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -17,13 +20,13 @@ if (!empty($_SESSION['flash_success'])):
 <div class="card">
   <div class="card-header">
     <div class="col">
-      <form method="GET" action="/users" class="d-flex gap-2">
-        <input type="text" name="q" value="<?= htmlspecialchars($search) ?>"
+      <form method="GET" action="<?= $baseUrl ?>/users" class="d-flex gap-2">
+        <input type="text" name="q" value="<?= htmlspecialchars($search ?? '') ?>"
                class="form-control form-control-sm" style="width:220px;"
                placeholder="Cari nama atau email...">
         <button class="btn btn-sm btn-outline-secondary">Cari</button>
-        <?php if ($search): ?>
-        <a href="/users" class="btn btn-sm btn-ghost-secondary">Reset</a>
+        <?php if (!empty($search)): ?>
+        <a href="<?= $baseUrl ?>/users" class="btn btn-sm btn-ghost-secondary">Reset</a>
         <?php endif; ?>
       </form>
     </div>
@@ -42,33 +45,32 @@ if (!empty($_SESSION['flash_success'])):
       <thead>
         <tr>
           <th style="width:40px;">#</th>
-          <th>Nama</th><th>Email</th><th>Role</th><th>Status</th>
+          <th>Nama</th><th>Email</th><th>Departemen</th><th>Role</th><th>Status</th>
           <th>Dibuat</th><th>Aksi</th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($users)): ?>
-        <tr><td colspan="7" class="text-center text-muted py-5">Tidak ada pengguna ditemukan</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-5">Tidak ada pengguna ditemukan</td></tr>
         <?php endif; ?>
         <?php foreach ($users as $i => $u): ?>
-        <tr>
-          <td class="text-muted"><?= ($page-1)*10+$i+1 ?></td>
+        <tr id="row-<?= $u['id'] ?>">
+          <td class="text-muted"><?= ($page - 1) * 10 + $i + 1 ?></td>
           <td>
             <div class="d-flex align-items-center gap-2">
               <span class="avatar avatar-sm"
                     style="background:#f76707;color:#fff;font-weight:700;flex-shrink:0;">
-                <?= strtoupper(mb_substr($u['name'],0,1)) ?>
+                <?= strtoupper(mb_substr($u['name'], 0, 1)) ?>
               </span>
-              <div>
-                <div class="fw-semibold"><?= htmlspecialchars($u['name']) ?></div>
-              </div>
+              <div class="fw-semibold"><?= htmlspecialchars($u['name']) ?></div>
             </div>
           </td>
           <td class="text-muted"><?= htmlspecialchars($u['email']) ?></td>
+          <td class="text-muted"><?= htmlspecialchars($u['dept_name'] ?? '-') ?></td>
           <td>
-            <span class="badge bg-<?= match($u['role_name']) {
+            <span class="badge bg-<?= match($u['role']) {
               'admin'=>'red','sekretaris'=>'orange','peserta'=>'blue',default=>'secondary'
-            } ?>-lt"><?= ucfirst($u['role_name']) ?></span>
+            } ?>-lt"><?= ucfirst($u['role']) ?></span>
           </td>
           <td>
             <?php if ($u['is_active']): ?>
@@ -86,10 +88,11 @@ if (!empty($_SESSION['flash_success'])):
               Edit
             </button>
             <?php if ($u['is_active'] && $u['id'] != Auth::id()): ?>
-            <form method="POST" action="/users/<?= $u['id'] ?>/delete" class="d-inline"
-                  onsubmit="return confirm('Nonaktifkan user ini?')">
-              <button class="btn btn-sm btn-outline-danger">Nonaktifkan</button>
-            </form>
+            <button class="btn btn-sm btn-outline-danger btn-nonaktif"
+                    data-id="<?= $u['id'] ?>"
+                    data-url="<?= $baseUrl ?>/users/<?= $u['id'] ?>/delete">
+              Nonaktifkan
+            </button>
             <?php endif; ?>
           </td>
         </tr>
@@ -99,15 +102,17 @@ if (!empty($_SESSION['flash_success'])):
   </div>
 
   <!-- Pagination -->
-  <?php if ($totalPage > 1): ?>
+  <?php if (($totalPage ?? 1) > 1): ?>
   <div class="card-footer d-flex align-items-center">
     <p class="m-0 text-muted small">
       Menampilkan <strong><?= count($users) ?></strong> dari <strong><?= $total ?></strong> pengguna
     </p>
     <ul class="pagination m-0 ms-auto">
       <?php for ($p = 1; $p <= $totalPage; $p++): ?>
-      <li class="page-item <?= $p==$page?'active':'' ?>">
-        <a class="page-link" href="/users?page=<?= $p ?>&q=<?= urlencode($search) ?>"><?= $p ?></a>
+      <li class="page-item <?= $p == $page ? 'active' : '' ?>">
+        <a class="page-link" href="<?= $baseUrl ?>/users?page=<?= $p ?>&q=<?= urlencode($search ?? '') ?>">
+          <?= $p ?>
+        </a>
       </li>
       <?php endfor; ?>
     </ul>
@@ -119,7 +124,7 @@ if (!empty($_SESSION['flash_success'])):
 <div class="modal modal-blur fade" id="modalAddUser" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <form method="POST" action="/users">
+      <form method="POST" action="<?= $baseUrl ?>/users">
         <div class="modal-header">
           <h5 class="modal-title">Tambah Pengguna Baru</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -140,9 +145,18 @@ if (!empty($_SESSION['flash_success'])):
           </div>
           <div class="mb-3">
             <label class="form-label required">Role</label>
-            <select name="role_id" class="form-select" required>
-              <?php foreach ($roles as $r): ?>
-              <option value="<?= $r['id'] ?>"><?= ucfirst($r['name']) ?></option>
+            <select name="role" class="form-select" required>
+              <?php foreach ($roles as $val => $label): ?>
+              <option value="<?= $val ?>"><?= $label ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="mb-0">
+            <label class="form-label">Departemen</label>
+            <select name="department_id" class="form-select">
+              <option value="">-- Tidak ada --</option>
+              <?php foreach ($departments as $dept): ?>
+              <option value="<?= $dept['id'] ?>"><?= htmlspecialchars($dept['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -182,15 +196,24 @@ if (!empty($_SESSION['flash_success'])):
           </div>
           <div class="mb-3">
             <label class="form-label required">Role</label>
-            <select name="role_id" id="edit-role" class="form-select">
-              <?php foreach ($roles as $r): ?>
-              <option value="<?= $r['id'] ?>"><?= ucfirst($r['name']) ?></option>
+            <select name="role" id="edit-role" class="form-select">
+              <?php foreach ($roles as $val => $label): ?>
+              <option value="<?= $val ?>"><?= $label ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Departemen</label>
+            <select name="department_id" id="edit-dept" class="form-select">
+              <option value="">-- Tidak ada --</option>
+              <?php foreach ($departments as $dept): ?>
+              <option value="<?= $dept['id'] ?>"><?= htmlspecialchars($dept['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
           <div class="mb-0">
             <label class="form-check">
-              <input type="checkbox" name="is_active" id="edit-active" class="form-check-input">
+              <input type="checkbox" name="is_active" id="edit-active" class="form-check-input" value="1">
               <span class="form-check-label">Pengguna Aktif</span>
             </label>
           </div>
@@ -205,12 +228,30 @@ if (!empty($_SESSION['flash_success'])):
 </div>
 
 <script>
+const baseUrl = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+
 function openEdit(u) {
-  document.getElementById('edit-name').value    = u.name;
-  document.getElementById('edit-email').value   = u.email;
-  document.getElementById('edit-role').value    = u.role_id;
+  document.getElementById('edit-name').value     = u.name;
+  document.getElementById('edit-email').value    = u.email;
+  document.getElementById('edit-role').value     = u.role;
+  document.getElementById('edit-dept').value     = u.department_id ?? '';
   document.getElementById('edit-active').checked = u.is_active == 1;
-  document.getElementById('formEdit').action    = '/users/' + u.id + '/update';
+  document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
   new bootstrap.Modal(document.getElementById('modalEditUser')).show();
 }
+
+document.querySelectorAll('.btn-nonaktif').forEach(btn => {
+  btn.addEventListener('click', async function () {
+    if (!confirm('Nonaktifkan user ini?')) return;
+    const res = await fetch(this.dataset.url, { method: 'POST' });
+    const d   = await res.json();
+    if (d.success) {
+      const row = document.getElementById('row-' + this.dataset.id);
+      if (row) row.querySelector('.badge').outerHTML = '<span class="badge bg-secondary-lt">Nonaktif</span>';
+      this.remove();
+    } else {
+      alert(d.message || 'Gagal menonaktifkan user');
+    }
+  });
+});
 </script>
