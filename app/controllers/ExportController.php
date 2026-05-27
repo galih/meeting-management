@@ -35,27 +35,29 @@ class ExportController
              FROM tindak_lanjut tl
              LEFT JOIN users u ON u.id = tl.assigned_to
              WHERE tl.meeting_id = ?
-             ORDER BY tl.priority DESC, tl.deadline ASC",
+             ORDER BY tl.priority DESC, tl.due_date ASC",
             [$meetingId]
         );
 
         $user = Auth::user();
 
-        // Log export
-        Database::getInstance()->prepare(
-            "INSERT INTO notulen_exports (meeting_id, exported_by, format)
-             VALUES (?, ?, 'pdf')"
-        )->execute([$meetingId, $user['id']]);
+        // Log export (tabel opsional — abaikan jika belum ada)
+        try {
+            Database::getInstance()->prepare(
+                "INSERT INTO notulen_exports (meeting_id, exported_by, format)
+                 VALUES (?, ?, 'pdf')"
+            )->execute([$meetingId, $user['id']]);
+        } catch (\PDOException) {
+            // tabel notulen_exports belum ada, lanjut
+        }
 
         $html = PdfExporter::export($meeting, $notulen, $participants, $tindakLanjutList, $user);
 
-        // Jika mPDF tersedia: redirect ke file, jika tidak: render HTML langsung
         if (str_starts_with($html, '/exports/')) {
             header('Content-Type: application/pdf');
             header('Content-Disposition: attachment; filename="notulen-' . $meetingId . '.pdf"');
             readfile(ROOT_PATH . '/public' . $html);
         } else {
-            // HTML printable — buka di tab baru
             echo $html;
         }
         exit;
