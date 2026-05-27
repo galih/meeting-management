@@ -1,13 +1,12 @@
-# Root .htaccess — arahkan semua request ke /public
-# Pastikan mod_rewrite aktif di server
+# Root .htaccess — subfolder: domain.com/wicara/
 RewriteEngine On
 
-# Jangan redirect jika request sudah ke /public
-RewriteCond %{REQUEST_URI} !^/public/
+# Jangan redirect jika sudah ke /wicara/public
+RewriteCond %{REQUEST_URI} !^/wicara/public/
 
-# Jangan redirect file/folder yang benar-benar ada di root
+# Jangan redirect file/folder yang benar-benar ada
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Teruskan semua request ke /public
-RewriteRule ^(.*)$ public/$1 [L,QSA]
+# Teruskan ke /wicara/public
+RewriteRule ^(.*)$ /wicara/public/$1 [L,QSA]
