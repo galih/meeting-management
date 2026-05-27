@@ -1,11 +1,11 @@
 <?php
 /**
- * Meeting Management App — Web Installer v1.4.0
+ * Meeting Management App — Web Installer v1.5.0
  * Letakkan file ini di root folder, buka via browser sekali saja.
  * Hapus file ini setelah instalasi selesai!
  */
 
-define('INSTALLER_VERSION', '1.4.0');
+define('INSTALLER_VERSION', '1.5.0');
 define('MIN_PHP', '8.1.0');
 
 session_start();
@@ -57,7 +57,6 @@ function createDatabase(PDO $pdo, string $dbname): void {
 function importSqlFile(PDO $pdo, string $filePath): bool|string {
     if (!file_exists($filePath)) return "File tidak ditemukan: {$filePath}";
     $sql = file_get_contents($filePath);
-    // Hapus komentar SQL
     $sql = preg_replace('/--[^\n]*/', '', $sql);
     $sql = preg_replace('#/\*.*?\*/#s', '', $sql);
     $statements = array_filter(array_map('trim', explode(';', $sql)));
@@ -71,15 +70,10 @@ function importSqlFile(PDO $pdo, string $filePath): bool|string {
     }
 }
 
-/**
- * Hanya impor schema.sql terpadu (sudah mencakup semua sprint).
- * File sprint terpisah hanya untuk upgrade manual instance lama.
- */
 function importAllSchemas(PDO $pdo): array {
     $files = [
         'Schema utama' => __DIR__ . '/database/schema.sql',
     ];
-
     $results = [];
     foreach ($files as $label => $path) {
         if (!file_exists($path)) {
@@ -140,11 +134,9 @@ function writeMailConfig(array $cfg): bool {
     $smtpUser  = addslashes($cfg['smtp_user']  ?? '');
     $smtpPass  = addslashes($cfg['smtp_pass']  ?? '');
     $smtpSec   = $cfg['smtp_secure']           ?? 'tls';
-
     $content = <<<PHP
 <?php
 // Konfigurasi Email — di-generate oleh Installer
-// Jangan commit file ini ke repository!
 return [
     'driver'      => '{$driver}',
     'from_email'  => '{$fromEmail}',
@@ -162,8 +154,8 @@ PHP;
 function updateAdminUser(PDO $pdo, array $admin): void {
     $hash = password_hash($admin['password'], PASSWORD_BCRYPT, ['cost' => 12]);
     $pdo->prepare(
-        "UPDATE users SET name=?, email=?, password=? WHERE role='admin' LIMIT 1"
-    )->execute([$admin['name'], $admin['email'], $hash]);
+        "UPDATE users SET username=?, name=?, email=?, password=? WHERE role='admin' LIMIT 1"
+    )->execute([$admin['username'], $admin['name'], $admin['email'], $hash]);
 }
 
 function isInstalled(): bool {
@@ -177,7 +169,6 @@ $step    = (int) ($_GET['step'] ?? 1);
 $errors  = [];
 $success = [];
 
-// Step 2 — Test koneksi DB
 if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $dbCfg = [
         'host'     => trim($_POST['db_host']  ?? 'localhost'),
@@ -195,16 +186,16 @@ if ($step === 2 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Step 3 — Simpan config App + Admin + Email
 if ($step === 3 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $_SESSION['installer_app'] = [
         'app_name' => trim($_POST['app_name'] ?? 'Meeting Management App'),
         'app_url'  => rtrim(trim($_POST['app_url'] ?? ''), '/'),
     ];
     $_SESSION['installer_admin'] = [
-        'name'     => trim($_POST['admin_name']  ?? 'Administrator'),
-        'email'    => trim($_POST['admin_email'] ?? ''),
-        'password' => $_POST['admin_password']   ?? '',
+        'username' => trim($_POST['admin_username'] ?? 'admin'),
+        'name'     => trim($_POST['admin_name']     ?? 'Administrator'),
+        'email'    => trim($_POST['admin_email']    ?? ''),
+        'password' => $_POST['admin_password']      ?? '',
     ];
     $_SESSION['installer_mail'] = [
         'driver'      => $_POST['mail_driver']    ?? 'mail',
@@ -217,17 +208,16 @@ if ($step === 3 && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'smtp_pass'   => $_POST['smtp_pass']      ?? '',
     ];
     $errs = [];
+    if (empty($_SESSION['installer_admin']['username']))      $errs[] = 'Username admin wajib diisi.';
+    if (!preg_match('/^[a-z0-9_]{3,50}$/i', $_SESSION['installer_admin']['username']))
+        $errs[] = 'Username hanya boleh huruf, angka, dan underscore (3–50 karakter).';
     if (empty($_SESSION['installer_admin']['email']))         $errs[] = 'Email admin wajib diisi.';
     if (strlen($_SESSION['installer_admin']['password']) < 8) $errs[] = 'Password minimal 8 karakter.';
     if ($_POST['admin_password'] !== $_POST['admin_password_confirm']) $errs[] = 'Konfirmasi password tidak cocok.';
-    if ($errs) {
-        $errors = $errs;
-    } else {
-        header('Location: install.php?step=4'); exit;
-    }
+    if ($errs) { $errors = $errs; }
+    else { header('Location: install.php?step=4'); exit; }
 }
 
-// Step 4 — Eksekusi instalasi
 if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $dbCfg    = $_SESSION['installer_db']    ?? [];
     $appCfg   = $_SESSION['installer_app']   ?? [];
@@ -235,17 +225,13 @@ if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $mailCfg  = $_SESSION['installer_mail']  ?? [];
 
     try {
-        // 1. Koneksi tanpa DB name
         $dsn = "mysql:host={$dbCfg['host']};port={$dbCfg['port']};charset=utf8mb4";
         $pdo = new PDO($dsn, $dbCfg['username'], $dbCfg['password'], [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         ]);
-
-        // 2. Buat database
         createDatabase($pdo, $dbCfg['dbname']);
         $success[] = 'Database <strong>' . htmlspecialchars($dbCfg['dbname']) . '</strong> siap.';
 
-        // 3. Import schema terpadu (schema.sql sudah mencakup semua fitur)
         $importResults = importAllSchemas($pdo);
         foreach ($importResults as $r) {
             if ($r['status'] === 'error') throw new Exception("Import {$r['label']} gagal: {$r['msg']}");
@@ -253,33 +239,28 @@ if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $success[] = "{$icon} {$r['label']}: {$r['msg']}";
         }
 
-        // 4. Update akun admin
         updateAdminUser($pdo, $adminCfg);
         $success[] = 'Akun admin berhasil dikonfigurasi.';
 
-        // 5. Tulis config files
-        if (!writeDbConfig($dbCfg))   throw new Exception('Gagal menulis app/config/database.php — cek permission folder.');
+        if (!writeDbConfig($dbCfg))   throw new Exception('Gagal menulis app/config/database.php.');
         $success[] = 'File <code>app/config/database.php</code> berhasil dibuat.';
 
-        if (!writeAppConfig($appCfg)) throw new Exception('Gagal menulis app/config/app.php — cek permission folder.');
+        if (!writeAppConfig($appCfg)) throw new Exception('Gagal menulis app/config/app.php.');
         $success[] = 'File <code>app/config/app.php</code> berhasil dibuat.';
 
         if (!empty($mailCfg['driver']) && $mailCfg['driver'] !== 'skip') {
-            if (!writeMailConfig($mailCfg)) throw new Exception('Gagal menulis app/config/mail.php — cek permission folder.');
+            if (!writeMailConfig($mailCfg)) throw new Exception('Gagal menulis app/config/mail.php.');
             $success[] = 'File <code>app/config/mail.php</code> berhasil dibuat.';
         } else {
-            $success[] = '⏭️ Konfigurasi email dilewati (bisa diatur manual nanti).';
+            $success[] = '⏭️ Konfigurasi email dilewati.';
         }
 
-        // 6. Buat folder uploads
         $uploadDir = __DIR__ . '/public/uploads/attachments';
         if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
         $success[] = 'Folder <code>public/uploads/attachments</code> siap.';
 
-        // 7. Bersihkan session installer
         unset($_SESSION['installer_db'], $_SESSION['installer_app'],
               $_SESSION['installer_admin'], $_SESSION['installer_mail']);
-
         $step = 5;
 
     } catch (Exception $e) {
@@ -288,7 +269,6 @@ if ($step === 4 && $_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ─── Requirement Check ──────────────────────────────────────────────────────
 $phpOk         = version_compare(PHP_VERSION, MIN_PHP, '>=');
 $missingExts   = checkPhpExtensions();
 $writablePaths = checkWritable();
@@ -308,16 +288,13 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
   <title>Installer &mdash; Meeting Management App</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/css/tabler.min.css">
   <style>
-    body { background: #f4f6fb; }
-    .installer-wrap { max-width: 700px; margin: 48px auto; padding: 0 16px; }
+    body { background:#f4f6fb; }
+    .installer-wrap { max-width:700px; margin:48px auto; padding:0 16px; }
     .step-header { display:flex; gap:8px; margin-bottom:32px; }
-    .step-item {
-      flex:1; text-align:center; padding:10px 6px;
-      border-radius:8px; font-size:13px; font-weight:600;
-      background:#fff; border:2px solid #e5e7eb; color:#9ca3af;
-    }
-    .step-item.active  { border-color:#f76707; color:#f76707; background:#fff7ed; }
-    .step-item.done    { border-color:#22c55e; color:#22c55e; background:#f0fdf4; }
+    .step-item { flex:1; text-align:center; padding:10px 6px; border-radius:8px; font-size:13px;
+                 font-weight:600; background:#fff; border:2px solid #e5e7eb; color:#9ca3af; }
+    .step-item.active { border-color:#f76707; color:#f76707; background:#fff7ed; }
+    .step-item.done   { border-color:#22c55e; color:#22c55e; background:#f0fdf4; }
     .step-num { display:block; font-size:20px; font-weight:800; }
     .btn-primary { background:#f76707!important; border-color:#f76707!important; }
     .btn-primary:hover { background:#e8600a!important; }
@@ -330,7 +307,6 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
 <body>
 <div class="installer-wrap">
 
-  <!-- Header -->
   <div class="text-center mb-4">
     <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 24 24"
          fill="none" stroke="#f76707" stroke-width="2">
@@ -342,83 +318,52 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
     <p class="text-muted">Web Installer v<?= INSTALLER_VERSION ?></p>
   </div>
 
-  <!-- Step Indicator -->
   <div class="step-header">
     <?php
     $steps = ['Cek Sistem','Database','Konfigurasi','Instalasi','Selesai'];
     foreach ($steps as $i => $label):
-      $n   = $i + 1;
-      $cls = $n < $step ? 'done' : ($n === $step ? 'active' : '');
+      $n = $i + 1; $cls = $n < $step ? 'done' : ($n === $step ? 'active' : '');
     ?>
     <div class="step-item <?= $cls ?>">
-      <span class="step-num"><?= $n < $step ? '✓' : $n ?></span>
-      <?= $label ?>
+      <span class="step-num"><?= $n < $step ? '✓' : $n ?></span><?= $label ?>
     </div>
     <?php endforeach; ?>
   </div>
 
-  <!-- ── STEP 1: Cek Sistem ──────────────────────────────────────────────── -->
   <?php if ($step === 1): ?>
+  <!-- STEP 1 -->
   <div class="card shadow-sm">
     <div class="card-header"><h3 class="card-title">Pemeriksaan Sistem</h3></div>
     <div class="card-body">
-
       <table class="table table-sm mb-0">
         <tbody>
-          <tr>
-            <td>Versi PHP</td>
-            <td><code><?= PHP_VERSION ?></code></td>
-            <td><?= $phpOk
-              ? '<span class="badge bg-green">OK</span>'
-              : '<span class="badge bg-red">Butuh '.MIN_PHP.'+</span>' ?></td>
-          </tr>
+          <tr><td>Versi PHP</td><td><code><?= PHP_VERSION ?></code></td>
+            <td><?= $phpOk ? '<span class="badge bg-green">OK</span>' : '<span class="badge bg-red">Butuh '.MIN_PHP.'+</span>' ?></td></tr>
           <?php foreach (['pdo','pdo_mysql','mbstring','openssl','json','fileinfo'] as $ext): ?>
-          <tr>
-            <td>Ekstensi <code><?= $ext ?></code></td>
-            <td></td>
-            <td><?= extension_loaded($ext)
-              ? '<span class="badge bg-green">Aktif</span>'
-              : '<span class="badge bg-red">Tidak Ada</span>' ?></td>
-          </tr>
+          <tr><td>Ekstensi <code><?= $ext ?></code></td><td></td>
+            <td><?= extension_loaded($ext) ? '<span class="badge bg-green">Aktif</span>' : '<span class="badge bg-red">Tidak Ada</span>' ?></td></tr>
           <?php endforeach; ?>
           <?php foreach ($writablePaths as $path => $ok): ?>
-          <tr>
-            <td>Folder <code><?= $path ?>/</code></td>
-            <td><small class="text-muted">Writable</small></td>
-            <td><?= $ok
-              ? '<span class="badge bg-green">OK</span>'
-              : '<span class="badge bg-red">Tidak Writable</span>' ?></td>
-          </tr>
+          <tr><td>Folder <code><?= $path ?>/</code></td><td><small class="text-muted">Writable</small></td>
+            <td><?= $ok ? '<span class="badge bg-green">OK</span>' : '<span class="badge bg-red">Tidak Writable</span>' ?></td></tr>
           <?php endforeach; ?>
         </tbody>
       </table>
-
       <?php if (!$allWritable): ?>
       <div class="alert alert-warning mt-3">
-        Jalankan perintah berikut via SSH atau File Manager cPanel:
-        <pre class="mb-0 mt-1">chmod 755 app/config public/assets public/uploads public/uploads/attachments</pre>
+        <pre class="mb-0">chmod 755 app/config public/assets public/uploads public/uploads/attachments</pre>
       </div>
       <?php endif; ?>
-
       <div class="mt-3">
         <div class="section-title">📁 File Schema Database</div>
-        <?php
-        $sqlFiles = [
-            'database/schema.sql' => 'Schema Utama (mencakup semua fitur)',
-        ];
-        foreach ($sqlFiles as $file => $label): ?>
-        <div class="d-flex justify-content-between small py-1 border-bottom">
-          <span><?= $label ?> <code class="text-muted">(<?= $file ?>)</code></span>
-          <?= file_exists($file)
+        <div class="d-flex justify-content-between small py-1">
+          <span>Schema Utama <code class="text-muted">(database/schema.sql)</code></span>
+          <?= file_exists('database/schema.sql')
             ? '<span class="badge bg-green-lt text-green">✓ Ada</span>'
             : '<span class="badge bg-red-lt text-red">✗ Tidak Ditemukan</span>' ?>
         </div>
-        <?php endforeach; ?>
-        <small class="text-muted mt-1 d-block">
-          ℹ️ File sprint migration (sprint1–sprint4) hanya diperlukan untuk upgrade instance lama, bukan fresh install.
-        </small>
+        <small class="text-muted">File sprint migration hanya untuk upgrade instance lama, bukan fresh install.</small>
       </div>
-
     </div>
     <div class="card-footer text-end">
       <?php if ($canProceed): ?>
@@ -430,37 +375,30 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
     </div>
   </div>
 
-  <!-- ── STEP 2: Konfigurasi Database ──────────────────────────────────── -->
   <?php elseif ($step === 2): ?>
+  <!-- STEP 2 -->
   <div class="card shadow-sm">
     <div class="card-header"><h3 class="card-title">Konfigurasi Database</h3></div>
     <form method="POST" action="install.php?step=2">
       <div class="card-body">
-        <?php if ($errors): ?>
-        <div class="alert alert-danger"><?= implode('<br>', $errors) ?></div>
-        <?php endif; ?>
+        <?php if ($errors): ?><div class="alert alert-danger"><?= implode('<br>', $errors) ?></div><?php endif; ?>
         <div class="row g-3">
           <div class="col-md-8">
             <label class="form-label required">Host Database</label>
-            <input type="text" name="db_host" class="form-control" required
-                   value="<?= htmlspecialchars($dbCfgSession['host'] ?? 'localhost') ?>">
+            <input type="text" name="db_host" class="form-control" required value="<?= htmlspecialchars($dbCfgSession['host'] ?? 'localhost') ?>">
           </div>
           <div class="col-md-4">
             <label class="form-label required">Port</label>
-            <input type="number" name="db_port" class="form-control" required
-                   value="<?= htmlspecialchars($dbCfgSession['port'] ?? '3306') ?>">
+            <input type="number" name="db_port" class="form-control" required value="<?= htmlspecialchars($dbCfgSession['port'] ?? '3306') ?>">
           </div>
           <div class="col-12">
             <label class="form-label required">Nama Database</label>
-            <input type="text" name="db_name" class="form-control" required
-                   placeholder="Contoh: meetingapp_db"
-                   value="<?= htmlspecialchars($dbCfgSession['dbname'] ?? '') ?>">
+            <input type="text" name="db_name" class="form-control" required placeholder="Contoh: meetingapp_db" value="<?= htmlspecialchars($dbCfgSession['dbname'] ?? '') ?>">
             <small class="text-muted">Database akan dibuat otomatis jika belum ada.</small>
           </div>
           <div class="col-md-6">
             <label class="form-label required">Username Database</label>
-            <input type="text" name="db_user" class="form-control" required
-                   value="<?= htmlspecialchars($dbCfgSession['username'] ?? '') ?>">
+            <input type="text" name="db_user" class="form-control" required value="<?= htmlspecialchars($dbCfgSession['username'] ?? '') ?>">
           </div>
           <div class="col-md-6">
             <label class="form-label">Password Database</label>
@@ -475,53 +413,51 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
     </form>
   </div>
 
-  <!-- ── STEP 3: Konfigurasi App + Admin + Email ───────────────────────── -->
   <?php elseif ($step === 3): ?>
+  <!-- STEP 3 -->
   <div class="card shadow-sm">
     <div class="card-header"><h3 class="card-title">Konfigurasi Aplikasi, Admin & Email</h3></div>
     <form method="POST" action="install.php?step=3">
       <div class="card-body">
-        <?php if ($errors): ?>
-        <div class="alert alert-danger"><?= implode('<br>', $errors) ?></div>
-        <?php endif; ?>
+        <?php if ($errors): ?><div class="alert alert-danger"><?= implode('<br>', $errors) ?></div><?php endif; ?>
 
         <div class="section-title">⚙️ Pengaturan Aplikasi</div>
         <div class="row g-3">
           <div class="col-12">
             <label class="form-label required">Nama Aplikasi</label>
-            <input type="text" name="app_name" class="form-control" required
-                   value="<?= htmlspecialchars($appCfgSession['app_name'] ?? 'Meeting Management App') ?>">
+            <input type="text" name="app_name" class="form-control" required value="<?= htmlspecialchars($appCfgSession['app_name'] ?? 'Meeting Management App') ?>">
           </div>
           <div class="col-12">
             <label class="form-label required">URL Aplikasi</label>
-            <input type="url" name="app_url" class="form-control" required
-                   placeholder="https://domain.com"
-                   value="<?= htmlspecialchars($appCfgSession['app_url'] ?? 'http://'.$_SERVER['HTTP_HOST']) ?>">
+            <input type="url" name="app_url" class="form-control" required placeholder="https://domain.com" value="<?= htmlspecialchars($appCfgSession['app_url'] ?? 'http://'.$_SERVER['HTTP_HOST']) ?>">
           </div>
         </div>
 
         <div class="section-title">👤 Akun Admin</div>
         <div class="row g-3">
-          <div class="col-12">
-            <label class="form-label required">Nama Admin</label>
-            <input type="text" name="admin_name" class="form-control" required
-                   value="<?= htmlspecialchars($adminCfgSession['name'] ?? 'Administrator') ?>">
+          <div class="col-md-6">
+            <label class="form-label required">Username Admin</label>
+            <input type="text" name="admin_username" class="form-control" required
+                   placeholder="Contoh: admin" pattern="[a-zA-Z0-9_]{3,50}"
+                   value="<?= htmlspecialchars($adminCfgSession['username'] ?? 'admin') ?>">
+            <small class="text-muted">3–50 karakter, huruf/angka/underscore. Digunakan untuk login.</small>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label required">Nama Lengkap</label>
+            <input type="text" name="admin_name" class="form-control" required value="<?= htmlspecialchars($adminCfgSession['name'] ?? 'Administrator') ?>">
           </div>
           <div class="col-12">
             <label class="form-label required">Email Admin</label>
-            <input type="email" name="admin_email" class="form-control" required
-                   placeholder="admin@domain.com"
-                   value="<?= htmlspecialchars($adminCfgSession['email'] ?? '') ?>">
+            <input type="email" name="admin_email" class="form-control" required placeholder="admin@domain.com" value="<?= htmlspecialchars($adminCfgSession['email'] ?? '') ?>">
+            <small class="text-muted">Digunakan untuk menerima link reset password.</small>
           </div>
           <div class="col-md-6">
-            <label class="form-label required">Password Admin</label>
-            <input type="password" name="admin_password" class="form-control"
-                   required minlength="8" placeholder="Minimal 8 karakter">
+            <label class="form-label required">Password</label>
+            <input type="password" name="admin_password" class="form-control" required minlength="8" placeholder="Minimal 8 karakter">
           </div>
           <div class="col-md-6">
             <label class="form-label required">Konfirmasi Password</label>
-            <input type="password" name="admin_password_confirm" class="form-control"
-                   required minlength="8">
+            <input type="password" name="admin_password_confirm" class="form-control" required minlength="8">
           </div>
         </div>
 
@@ -531,55 +467,35 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
             <label class="form-label">Driver Email</label>
             <select name="mail_driver" class="form-select" id="mail-driver">
               <option value="skip" <?= ($mailCfgSession['driver']??'skip')==='skip'?'selected':'' ?>>⏭️ Lewati (atur manual nanti)</option>
-              <option value="mail" <?= ($mailCfgSession['driver']??'')==='mail'?'selected':'' ?>>📧 PHP mail() — Shared Hosting</option>
+              <option value="mail" <?= ($mailCfgSession['driver']??'')==='mail'?'selected':'' ?>>📧 PHP mail()</option>
               <option value="smtp" <?= ($mailCfgSession['driver']??'')==='smtp'?'selected':'' ?>>🔐 SMTP — Gmail / Mailgun / Custom</option>
             </select>
           </div>
           <div class="col-md-7" id="field-from-email">
             <label class="form-label">Email Pengirim</label>
-            <input type="email" name="mail_from" class="form-control"
-                   placeholder="noreply@domain.com"
-                   value="<?= htmlspecialchars($mailCfgSession['from_email'] ?? '') ?>">
+            <input type="email" name="mail_from" class="form-control" placeholder="noreply@domain.com" value="<?= htmlspecialchars($mailCfgSession['from_email'] ?? '') ?>">
           </div>
           <div class="col-md-5" id="field-from-name">
             <label class="form-label">Nama Pengirim</label>
-            <input type="text" name="mail_name" class="form-control"
-                   value="<?= htmlspecialchars($mailCfgSession['from_name'] ?? 'Meeting Management App') ?>">
+            <input type="text" name="mail_name" class="form-control" value="<?= htmlspecialchars($mailCfgSession['from_name'] ?? 'Meeting Management App') ?>">
           </div>
           <div class="col-12 smtp-fields" id="smtp-fields">
             <div class="row g-2">
-              <div class="col-md-6">
-                <label class="form-label">SMTP Host</label>
-                <input type="text" name="smtp_host" class="form-control"
-                       placeholder="smtp.gmail.com"
-                       value="<?= htmlspecialchars($mailCfgSession['smtp_host'] ?? '') ?>">
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Port</label>
-                <input type="number" name="smtp_port" class="form-control"
-                       value="<?= htmlspecialchars($mailCfgSession['smtp_port'] ?? '587') ?>">
-              </div>
-              <div class="col-md-3">
-                <label class="form-label">Enkripsi</label>
+              <div class="col-md-6"><label class="form-label">SMTP Host</label>
+                <input type="text" name="smtp_host" class="form-control" placeholder="smtp.gmail.com" value="<?= htmlspecialchars($mailCfgSession['smtp_host'] ?? '') ?>"></div>
+              <div class="col-md-3"><label class="form-label">Port</label>
+                <input type="number" name="smtp_port" class="form-control" value="<?= htmlspecialchars($mailCfgSession['smtp_port'] ?? '587') ?>"></div>
+              <div class="col-md-3"><label class="form-label">Enkripsi</label>
                 <select name="smtp_secure" class="form-select">
                   <option value="tls" <?= ($mailCfgSession['smtp_secure']??'tls')==='tls'?'selected':'' ?>>TLS (587)</option>
                   <option value="ssl" <?= ($mailCfgSession['smtp_secure']??'')==='ssl'?'selected':'' ?>>SSL (465)</option>
-                </select>
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">SMTP Username</label>
-                <input type="text" name="smtp_user" class="form-control"
-                       placeholder="email@gmail.com"
-                       value="<?= htmlspecialchars($mailCfgSession['smtp_user'] ?? '') ?>">
-              </div>
-              <div class="col-md-6">
-                <label class="form-label">SMTP Password / App Password</label>
-                <input type="password" name="smtp_pass" class="form-control">
-              </div>
+                </select></div>
+              <div class="col-md-6"><label class="form-label">SMTP Username</label>
+                <input type="text" name="smtp_user" class="form-control" placeholder="email@gmail.com" value="<?= htmlspecialchars($mailCfgSession['smtp_user'] ?? '') ?>"></div>
+              <div class="col-md-6"><label class="form-label">SMTP Password</label>
+                <input type="password" name="smtp_pass" class="form-control"></div>
             </div>
-            <small class="text-muted">
-              💡 Gmail: aktifkan <em>2-Step Verification</em> lalu buat <em>App Password</em> di pengaturan akun Google.
-            </small>
+            <small class="text-muted">💡 Gmail: aktifkan 2-Step Verification lalu buat App Password.</small>
           </div>
         </div>
       </div>
@@ -590,58 +506,36 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
     </form>
   </div>
 
-  <!-- ── STEP 4: Konfirmasi & Eksekusi ─────────────────────────────────── -->
   <?php elseif ($step === 4): ?>
+  <!-- STEP 4 -->
   <div class="card shadow-sm">
     <div class="card-header"><h3 class="card-title">Konfirmasi Instalasi</h3></div>
     <div class="card-body">
-
-      <?php if ($errors): ?>
-      <div class="alert alert-danger mb-3"><?= implode('<br>', $errors) ?></div>
-      <?php endif; ?>
-
-      <p class="text-muted">Periksa kembali konfigurasi sebelum instalasi dijalankan:</p>
+      <?php if ($errors): ?><div class="alert alert-danger mb-3"><?= implode('<br>', $errors) ?></div><?php endif; ?>
+      <p class="text-muted">Periksa kembali sebelum instalasi dijalankan:</p>
 
       <div class="section-title">🗄️ Database</div>
       <table class="table table-sm mb-3">
-        <tr><th style="width:40%">Host</th><td><?= htmlspecialchars($dbCfgSession['host'] ?? '-') ?>:<?= htmlspecialchars($dbCfgSession['port'] ?? '-') ?></td></tr>
-        <tr><th>Nama Database</th><td><?= htmlspecialchars($dbCfgSession['dbname'] ?? '-') ?></td></tr>
-        <tr><th>Username</th><td><?= htmlspecialchars($dbCfgSession['username'] ?? '-') ?></td></tr>
+        <tr><th style="width:40%">Host</th><td><?= htmlspecialchars($dbCfgSession['host']??'-') ?>:<?= htmlspecialchars($dbCfgSession['port']??'-') ?></td></tr>
+        <tr><th>Nama Database</th><td><?= htmlspecialchars($dbCfgSession['dbname']??'-') ?></td></tr>
+        <tr><th>Username DB</th><td><?= htmlspecialchars($dbCfgSession['username']??'-') ?></td></tr>
       </table>
 
-      <div class="section-title">⚙️ Aplikasi</div>
+      <div class="section-title">⚙️ Aplikasi & Admin</div>
       <table class="table table-sm mb-3">
-        <tr><th style="width:40%">Nama Aplikasi</th><td><?= htmlspecialchars($appCfgSession['app_name'] ?? '-') ?></td></tr>
-        <tr><th>URL Aplikasi</th><td><?= htmlspecialchars($appCfgSession['app_url'] ?? '-') ?></td></tr>
-        <tr><th>Email Admin</th><td><?= htmlspecialchars($adminCfgSession['email'] ?? '-') ?></td></tr>
-      </table>
-
-      <div class="section-title">✉️ Email</div>
-      <table class="table table-sm mb-3">
-        <?php $mailD = $mailCfgSession['driver'] ?? 'skip'; ?>
-        <tr><th style="width:40%">Driver</th><td><?= $mailD === 'skip' ? '⏭️ Dilewati' : htmlspecialchars(strtoupper($mailD)) ?></td></tr>
-        <?php if ($mailD !== 'skip'): ?>
-        <tr><th>Dari Email</th><td><?= htmlspecialchars($mailCfgSession['from_email'] ?? '-') ?></td></tr>
-        <?php if ($mailD === 'smtp'): ?>
-        <tr><th>SMTP Host</th><td><?= htmlspecialchars($mailCfgSession['smtp_host'] ?? '-') ?>:<?= htmlspecialchars($mailCfgSession['smtp_port'] ?? '-') ?></td></tr>
-        <tr><th>SMTP User</th><td><?= htmlspecialchars($mailCfgSession['smtp_user'] ?? '-') ?></td></tr>
-        <?php endif; ?>
-        <?php endif; ?>
+        <tr><th style="width:40%">Nama Aplikasi</th><td><?= htmlspecialchars($appCfgSession['app_name']??'-') ?></td></tr>
+        <tr><th>URL Aplikasi</th><td><?= htmlspecialchars($appCfgSession['app_url']??'-') ?></td></tr>
+        <tr><th>Username Admin</th><td><strong><?= htmlspecialchars($adminCfgSession['username']??'-') ?></strong></td></tr>
+        <tr><th>Email Admin</th><td><?= htmlspecialchars($adminCfgSession['email']??'-') ?></td></tr>
       </table>
 
       <div class="section-title">📁 Yang Akan Diimport</div>
-      <?php
-      $sqlFiles = [
-          'database/schema.sql' => 'Schema Utama — semua tabel & relasi',
-      ];
-      foreach ($sqlFiles as $file => $label): ?>
       <div class="d-flex justify-content-between small py-1 border-bottom">
-        <span><?= $label ?></span>
-        <?= file_exists($file)
+        <span>Schema Utama — semua tabel & relasi</span>
+        <?= file_exists('database/schema.sql')
           ? '<span class="badge bg-green-lt text-green">✓ Siap diimport</span>'
           : '<span class="badge bg-red-lt text-red">✗ File tidak ditemukan!</span>' ?>
       </div>
-      <?php endforeach; ?>
 
       <div class="alert alert-warning mt-3">
         <strong>⚠️ Perhatian:</strong> Jika database sudah ada, semua data akan di-reset!
@@ -655,80 +549,65 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
     </div>
   </div>
 
-  <!-- ── STEP 5: Selesai ────────────────────────────────────────────────── -->
   <?php elseif ($step === 5): ?>
+  <!-- STEP 5 -->
   <div class="card shadow-sm border-0">
     <div class="card-body text-center py-5">
       <div style="font-size:64px;margin-bottom:16px;">🎉</div>
       <h2 class="fw-bold mb-2" style="color:#22c55e;">Instalasi Berhasil!</h2>
       <p class="text-muted mb-4">Aplikasi Meeting Management App siap digunakan.</p>
-
       <div class="text-start mb-4">
         <?php foreach ($success as $msg): ?>
         <div class="alert alert-success py-2 mb-1">✅ <?= $msg ?></div>
         <?php endforeach; ?>
       </div>
-
-      <div class="alert alert-danger text-start">
-        <strong>⚠️ Penting — Lakukan sekarang!</strong><br>
-        Hapus file <code>install.php</code> dari server Anda sebelum membuka aplikasi.
-        File ini bisa digunakan siapapun untuk me-reset seluruh data!
+      <div class="alert alert-info text-start">
+        <strong>🔑 Kredensial Login:</strong><br>
+        Username: <code><?= htmlspecialchars($adminCfgSession['username'] ?? 'admin') ?></code><br>
+        Password: <em>sesuai yang Anda isi di Step 3</em>
       </div>
-
+      <div class="alert alert-danger text-start">
+        <strong>⚠️ Penting!</strong> Hapus <code>install.php</code> sebelum membuka aplikasi!
+      </div>
       <div class="d-flex gap-2 justify-content-center mt-4">
-        <a href="<?= htmlspecialchars($appCfgSession['app_url'] ?? '/') ?>"
-           class="btn btn-primary btn-lg">
-          Buka Aplikasi &rarr;
-        </a>
-        <button onclick="deleteInstaller()" class="btn btn-outline-danger btn-lg">
-          🗑️ Hapus install.php
-        </button>
+        <a href="<?= htmlspecialchars($appCfgSession['app_url'] ?? '/') ?>" class="btn btn-primary btn-lg">Buka Aplikasi &rarr;</a>
+        <button onclick="deleteInstaller()" class="btn btn-outline-danger btn-lg">🗑️ Hapus install.php</button>
       </div>
     </div>
   </div>
-
   <script>
   function deleteInstaller() {
     if (!confirm('Hapus file install.php sekarang?')) return;
-    fetch('install.php?action=self_delete')
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          alert('install.php berhasil dihapus! ✅');
-          window.location.href = '<?= htmlspecialchars($appCfgSession['app_url'] ?? '/') ?>';
-        } else {
-          alert('Gagal hapus otomatis. Hapus manual via FTP / File Manager cPanel.');
-        }
-      });
+    fetch('install.php?action=self_delete').then(r=>r.json()).then(d=>{
+      if(d.success){alert('install.php berhasil dihapus! ✅');window.location.href='<?= htmlspecialchars($appCfgSession['app_url']??'/') ?>';}
+      else{alert('Gagal hapus otomatis. Hapus manual via FTP / File Manager.');}
+    });
   }
   </script>
   <?php endif; ?>
 
-</div><!-- /installer-wrap -->
-
+</div>
 <script>
-function toggleMailFields() {
-  const driver  = document.getElementById('mail-driver')?.value;
-  const smtp    = document.getElementById('smtp-fields');
-  const fromRow = document.getElementById('field-from-email');
-  const nameRow = document.getElementById('field-from-name');
-  if (!smtp) return;
-  smtp.style.display    = driver === 'smtp' ? '' : 'none';
-  fromRow.style.display = driver === 'skip' ? 'none' : '';
-  nameRow.style.display = driver === 'skip' ? 'none' : '';
+function toggleMailFields(){
+  const d=document.getElementById('mail-driver')?.value;
+  const s=document.getElementById('smtp-fields');
+  const f=document.getElementById('field-from-email');
+  const n=document.getElementById('field-from-name');
+  if(!s)return;
+  s.style.display=d==='smtp'?'':'none';
+  f.style.display=d==='skip'?'none':'';
+  n.style.display=d==='skip'?'none':'';
 }
-document.getElementById('mail-driver')?.addEventListener('change', toggleMailFields);
+document.getElementById('mail-driver')?.addEventListener('change',toggleMailFields);
 toggleMailFields();
 </script>
-
 <?php
-if (($_GET['action'] ?? '') === 'self_delete') {
+if(($_GET['action']??'')==='self_delete'){
     header('Content-Type: application/json');
-    echo json_encode(['success' => (bool) @unlink(__FILE__)]);
+    echo json_encode(['success'=>(bool)@unlink(__FILE__)]);
     exit;
 }
 ?>
-
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@latest/dist/js/tabler.min.js"></script>
 </body>
 </html>

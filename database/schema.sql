@@ -1,5 +1,5 @@
 -- ============================================================
--- Meeting Management App — Database Schema v1.4.0
+-- Meeting Management App — Database Schema v1.5.0
 -- MySQL 8+, charset utf8mb4
 --
 -- CATATAN: File ini dijalankan oleh installer SETELAH
@@ -9,6 +9,7 @@
 -- ── Users ──────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS users (
     id                   INT PRIMARY KEY AUTO_INCREMENT,
+    username             VARCHAR(50)   NOT NULL UNIQUE,
     name                 VARCHAR(100)  NOT NULL,
     email                VARCHAR(100)  NOT NULL UNIQUE,
     password             VARCHAR(255)  NOT NULL,
@@ -25,9 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Seed admin default (password: Admin@12345)
--- INSERT IGNORE: aman dijalankan ulang, tidak error jika sudah ada
-INSERT IGNORE INTO users (name, email, password, role) VALUES
-  ('Administrator', 'admin@meetingapp.id',
+INSERT IGNORE INTO users (username, name, email, password, role) VALUES
+  ('admin', 'Administrator', 'admin@meetingapp.id',
    '$2y$12$TKh8H1.PfunNGBz/znOlJuuBVZ7XMM/YpW5BWl8gBuIV9hWaX4Iye', 'admin');
 
 -- ── Departments ────────────────────────────────────────────
@@ -42,7 +42,6 @@ CREATE TABLE IF NOT EXISTS departments (
     FOREIGN KEY (head_id) REFERENCES users(id) ON DELETE SET NULL
 );
 
--- Tambah FK department ke users hanya jika belum ada
 SET @db = DATABASE();
 SET @fk_exists = (
     SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
@@ -255,7 +254,6 @@ CREATE TABLE IF NOT EXISTS recurring_participants (
     FOREIGN KEY (user_id)      REFERENCES users(id)
 );
 
--- Tambah FK recurring ke meetings hanya jika belum ada
 SET @db2 = DATABASE();
 SET @fk2_exists = (
     SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS

@@ -29,25 +29,24 @@ class AuthController
      */
     public static function login(): void
     {
-        $email    = trim($_POST['email']    ?? '');
-        $password = $_POST['password']      ?? '';
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password']       ?? '';
         $remember = !empty($_POST['remember']);
 
-        if (empty($email) || empty($password)) {
-            $_SESSION['flash_error'] = 'Email dan password wajib diisi.';
+        if (empty($username) || empty($password)) {
+            $_SESSION['flash_error'] = 'Username dan password wajib diisi.';
             header('Location: /login'); exit;
         }
 
         $user = Database::queryOne(
-            "SELECT * FROM users WHERE email=? AND is_active=1", [$email]
+            "SELECT * FROM users WHERE username=? AND is_active=1", [$username]
         );
 
         if (!$user || !password_verify($password, $user['password'])) {
-            $_SESSION['flash_error'] = 'Email atau password salah.';
+            $_SESSION['flash_error'] = 'Username atau password salah.';
             header('Location: /login'); exit;
         }
 
-        // Set session
         self::setSession($user);
 
         // Remember me — 30 hari
@@ -64,7 +63,6 @@ class AuthController
             "UPDATE users SET last_login=NOW() WHERE id=?"
         )->execute([$user['id']]);
 
-        // Redirect ke halaman sebelumnya jika ada
         $redirect = $_SESSION['redirect_after_login'] ?? '/';
         unset($_SESSION['redirect_after_login']);
         header('Location: ' . $redirect); exit;
@@ -87,12 +85,13 @@ class AuthController
 
     /**
      * GET|POST /forgot-password
+     * Reset via username (kirim link ke email terdaftar)
      */
     public static function forgotPassword(): void
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $email = trim($_POST['email'] ?? '');
-            $user  = Database::queryOne("SELECT * FROM users WHERE email=?", [$email]);
+            $username = trim($_POST['username'] ?? '');
+            $user     = Database::queryOne("SELECT * FROM users WHERE username=?", [$username]);
             if ($user) {
                 $token   = bin2hex(random_bytes(32));
                 $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
@@ -100,12 +99,13 @@ class AuthController
                     "UPDATE users SET reset_token=?, reset_token_expires=? WHERE id=?"
                 )->execute([$token, $expires, $user['id']]);
                 try {
-                    Mailer::send($email, 'Reset Password — ' . APP_NAME,
-                        "Klik link berikut untuk reset password:\n" . APP_URL . "/reset-password?token={$token}\n\nLink berlaku 1 jam."
+                    Mailer::send($user['email'], 'Reset Password — ' . APP_NAME,
+                        "Halo {$user['name']},\n\nKlik link berikut untuk reset password:\n"
+                        . APP_URL . "/reset-password?token={$token}\n\nLink berlaku 1 jam."
                     );
                 } catch (\Throwable) {}
             }
-            $_SESSION['flash_success'] = 'Jika email terdaftar, link reset akan dikirim ke inbox Anda.';
+            $_SESSION['flash_success'] = 'Jika username terdaftar, link reset akan dikirim ke email Anda.';
             header('Location: /forgot-password'); exit;
         }
         View::render('layouts/auth', 'auth/forgot_password', ['title' => 'Lupa Password']);
@@ -155,10 +155,11 @@ class AuthController
     private static function setSession(array $user): void
     {
         $_SESSION['user'] = [
-            'id'    => $user['id'],
-            'name'  => $user['name'],
-            'email' => $user['email'],
-            'role'  => $user['role'],
+            'id'       => $user['id'],
+            'username' => $user['username'],
+            'name'     => $user['name'],
+            'email'    => $user['email'],
+            'role'     => $user['role'],
         ];
     }
 }
