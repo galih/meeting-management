@@ -24,21 +24,21 @@ class AuthController
     // POST /login
     public static function login(): void
     {
-        $email    = trim($_POST['email']    ?? '');
+        $username = trim($_POST['username'] ?? '');
         $password = $_POST['password']      ?? '';
         $remember = !empty($_POST['remember']);
 
-        if (empty($email) || empty($password)) {
-            $_SESSION['login_error'] = 'Email dan password wajib diisi.';
+        if (empty($username) || empty($password)) {
+            $_SESSION['login_error'] = 'Username dan password wajib diisi.';
             header('Location: ' . BASE_URL . '/login'); exit;
         }
 
         $user = Database::queryOne(
-            "SELECT * FROM users WHERE email=? AND is_active=1", [$email]
+            "SELECT * FROM users WHERE username=? AND is_active=1", [$username]
         );
 
         if (!$user || !password_verify($password, $user['password'])) {
-            $_SESSION['login_error'] = 'Email atau password salah.';
+            $_SESSION['login_error'] = 'Username atau password salah.';
             header('Location: ' . BASE_URL . '/login'); exit;
         }
 
@@ -78,8 +78,8 @@ class AuthController
     public static function forgotPassword(): void
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $email = trim($_POST['email'] ?? '');
-            $user  = Database::queryOne("SELECT * FROM users WHERE email=?", [$email]);
+            $username = trim($_POST['username'] ?? '');
+            $user     = Database::queryOne("SELECT * FROM users WHERE username=?", [$username]);
             if ($user) {
                 $token   = bin2hex(random_bytes(32));
                 $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
@@ -93,7 +93,7 @@ class AuthController
                     );
                 } catch (\Throwable) {}
             }
-            $_SESSION['flash_success'] = 'Jika email terdaftar, link reset akan dikirim.';
+            $_SESSION['flash_success'] = 'Jika username terdaftar, link reset akan dikirim ke email Anda.';
             header('Location: ' . BASE_URL . '/forgot-password'); exit;
         }
         View::standalone('auth/forgot-password', ['title' => 'Lupa Password']);
@@ -140,10 +140,11 @@ class AuthController
     private static function setSession(array $user): void
     {
         $_SESSION['user'] = [
-            'id'    => $user['id'],
-            'name'  => $user['name'],
-            'email' => $user['email'],
-            'role'  => $user['role'],
+            'id'       => $user['id'],
+            'username' => $user['username'],
+            'name'     => $user['name'],
+            'email'    => $user['email'],
+            'role'     => $user['role'],
         ];
     }
 }

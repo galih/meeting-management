@@ -53,10 +53,10 @@ unset($_SESSION['flash_success']);
 
         <form method="POST" action="<?= BASE_URL ?>/login" autocomplete="on">
           <div class="mb-3">
-            <label class="form-label required">Alamat Email</label>
-            <input type="email" name="email" class="form-control" required
-                   placeholder="email@domain.com" autofocus
-                   value="<?= htmlspecialchars($_POST['email'] ?? '') ?>">
+            <label class="form-label required">Username</label>
+            <input type="text" name="username" class="form-control" required
+                   placeholder="Masukkan username" autofocus
+                   value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
           </div>
           <div class="mb-2">
             <label class="form-label">
@@ -69,7 +69,7 @@ unset($_SESSION['flash_success']);
               <input type="password" name="password" id="pwd"
                      class="form-control" required placeholder="Masukkan password">
               <span class="input-group-text" style="cursor:pointer;" onclick="togglePwd()">
-                <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16"
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"
                      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                   <circle cx="12" cy="12" r="3"/>
