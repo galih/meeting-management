@@ -1,4 +1,3 @@
 RewriteEngine On
-RewriteCond %{REQUEST_URI} !^/wicara/public/
-RewriteRule ^wicara/(.*)$ /wicara/public/$1 [L,QSA]
-RewriteRule ^$ /wicara/public/ [L,QSA]
+RewriteRule ^wicara/?$ /wicara/public/index.php [L,QSA]
+RewriteRule ^wicara/(?!public/)(.*)$ /wicara/public/$1 [L,QSA]

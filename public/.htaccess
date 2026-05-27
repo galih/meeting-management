@@ -1,10 +1,9 @@
 Options -Indexes
 RewriteEngine On
-RewriteBase /wicara/public/
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.php [QSA,L]
+RewriteRule ^ /wicara/public/index.php [L,QSA]
 
 <IfModule mod_headers.c>
     Header always set X-Content-Type-Options "nosniff"
