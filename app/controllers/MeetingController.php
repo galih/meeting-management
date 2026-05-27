@@ -4,11 +4,11 @@ class MeetingController
     public static function index(): void
     {
         Auth::requireAuth();
-        $search    = trim($_GET['search']  ?? '');
-        $status    = $_GET['status']       ?? '';
-        $dept      = $_GET['dept']         ?? '';
-        $dateFrom  = $_GET['date_from']    ?? '';
-        $dateTo    = $_GET['date_to']      ?? '';
+        $search   = trim($_GET['search']  ?? '');
+        $status   = $_GET['status']       ?? '';
+        $dept     = $_GET['dept']         ?? '';
+        $dateFrom = $_GET['date_from']    ?? '';
+        $dateTo   = $_GET['date_to']      ?? '';
 
         $where  = ['1=1'];
         $params = [];
@@ -18,8 +18,8 @@ class MeetingController
             $params[] = "%{$search}%";
             $params[] = "%{$search}%";
         }
-        if ($status) { $where[] = 'm.status = ?'; $params[] = $status; }
-        if ($dept)   { $where[] = 'm.department_id = ?'; $params[] = (int)$dept; }
+        if ($status)   { $where[] = 'm.status = ?';          $params[] = $status; }
+        if ($dept)     { $where[] = 'm.department_id = ?';   $params[] = (int)$dept; }
         if ($dateFrom) { $where[] = 'DATE(m.start_datetime) >= ?'; $params[] = $dateFrom; }
         if ($dateTo)   { $where[] = 'DATE(m.start_datetime) <= ?'; $params[] = $dateTo; }
 
@@ -103,21 +103,30 @@ class MeetingController
 
         $participants = Database::query(
             "SELECT u.id, u.name, u.email, u.avatar,
-                    COALESCE(ma.status, 'pending') AS attendance_status
+                    COALESCE(mp.status, 'invited') AS status
              FROM meeting_participants mp
              JOIN users u ON u.id = mp.user_id
-             LEFT JOIN meeting_attendances ma ON ma.meeting_id=mp.meeting_id AND ma.user_id=mp.user_id
              WHERE mp.meeting_id=?",
+            [$id]
+        );
+
+        $tindakLanjutList = Database::query(
+            "SELECT tl.*, u.name AS assigned_name
+             FROM tindak_lanjut tl
+             LEFT JOIN users u ON u.id = tl.assigned_to
+             WHERE tl.meeting_id = ?
+             ORDER BY tl.created_at DESC",
             [$id]
         );
 
         $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
         View::layout('meetings/show', [
-            'title'        => $meeting['title'],
-            'meeting'      => $meeting,
-            'participants' => $participants,
-            'users'        => $users,
+            'title'            => $meeting['title'],
+            'meeting'          => $meeting,
+            'participants'     => $participants,
+            'tindakLanjutList' => $tindakLanjutList,
+            'users'            => $users,
         ]);
     }
 
