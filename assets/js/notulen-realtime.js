@@ -2,6 +2,7 @@
    MEETING_ID, CURRENT_USER_ID, IS_EDITOR, INITIAL_CONTENT,
    SAVE_URL, SYNC_URL */
 
+let editor         = null;
 let currentVersion = 0;
 let isSyncing      = false;
 
@@ -19,54 +20,18 @@ function showToast(msg, type = 'info') {
   setTimeout(() => el.remove(), 4000);
 }
 
-// Parse INITIAL_CONTENT dengan aman — bisa berupa string JSON atau object
 function parseInitialContent() {
   try {
     if (!INITIAL_CONTENT || INITIAL_CONTENT === '{}' || INITIAL_CONTENT === '') return {};
     const parsed = (typeof INITIAL_CONTENT === 'string') ? JSON.parse(INITIAL_CONTENT) : INITIAL_CONTENT;
-    return (parsed && typeof parsed === 'object') ? parsed : {};
+    return (parsed && Array.isArray(parsed.blocks) && parsed.blocks.length > 0) ? parsed : {};
   } catch (e) {
     return {};
   }
 }
 
-const editor = new EditorJS({
-  holder:      'editorjs',
-  readOnly:    !IS_EDITOR,
-  placeholder: IS_EDITOR ? 'Mulai tulis notulen di sini...' : '',
-  tools: {
-    header:    { class: Header,    inlineToolbar: true, config: { levels: [2, 3, 4], defaultLevel: 2 } },
-    list:      { class: List,      inlineToolbar: true },
-    checklist: { class: Checklist, inlineToolbar: true },
-    table:     { class: Table,     config: { rows: 2, cols: 3 } }
-  },
-  data: parseInitialContent(),
-  onChange: IS_EDITOR ? debounce(async () => {
-    const saveStatus = document.getElementById('save-status');
-    if (saveStatus) saveStatus.textContent = 'Menyimpan...';
-    try {
-      const content = await editor.save();
-      const res = await fetch(SAVE_URL, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ meeting_id: MEETING_ID, content })
-      });
-      const data = await res.json();
-      if (data.success) {
-        if (data.version) currentVersion = data.version;
-        if (saveStatus) saveStatus.textContent = '\u2713 Tersimpan ' + new Date().toLocaleTimeString('id-ID');
-      } else {
-        if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
-      }
-    } catch (e) {
-      console.error('Save error:', e);
-      if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
-    }
-  }, 1500) : undefined
-});
-
 async function pollNotulen() {
-  if (isSyncing) return;
+  if (isSyncing || !editor) return;
   isSyncing = true;
   try {
     const res  = await fetch(`${SYNC_URL}?meeting_id=${MEETING_ID}&version=${currentVersion}`);
@@ -90,4 +55,53 @@ async function pollNotulen() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => pollNotulen());
+// Semua init di dalam DOMContentLoaded — pastikan DOM dan CDN sudah siap
+document.addEventListener('DOMContentLoaded', () => {
+
+  // Cek apakah EditorJS dan semua plugin berhasil di-load
+  if (typeof EditorJS === 'undefined') {
+    console.error('EditorJS gagal di-load dari CDN.');
+    const holder = document.getElementById('editorjs');
+    if (holder) holder.innerHTML = '<div class="alert alert-warning m-3">Editor tidak dapat di-load. Coba refresh halaman.</div>';
+    return;
+  }
+
+  editor = new EditorJS({
+    holder:      'editorjs',
+    readOnly:    !IS_EDITOR,
+    placeholder: IS_EDITOR ? 'Mulai tulis notulen di sini...' : '',
+    tools: {
+      header:    { class: Header,    inlineToolbar: true, config: { levels: [2, 3, 4], defaultLevel: 2 } },
+      list:      { class: List,      inlineToolbar: true },
+      checklist: { class: Checklist, inlineToolbar: true },
+      table:     { class: Table,     config: { rows: 2, cols: 3 } }
+    },
+    data: parseInitialContent(),
+    onReady: () => {
+      pollNotulen();
+    },
+    onChange: IS_EDITOR ? debounce(async () => {
+      const saveStatus = document.getElementById('save-status');
+      if (saveStatus) saveStatus.textContent = 'Menyimpan...';
+      try {
+        const content = await editor.save();
+        const res = await fetch(SAVE_URL, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ meeting_id: MEETING_ID, content })
+        });
+        const data = await res.json();
+        if (data.success) {
+          if (data.version) currentVersion = data.version;
+          if (saveStatus) saveStatus.textContent = '\u2713 Tersimpan ' + new Date().toLocaleTimeString('id-ID');
+        } else {
+          if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
+        }
+      } catch (e) {
+        console.error('Save error:', e);
+        if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
+      }
+    }, 1500) : undefined
+  });
+
+});
