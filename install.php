@@ -1,11 +1,11 @@
 <?php
 /**
- * Meeting Management App — Web Installer v1.6.0
+ * Meeting Management App — Web Installer v1.6.1
  * Letakkan file ini di root folder, buka via browser sekali saja.
  * Hapus file ini setelah instalasi selesai!
  */
 
-define('INSTALLER_VERSION', '1.6.0');
+define('INSTALLER_VERSION', '1.6.1');
 define('MIN_PHP', '8.1.0');
 
 session_start();
@@ -17,7 +17,7 @@ if (($_GET['action'] ?? '') === 'self_delete') {
     exit;
 }
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────
 
 function checkPhpExtensions(): array {
     $required = ['pdo', 'pdo_mysql', 'mbstring', 'openssl', 'json', 'fileinfo'];
@@ -86,13 +86,13 @@ function importSqlFile(PDO $pdo, string $filePath): bool|string {
  * Key HARUS sesuai dengan yang dibaca Database.php: host, name, user, pass, charset
  */
 function writeDbConfig(array $cfg): bool {
-    $host    = addslashes($cfg['host']);
-    $name    = addslashes($cfg['name']);
-    $user    = addslashes($cfg['user']);
-    $pass    = addslashes($cfg['pass']);
+    $host = addslashes($cfg['host']);
+    $name = addslashes($cfg['name']);
+    $user = addslashes($cfg['user']);
+    $pass = addslashes($cfg['pass']);
     $content = <<<PHP
 <?php
-// Konfigurasi Database — di-generate oleh Installer v<?= INSTALLER_VERSION ?>
+// Konfigurasi Database — di-generate oleh Installer
 // Jangan commit file ini ke repository!
 return [
     'host'    => '{$host}',
@@ -105,22 +105,26 @@ PHP;
     return (bool) file_put_contents(__DIR__ . '/app/config/database.php', $content);
 }
 
+/**
+ * Tulis app/config/app.php
+ * CATATAN: BASE_URL TIDAK di-define di sini karena sudah di-define
+ * secara otomatis di index.php berdasarkan $_SERVER['HTTP_HOST'].
+ */
 function writeAppConfig(array $cfg): bool {
-    $secret   = bin2hex(random_bytes(32));
-    $appName  = addslashes($cfg['app_name']);
-    $appUrl   = addslashes($cfg['app_url']);
-    $baseUrl  = addslashes(rtrim($cfg['app_url'], '/'));
-    $content  = <<<PHP
+    $secret  = bin2hex(random_bytes(32));
+    $appName = addslashes($cfg['app_name']);
+    $appUrl  = addslashes(rtrim($cfg['app_url'], '/'));
+    $content = <<<PHP
 <?php
-// Konfigurasi Aplikasi — di-generate oleh Installer
-define('APP_NAME',    '{$appName}');
-define('APP_URL',     '{$appUrl}');
-define('BASE_URL',    '{$baseUrl}');
-define('APP_ENV',     'production');
-define('APP_DEBUG',   false);
-define('APP_SECRET',  '{$secret}');
-define('APP_LOCALE',  'id');
-define('APP_TIMEZONE','Asia/Jakarta');
+// Konfigurasi Aplikasi — di-generate oleh Installer v<?= INSTALLER_VERSION ?>
+// BASE_URL di-define otomatis di index.php, jangan define ulang di sini!
+define('APP_NAME',     '{$appName}');
+define('APP_URL',      '{$appUrl}');
+define('APP_ENV',      'production');
+define('APP_DEBUG',    false);
+define('APP_SECRET',   '{$secret}');
+define('APP_LOCALE',   'id');
+define('APP_TIMEZONE', 'Asia/Jakarta');
 PHP;
     return (bool) file_put_contents(__DIR__ . '/app/config/app.php', $content);
 }
@@ -154,7 +158,6 @@ PHP;
 
 function updateAdminUser(PDO $pdo, array $admin): void {
     $hash = password_hash($admin['password'], PASSWORD_BCRYPT, ['cost' => 12]);
-    // Coba update dulu, kalau tidak ada row baru insert
     $stmt = $pdo->prepare("UPDATE users SET username=?, name=?, email=?, password=? WHERE role='admin' LIMIT 1");
     $stmt->execute([$admin['username'], $admin['name'], $admin['email'], $hash]);
     if ($stmt->rowCount() === 0) {
@@ -472,7 +475,7 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
             <input type="text" name="admin_username" class="form-control" required
                    placeholder="Contoh: admin" pattern="[a-zA-Z0-9_]{3,50}"
                    value="<?= htmlspecialchars($adminCfgSession['username'] ?? 'admin') ?>">
-            <small class="text-muted">3–50 karakter, huruf/angka/underscore. Digunakan untuk login.</small>
+            <small class="text-muted">3–50 karakter, huruf/angka/underscore.</small>
           </div>
           <div class="col-md-6">
             <label class="form-label required">Nama Lengkap</label>
@@ -482,7 +485,6 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
             <label class="form-label required">Email Admin</label>
             <input type="email" name="admin_email" class="form-control" required placeholder="admin@domain.com"
                    value="<?= htmlspecialchars($adminCfgSession['email'] ?? '') ?>">
-            <small class="text-muted">Digunakan untuk menerima link reset password.</small>
           </div>
           <div class="col-md-6">
             <label class="form-label required">Password</label>
@@ -497,9 +499,8 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
         <div class="section-title">✉️ Konfigurasi Email <small class="text-muted fw-normal">(opsional)</small></div>
         <div class="row g-3">
           <div class="col-12">
-            <label class="form-label">Driver Email</label>
             <select name="mail_driver" class="form-select" id="mail-driver">
-              <option value="skip" <?= ($mailCfgSession['driver']??'skip')==='skip'?'selected':''?>>⏭️ Lewati (atur manual nanti)</option>
+              <option value="skip" <?= ($mailCfgSession['driver']??'skip')==='skip'?'selected':''?>>⏭️ Lewati</option>
               <option value="mail" <?= ($mailCfgSession['driver']??'')==='mail'?'selected':''?>>📧 PHP mail()</option>
               <option value="smtp" <?= ($mailCfgSession['driver']??'')==='smtp'?'selected':''?>>🔐 SMTP</option>
             </select>
@@ -520,8 +521,7 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
                 <input type="number" name="smtp_port" class="form-control" value="<?= htmlspecialchars($mailCfgSession['smtp_port'] ?? '587') ?>"></div>
               <div class="col-md-3"><label class="form-label">Enkripsi</label>
                 <select name="smtp_secure" class="form-select">
-                  <option value="tls" <?= ($mailCfgSession['smtp_secure']??'tls')==='tls'?'selected':''?>>TLS</option>
-                  <option value="ssl" <?= ($mailCfgSession['smtp_secure']??'')==='ssl'?'selected':''?>>SSL</option>
+                  <option value="tls">TLS</option><option value="ssl">SSL</option>
                 </select></div>
               <div class="col-md-6"><label class="form-label">SMTP Username</label>
                 <input type="text" name="smtp_user" class="form-control" value="<?= htmlspecialchars($mailCfgSession['smtp_user'] ?? '') ?>"></div>
@@ -546,14 +546,12 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
       <?php if ($isReinstall): ?>
       <div class="alert alert-danger">⚠️ <strong>Mode Reinstall aktif.</strong> Semua data lama akan dihapus permanen!</div>
       <?php endif; ?>
-
       <div class="section-title">🗄️ Database</div>
       <table class="table table-sm mb-3">
         <tr><th style="width:40%">Host</th><td><?= htmlspecialchars($dbCfgSession['host']??'-') ?>:<?= htmlspecialchars($dbCfgSession['port']??'-') ?></td></tr>
         <tr><th>Nama Database</th><td><?= htmlspecialchars($dbCfgSession['name']??'-') ?></td></tr>
         <tr><th>Username DB</th><td><?= htmlspecialchars($dbCfgSession['user']??'-') ?></td></tr>
       </table>
-
       <div class="section-title">⚙️ Aplikasi & Admin</div>
       <table class="table table-sm mb-3">
         <tr><th style="width:40%">Nama Aplikasi</th><td><?= htmlspecialchars($appCfgSession['app_name']??'-') ?></td></tr>
@@ -561,13 +559,12 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
         <tr><th>Username Admin</th><td><strong><?= htmlspecialchars($adminCfgSession['username']??'-') ?></strong></td></tr>
         <tr><th>Email Admin</th><td><?= htmlspecialchars($adminCfgSession['email']??'-') ?></td></tr>
       </table>
-
       <div class="section-title">📁 Yang Akan Diimport</div>
-      <div class="d-flex justify-content-between small py-1 border-bottom">
-        <span>Schema Utama — semua tabel & relasi</span>
+      <div class="d-flex justify-content-between small py-1">
+        <span>Schema Utama</span>
         <?= file_exists('database/schema.sql')
-          ? '<span class="badge bg-green-lt text-green">✓ Siap diimport</span>'
-          : '<span class="badge bg-red-lt text-red">✗ File tidak ditemukan!</span>' ?>
+          ? '<span class="badge bg-green-lt text-green">✓ Siap</span>'
+          : '<span class="badge bg-red-lt text-red">✗ Tidak ditemukan</span>' ?>
       </div>
     </div>
     <div class="card-footer d-flex justify-content-between">
@@ -583,7 +580,7 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
     <div class="card-body text-center py-5">
       <div style="font-size:64px;margin-bottom:16px;">🎉</div>
       <h2 class="fw-bold mb-2" style="color:#22c55e;">Instalasi Berhasil!</h2>
-      <p class="text-muted mb-4">Aplikasi Meeting Management App siap digunakan.</p>
+      <p class="text-muted mb-4">Aplikasi siap digunakan.</p>
       <div class="text-start mb-4">
         <?php foreach ($success as $msg): ?>
         <div class="alert alert-success py-2 mb-1"><?= $msg ?></div>
@@ -617,14 +614,13 @@ $mailCfgSession  = $_SESSION['installer_mail']  ?? [];
 </div>
 <script>
 function toggleMailFields(){
-  const d = document.getElementById('mail-driver')?.value;
-  const s = document.getElementById('smtp-fields');
+  const d  = document.getElementById('mail-driver')?.value;
+  const s  = document.getElementById('smtp-fields');
   const fe = document.getElementById('field-from-email');
   const fn = document.getElementById('field-from-name');
   if (!s) return;
-  const showFrom = d !== 'skip';
-  fe.style.display = showFrom ? '' : 'none';
-  fn.style.display = showFrom ? '' : 'none';
+  fe.style.display = d !== 'skip' ? '' : 'none';
+  fn.style.display = d !== 'skip' ? '' : 'none';
   s.style.display  = d === 'smtp' ? '' : 'none';
 }
 document.getElementById('mail-driver')?.addEventListener('change', toggleMailFields);
