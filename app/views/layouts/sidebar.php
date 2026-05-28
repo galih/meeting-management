@@ -88,7 +88,6 @@ $appLogo = SettingController::get('app_logo');
         </li>
 
         <?php if (Auth::isAdmin()): ?>
-        <!-- Dropdown Administrasi (admin only) -->
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle <?= (isActive('/users',$currentUri) || isActive('/departments',$currentUri) || isActive('/recurring',$currentUri) || isActive('/settings',$currentUri)) ? 'active' : '' ?>"
              href="#" data-bs-toggle="dropdown" aria-expanded="false">
@@ -152,9 +151,7 @@ $appLogo = SettingController::get('app_logo');
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
-            <?php
-            $unreadCount = $user ? \Notification::countUnread((int)$user['id']) : 0;
-            ?>
+            <?php $unreadCount = $user ? \Notification::countUnread((int)$user['id']) : 0; ?>
             <?php if ($unreadCount > 0): ?>
             <span id="notif-badge" class="badge bg-danger badge-notification"
                   style="position:absolute;top:2px;right:2px;font-size:9px;min-width:16px;">
@@ -202,13 +199,29 @@ $appLogo = SettingController::get('app_logo');
             <div class="dropdown-header" style="font-size:11px;color:var(--text-muted);">
               <?= ucfirst($user['role'] ?? '') ?>
             </div>
-            <a href="<?= $baseUrl ?>/users" class="dropdown-item">Profil Saya</a>
+            <!-- Profil Saya → /profile untuk semua role -->
+            <a href="<?= $baseUrl ?>/profile" class="dropdown-item <?= isActive('/profile', $currentUri) ?>">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon me-2" width="15" height="15"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              Profil Saya
+            </a>
             <div class="dropdown-divider"></div>
-            <a href="<?= $baseUrl ?>/logout" class="dropdown-item text-danger">Logout</a>
+            <a href="<?= $baseUrl ?>/logout" class="dropdown-item text-danger">
+              <svg xmlns="http://www.w3.org/2000/svg" class="icon me-2" width="15" height="15"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Logout
+            </a>
           </div>
         </div>
 
       </div>
-    </div><!-- .navbar-collapse -->
-  </div><!-- .container-xl -->
+    </div>
+  </div>
 </header>

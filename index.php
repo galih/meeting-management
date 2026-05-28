@@ -52,6 +52,11 @@ $router->post('/reset-password', [AuthController::class, 'resetPassword']);
 // === DASHBOARD ===
 $router->get('/', [DashboardController::class, 'index']);
 
+// === PROFILE ===
+$router->get('/profile',                   [ProfileController::class, 'index']);
+$router->post('/profile/update',           [ProfileController::class, 'update']);
+$router->post('/profile/change-password',  [ProfileController::class, 'changePassword']);
+
 // === MEETINGS ===
 $router->get('/meetings',               [MeetingController::class, 'index']);
 $router->post('/meetings',              [MeetingController::class, 'store']);
@@ -127,7 +132,7 @@ $router->post('/api/settings/upload-login-bg',  [SettingController::class, 'uplo
 $router->post('/api/settings/remove-logo',      [SettingController::class, 'removeLogo']);
 $router->post('/api/settings/remove-login-bg',  [SettingController::class, 'removeLoginBg']);
 
-// ── Dispatch ──────────────────────────────────────────────────────────────────
+// ── Dispatch ──────────────────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
