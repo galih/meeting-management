@@ -15,32 +15,11 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css"/>
   <!-- FullCalendar -->
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet"/>
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css"/>
+  <!-- Custom CSS (tema utama — harus paling akhir agar tidak di-override) -->
+  <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css?v=<?= filemtime(ROOT_PATH . '/assets/css/custom.css') ?>">
 
   <!-- Page-specific <head> scripts/styles -->
   <?= $headScripts ?? '' ?>
-
-  <style>
-    :root {
-      --tblr-primary:        #f76707;
-      --tblr-primary-rgb:    247, 103, 7;
-      --tblr-link-color:     #f76707;
-      --tblr-link-hover-color: #e05e00;
-    }
-    .btn-primary  { background-color: #f76707 !important; border-color: #f76707 !important; }
-    .btn-primary:hover { background-color: #e05e00 !important; border-color: #e05e00 !important; }
-    .bg-primary   { background-color: #f76707 !important; }
-    .text-primary, .text-orange { color: #f76707 !important; }
-    .border-primary { border-color: #f76707 !important; }
-    .nav-link.active { color: #f76707 !important; border-color: #f76707 !important; }
-    .navbar-brand  { text-decoration: none; }
-    .badge.bg-orange { background-color: #f76707 !important; }
-    .status-dot.bg-orange { background-color: #f76707 !important; }
-    .navbar-vertical { scrollbar-width: thin; }
-    .navbar-vertical .nav-link { transition: background .15s, color .15s; }
-    .navbar-vertical .nav-link:hover { background: rgba(247,103,7,.08); }
-  </style>
 </head>
 <body class="antialiased">
 <div class="wrapper">
@@ -80,7 +59,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
                 <div class="card-header">
                   <h3 class="card-title">Notifikasi</h3>
                   <div class="card-options">
-                    <a href="#" id="mark-all-read" class="btn btn-sm btn-link" style="color:#f76707;">Baca Semua</a>
+                    <a href="#" id="mark-all-read" class="btn btn-sm btn-link">Baca Semua</a>
                   </div>
                 </div>
                 <div class="list-group list-group-flush" id="notif-list" style="max-height:360px;overflow-y:auto;">
@@ -89,7 +68,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
                   </div>
                 </div>
                 <div class="card-footer text-center py-2">
-                  <a href="<?= BASE_URL ?>/notifications" style="color:#f76707;" class="small">Lihat semua notifikasi &rarr;</a>
+                  <a href="<?= BASE_URL ?>/notifications" class="small">Lihat semua notifikasi &rarr;</a>
                 </div>
               </div>
             </div>
@@ -98,7 +77,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
           <!-- User Dropdown -->
           <div class="nav-item dropdown">
             <a href="#" class="nav-link d-flex align-items-center lh-1 text-reset p-0" data-bs-toggle="dropdown">
-              <span class="avatar avatar-sm me-2" style="background:#f76707;color:white;font-weight:700;">
+              <span class="avatar avatar-sm me-2" style="background:var(--brand);color:white;font-weight:700;">
                 <?= strtoupper(mb_substr($user['name'] ?? 'U', 0, 1)) ?>
               </span>
               <div class="d-none d-xl-block">
@@ -107,7 +86,6 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
               </div>
             </a>
             <div class="dropdown-menu dropdown-menu-end">
-              <!-- Profil Saya diarahkan ke /users (manajemen akun) untuk admin, atau halaman yang tersedia -->
               <a href="<?= BASE_URL ?>/users" class="dropdown-item">Profil Saya</a>
               <div class="dropdown-divider"></div>
               <a href="<?= BASE_URL ?>/logout" class="dropdown-item text-danger">Logout</a>
@@ -153,15 +131,11 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
   </div><!-- .page-wrapper -->
 </div><!-- .wrapper -->
 
-<!-- Scripts: urutan wajib dipertahankan -->
+<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-
-<!-- BASE_URL global — harus sebelum semua custom JS -->
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
 <script src="<?= BASE_URL ?>/assets/js/notifications.js"></script>
-
-<!-- Page-specific body scripts -->
 <?= $scripts ?? '' ?>
 </body>
 </html>
