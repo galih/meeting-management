@@ -12,7 +12,7 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
 
 <div class="row g-3">
 
-  <!-- Editor Utama -->
+  <!-- ============ Editor Utama ============ -->
   <div class="col-lg-8">
     <div class="card">
       <div class="card-header">
@@ -49,9 +49,7 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
       <?php endif; ?>
 
       <div class="card-body p-0">
-        <div id="quill-editor"
-             style="min-height:480px; font-size:15px; border:none;"
-             class="p-1"></div>
+        <div id="quill-editor" style="min-height:480px;font-size:15px;border:none;" class="p-1"></div>
       </div>
     </div>
 
@@ -63,9 +61,7 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
           <span class="badge bg-blue-lt text-blue ms-1" id="comment-count">0</span>
         </h4>
         <div class="card-options">
-          <button class="btn btn-sm btn-outline-secondary" id="btn-toggle-resolved">
-            Tampilkan Selesai
-          </button>
+          <button class="btn btn-sm btn-outline-secondary" id="btn-toggle-resolved">Tampilkan Selesai</button>
         </div>
       </div>
       <div class="card-body p-0">
@@ -73,8 +69,7 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
       </div>
       <div class="card-footer">
         <div class="d-flex gap-2 align-items-start">
-          <span class="avatar avatar-sm"
-                style="background:var(--brand);color:#fff;font-weight:700;flex-shrink:0;">
+          <span class="avatar avatar-sm" style="background:var(--brand);color:#fff;font-weight:700;flex-shrink:0;">
             <?= strtoupper(mb_substr($user['name'], 0, 1)) ?>
           </span>
           <div class="flex-fill">
@@ -93,7 +88,7 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
     </div>
   </div>
 
-  <!-- Sidebar Kanan -->
+  <!-- ============ Sidebar Kanan ============ -->
   <div class="col-lg-4">
 
     <!-- Info Meeting -->
@@ -122,11 +117,13 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
       </div>
     </div>
 
-    <!-- ======================================================
-         PANEL LAMPIRAN (Attachments)
-         Menggunakan API & JS yang sama dengan show.php
-         ====================================================== -->
-    <div class="card mb-3" id="attachment-panel">
+    <!-- ============ PANEL LAMPIRAN ============
+         data-meeting-id wajib ada — dibaca oleh meeting-attachments.js
+    ================================================ -->
+    <div class="card mb-3"
+         id="attachment-panel"
+         data-meeting-id="<?= (int)$meeting['id'] ?>">
+
       <div class="card-header">
         <h4 class="card-title">
           <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1 text-brand" width="18" height="18"
@@ -138,14 +135,11 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
         </h4>
         <?php if ($canEdit): ?>
         <div class="card-options">
-          <button class="btn btn-sm btn-primary" id="btn-show-upload-form">
-            + Upload
-          </button>
+          <button class="btn btn-sm btn-primary" id="btn-show-upload-form">+ Upload</button>
         </div>
         <?php endif; ?>
       </div>
 
-      <!-- Form Upload (tersembunyi, muncul saat klik Upload) -->
       <?php if ($canEdit): ?>
       <div id="upload-form-wrapper" style="display:none;" class="px-3 pt-3 pb-1 border-bottom">
         <form id="form-upload-attachment" enctype="multipart/form-data">
@@ -176,10 +170,9 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
       </div>
       <?php endif; ?>
 
-      <!-- Daftar File -->
       <div id="attachment-list" class="list-group list-group-flush" style="max-height:320px;overflow-y:auto;">
         <div class="list-group-item text-center text-muted py-3 small">
-          <span class="spinner-border spinner-border-sm"></span>
+          <span class="spinner-border spinner-border-sm"></span> Memuat...
         </div>
       </div>
     </div>
@@ -191,8 +184,7 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
         <h4 class="card-title">Tindak Lanjut</h4>
         <?php if ($canEdit): ?>
         <div class="card-options">
-          <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
-                  data-bs-target="#modalTL">+ Tambah</button>
+          <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalTL">+ Tambah</button>
         </div>
         <?php endif; ?>
       </div>
@@ -271,14 +263,9 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
 <?php endif; ?>
 
 <?php
-// Inject data meeting_id untuk JS attachments
+// Load meeting-attachments.js — MEETING_ID dibaca dari data-meeting-id pada #attachment-panel
+// TIDAK perlu window.MEETING_ID karena JS sudah baca dari dataset
 $scripts = ($scripts ?? '') . '
-<script>
-// Pastikan MEETING_ID tersedia untuk meeting-attachments.js
-if (typeof MEETING_ID === "undefined") {
-  window.MEETING_ID = ' . (int)$meeting['id'] . ';
-}
-</script>
 <script src="' . $baseUrl . '/assets/js/meeting-attachments.js"></script>
 ';
 ?>
