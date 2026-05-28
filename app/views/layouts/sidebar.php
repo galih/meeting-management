@@ -102,10 +102,11 @@ $appLogo = SettingController::get('app_logo');
             <li>
               <a class="dropdown-item <?= isActive('/departments',$currentUri) ?>" href="<?= $baseUrl ?>/departments">
                 <svg xmlns="http://www.w3.org/2000/svg" class="icon me-2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="2" y="7" width="20" height="14" rx="2"/>
-                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                  <rect x="2" y="3" width="20" height="14" rx="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
                 </svg>
-                Departemen
+                Unit Kerja
               </a>
             </li>
             <li>
@@ -120,7 +121,6 @@ $appLogo = SettingController::get('app_logo');
             <li><hr class="dropdown-divider"></li>
             <?php endif; ?>
 
-            <!-- Template Notulen: admin & sekretaris -->
             <li>
               <a class="dropdown-item <?= isActive('/notulen-templates',$currentUri) ?>" href="<?= $baseUrl ?>/notulen-templates">
                 <svg xmlns="http://www.w3.org/2000/svg" class="icon me-2" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

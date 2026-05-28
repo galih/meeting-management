@@ -97,12 +97,13 @@ $router->post('/users/{id}/update',   [UserController::class, 'update']);
 $router->post('/users/{id}/delete',   [UserController::class, 'delete']);
 $router->post('/users/{id}/destroy',  [UserController::class, 'destroy']);
 
-// === DEPARTMENTS ===
-$router->get('/departments',               [DepartmentController::class, 'index']);
-$router->post('/departments',              [DepartmentController::class, 'store']);
-$router->post('/departments/{id}/update',  [DepartmentController::class, 'update']);
-$router->post('/departments/{id}/delete',  [DepartmentController::class, 'delete']);
-$router->get('/api/departments',           [DepartmentController::class, 'apiList']);
+// === UNIT KERJA (departments) ===
+$router->get('/departments',                     [DepartmentController::class, 'index']);
+$router->post('/departments',                    [DepartmentController::class, 'store']);
+$router->post('/departments/{id}/update',        [DepartmentController::class, 'update']);
+$router->post('/departments/{id}/delete',        [DepartmentController::class, 'delete']);
+$router->get('/api/departments',                 [DepartmentController::class, 'apiList']);
+$router->get('/api/departments/children',        [DepartmentController::class, 'apiChildren']);
 
 // === ATTACHMENTS ===
 $router->get('/api/meetings/{id}/attachments',  [AttachmentController::class, 'index']);
