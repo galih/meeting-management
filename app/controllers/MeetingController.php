@@ -2,13 +2,12 @@
 class MeetingController
 {
     /**
-     * Kembalikan kondisi SQL + params untuk membatasi meeting berdasarkan role.
-     * Admin/sekretaris: semua meeting.
-     * Peserta: hanya meeting di mana user adalah creator atau peserta.
+     * Admin: semua meeting.
+     * Sekretaris & Peserta: hanya meeting di mana user adalah creator atau peserta.
      */
     private static function accessScope(): array
     {
-        if (Auth::hasRole('admin', 'sekretaris')) {
+        if (Auth::hasRole('admin')) {
             return ['where' => '1=1', 'params' => []];
         }
         $uid = Auth::id();
@@ -123,8 +122,8 @@ class MeetingController
         );
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
-        // Non-admin/sekretaris hanya boleh lihat jika terlibat
-        if (!Auth::hasRole('admin', 'sekretaris')) {
+        // Non-admin hanya boleh lihat jika terlibat
+        if (!Auth::hasRole('admin')) {
             $uid      = Auth::id();
             $terlibat = $meeting['created_by'] == $uid
                 || Database::queryOne(

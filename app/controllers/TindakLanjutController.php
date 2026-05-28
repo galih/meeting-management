@@ -12,16 +12,18 @@ class TindakLanjutController
         $where  = ['1=1'];
         $params = [];
 
-        if (!Auth::hasRole('admin', 'sekretaris')) {
+        if (!Auth::hasRole('admin')) {
+            // Sekretaris & peserta: hanya tindak lanjut yang ditugaskan ke dirinya
             $where[]  = 'tl.assigned_to = ?';
             $params[] = Auth::id();
         } elseif ($userId) {
+            // Admin bisa filter per user tertentu
             $where[]  = 'tl.assigned_to = ?';
             $params[] = $userId;
         }
 
-        if ($status)   { $where[] = 'tl.status = ?';   $params[] = $status; }
-        if ($priority) { $where[] = 'tl.priority = ?'; $params[] = $priority; }
+        if ($status)   { $where[] = 'tl.status = ?';        $params[] = $status; }
+        if ($priority) { $where[] = 'tl.priority = ?';      $params[] = $priority; }
         if ($search)   { $where[] = 'tl.description LIKE ?'; $params[] = "%{$search}%"; }
 
         $whereStr = implode(' AND ', $where);
@@ -36,10 +38,9 @@ class TindakLanjutController
             $params
         );
 
-        $baseParams = !Auth::hasRole('admin', 'sekretaris') ? [Auth::id()] : ($userId ? [$userId] : []);
-        $baseWhere  = !Auth::hasRole('admin', 'sekretaris')
-            ? 'assigned_to = ?'
-            : ($userId ? 'assigned_to = ?' : '1=1');
+        // Summary stats sesuai scope
+        $baseWhere  = !Auth::hasRole('admin') ? 'assigned_to = ?' : ($userId ? 'assigned_to = ?' : '1=1');
+        $baseParams = !Auth::hasRole('admin') ? [Auth::id()] : ($userId ? [$userId] : []);
 
         $summary = [
             'total'       => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere}", $baseParams)['c'] ?? 0),
@@ -49,7 +50,9 @@ class TindakLanjutController
             'overdue'     => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND due_date < CURDATE() AND status NOT IN ('done','cancelled')", $baseParams)['c'] ?? 0),
         ];
 
-        $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
+        $users = Auth::hasRole('admin')
+            ? Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name")
+            : [];
 
         View::layout('tindak-lanjut/index', [
             'pageTitle'        => 'Tindak Lanjut',
@@ -63,9 +66,6 @@ class TindakLanjutController
         ]);
     }
 
-    /**
-     * Menerima JSON (dari fetch di show.php / editor.php) ATAU POST form biasa
-     */
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
@@ -108,7 +108,6 @@ class TindakLanjutController
             );
         }
 
-        // Kalau JSON request, balas JSON; kalau form POST biasa, redirect
         if (str_contains($contentType, 'application/json')) {
             header('Content-Type: application/json');
             echo json_encode(['success' => true]); exit;
@@ -130,7 +129,7 @@ class TindakLanjutController
         }
         $tl = Database::queryOne("SELECT * FROM tindak_lanjut WHERE id=?", [$id]);
         if (!$tl) { header('Content-Type: application/json'); echo json_encode(['success' => false]); exit; }
-        if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
+        if (!Auth::hasRole('admin') && $tl['assigned_to'] != Auth::id()) {
             http_response_code(403);
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Akses ditolak']); exit;
