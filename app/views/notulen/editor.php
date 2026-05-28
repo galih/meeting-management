@@ -26,12 +26,17 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
           </svg>
           Notulen: <?= htmlspecialchars($meeting['title']) ?>
         </h3>
-        <div class="card-options d-flex align-items-center gap-2">
+        <div class="card-options d-flex align-items-center gap-2 flex-wrap">
           <span id="sync-status" class="badge bg-green-lt text-green">
             <span class="status-dot status-dot-animated bg-green d-inline-block me-1"></span>Live
           </span>
           <span id="save-status" class="text-muted small">Tersimpan</span>
           <?php if ($canEdit): ?>
+          <!-- Tombol Pilih Template -->
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
+                  id="btn-pick-template" title="Pilih template notulen">
+            📋 Template
+          </button>
           <button id="btn-save-manual" class="btn btn-sm btn-primary ms-1">💾 Simpan</button>
           <?php endif; ?>
           <a href="<?= $pdfUrl ?>" target="_blank" class="btn btn-sm btn-outline-danger ms-1">🖨️ PDF</a>
@@ -117,10 +122,7 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
       </div>
     </div>
 
-    <!-- Panel Lampiran
-         data-meeting-id dibaca oleh meeting-attachments.js
-         MEETING_ID global juga sudah di-set oleh controller
-    -->
+    <!-- Panel Lampiran -->
     <div class="card mb-3"
          id="attachment-panel"
          data-meeting-id="<?= (int)$meeting['id'] ?>">
@@ -214,6 +216,33 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
   </div>
 </div>
 
+<!-- ============ Modal Pilih Template ============ -->
+<?php if ($canEdit): ?>
+<div class="modal modal-blur fade" id="modalPickTemplate" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">📋 Pilih Template Notulen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning py-2 small mb-3">
+          ⚠️ Memilih template akan <strong>mengganti</strong> seluruh isi notulen saat ini.
+          Simpan dulu jika ada perubahan penting.
+        </div>
+        <div id="tpl-list-loading" class="text-center py-4">
+          <span class="spinner-border spinner-border-sm"></span> Memuat template...
+        </div>
+        <div id="tpl-list-container" class="row g-3" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link" data-bs-dismiss="modal">Batal</button>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <!-- Modal Tindak Lanjut -->
 <?php if ($canEdit): ?>
 <div class="modal modal-blur fade" id="modalTL" tabindex="-1">
@@ -259,4 +288,92 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
     </div>
   </div>
 </div>
+<?php endif; ?>
+
+<?php if ($canEdit): ?>
+<script>
+/* ===== Template Picker ===== */
+const TPL_API_URL = <?= json_encode(rtrim(BASE_URL, '/') . '/api/notulen-templates') ?>;
+let tplListLoaded = false;
+
+document.getElementById('btn-pick-template')?.addEventListener('click', () => {
+  const modal = new bootstrap.Modal(document.getElementById('modalPickTemplate'));
+  modal.show();
+
+  if (tplListLoaded) return;
+
+  fetch(TPL_API_URL)
+    .then(r => r.json())
+    .then(data => {
+      tplListLoaded = true;
+      const loading   = document.getElementById('tpl-list-loading');
+      const container = document.getElementById('tpl-list-container');
+
+      loading.style.display    = 'none';
+      container.style.display  = '';
+
+      if (!data.templates || data.templates.length === 0) {
+        container.innerHTML = '<div class="col-12 text-muted text-center py-3">Belum ada template. <a href="' + <?= json_encode(rtrim(BASE_URL, '/') . '/notulen-templates') ?> + '" target="_blank">Buat template</a></div>';
+        return;
+      }
+
+      data.templates.forEach(tpl => {
+        const col = document.createElement('div');
+        col.className = 'col-md-6';
+        col.innerHTML = `
+          <div class="card h-100 border hover-shadow" style="cursor:pointer;" data-tpl-id="${tpl.id}">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-1">
+                <h5 class="card-title mb-0">${tpl.name}</h5>
+                ${tpl.is_default === '1' || tpl.is_default === 1
+                  ? '<span class="badge bg-green-lt text-green">Default</span>'
+                  : ''}
+              </div>
+              <p class="text-muted small mb-0">${tpl.description || '-'}</p>
+            </div>
+            <div class="card-footer py-2">
+              <button class="btn btn-sm btn-primary w-100 btn-apply-tpl" data-tpl-id="${tpl.id}">
+                Gunakan Template Ini
+              </button>
+            </div>
+          </div>`;
+        container.appendChild(col);
+      });
+
+      // Listener tombol Apply
+      container.querySelectorAll('.btn-apply-tpl').forEach(btn => {
+        btn.addEventListener('click', async function () {
+          const id = this.dataset.tplId;
+          const res  = await fetch(TPL_API_URL + '/' + id);
+          const data = await res.json();
+
+          if (!data.success) { alert(data.message || 'Gagal memuat template.'); return; }
+
+          // Cek apakah editor Quill sudah ada di halaman ini
+          if (typeof quill === 'undefined') {
+            alert('Editor belum siap, coba lagi sesaat.');
+            return;
+          }
+
+          quill.root.innerHTML = data.template.content;
+
+          bootstrap.Modal.getInstance(
+            document.getElementById('modalPickTemplate')
+          ).hide();
+
+          // Tandai belum tersimpan
+          const saveStat = document.getElementById('save-status');
+          if (saveStat) {
+            saveStat.textContent = '● Belum disimpan';
+            saveStat.className   = 'text-warning small';
+          }
+        });
+      });
+    })
+    .catch(() => {
+      document.getElementById('tpl-list-loading').innerHTML =
+        '<div class="text-danger">Gagal memuat daftar template.</div>';
+    });
+});
+</script>
 <?php endif; ?>
