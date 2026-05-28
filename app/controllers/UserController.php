@@ -82,8 +82,8 @@ class UserController
             $_SESSION['flash_error'] = 'Email sudah digunakan.';
             header('Location: ' . BASE_URL . '/users'); exit;
         }
-        $db        = Database::getInstance();
-        $isActive  = isset($d['is_active']) ? 1 : 0;
+        $db       = Database::getInstance();
+        $isActive = isset($d['is_active']) ? 1 : 0;
         if (!empty($d['password'])) {
             $hash = password_hash($d['password'], PASSWORD_BCRYPT, ['cost' => 12]);
             $db->prepare(
@@ -104,6 +104,7 @@ class UserController
         header('Location: ' . BASE_URL . '/users'); exit;
     }
 
+    /** Nonaktifkan (soft delete) */
     public static function delete(int $id): void
     {
         Auth::requireRole('admin');
@@ -115,5 +116,33 @@ class UserController
             "UPDATE users SET is_active=0 WHERE id=?"
         )->execute([$id]);
         echo json_encode(['success' => true]); exit;
+    }
+
+    /** Hapus permanen */
+    public static function destroy(int $id): void
+    {
+        Auth::requireRole('admin');
+        header('Content-Type: application/json');
+
+        if ($id === Auth::id()) {
+            echo json_encode(['success' => false, 'message' => 'Tidak bisa menghapus akun sendiri']); exit;
+        }
+
+        $user = Database::queryOne("SELECT id, name FROM users WHERE id=?", [$id]);
+        if (!$user) {
+            echo json_encode(['success' => false, 'message' => 'User tidak ditemukan']); exit;
+        }
+
+        try {
+            Database::getInstance()->prepare("DELETE FROM users WHERE id=?")->execute([$id]);
+            echo json_encode(['success' => true, 'message' => 'User berhasil dihapus']);
+        } catch (\PDOException $e) {
+            // Jika ada foreign key constraint (user punya data di tabel lain)
+            echo json_encode([
+                'success' => false,
+                'message' => 'Tidak dapat dihapus karena user memiliki data terkait (meeting, notulen, dll). Nonaktifkan saja.'
+            ]);
+        }
+        exit;
     }
 }

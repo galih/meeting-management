@@ -84,20 +84,29 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
           <td class="text-muted small"><?= date('d M Y', strtotime($u['created_at'])) ?></td>
           <td>
             <?php
-              // Encode JSON dengan flag aman: escape forward slash & unicode, aman untuk data-attribute HTML
               $uJson = htmlspecialchars(json_encode($u, JSON_HEX_QUOT | JSON_HEX_APOS | JSON_HEX_TAG | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
             ?>
-            <button class="btn btn-sm btn-outline-primary me-1 btn-edit"
-                    data-user="<?= $uJson ?>">
-              Edit
-            </button>
-            <?php if ($u['is_active'] && $u['id'] != Auth::id()): ?>
-            <button class="btn btn-sm btn-outline-danger btn-nonaktif"
-                    data-id="<?= $u['id'] ?>"
-                    data-url="<?= $baseUrl ?>/users/<?= $u['id'] ?>/delete">
-              Nonaktifkan
-            </button>
-            <?php endif; ?>
+            <div class="d-flex gap-1 flex-wrap">
+              <button class="btn btn-sm btn-outline-primary btn-edit"
+                      data-user="<?= $uJson ?>">
+                Edit
+              </button>
+              <?php if ($u['is_active'] && $u['id'] != Auth::id()): ?>
+              <button class="btn btn-sm btn-outline-warning btn-nonaktif"
+                      data-id="<?= $u['id'] ?>"
+                      data-url="<?= $baseUrl ?>/users/<?= $u['id'] ?>/delete">
+                Nonaktifkan
+              </button>
+              <?php endif; ?>
+              <?php if ($u['id'] != Auth::id()): ?>
+              <button class="btn btn-sm btn-danger btn-hapus"
+                      data-id="<?= $u['id'] ?>"
+                      data-name="<?= htmlspecialchars($u['name']) ?>"
+                      data-url="<?= $baseUrl ?>/users/<?= $u['id'] ?>/destroy">
+                Hapus
+              </button>
+              <?php endif; ?>
+            </div>
           </td>
         </tr>
         <?php endforeach; ?>
@@ -105,7 +114,6 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
     </table>
   </div>
 
-  <!-- Pagination -->
   <?php if (($totalPage ?? 1) > 1): ?>
   <div class="card-footer d-flex align-items-center">
     <p class="m-0 text-muted small">
@@ -122,6 +130,26 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
     </ul>
   </div>
   <?php endif; ?>
+</div>
+
+<!-- Modal Konfirmasi Hapus -->
+<div class="modal modal-blur fade" id="modalHapusUser" tabindex="-1">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body">
+        <div class="modal-title">Hapus Pengguna</div>
+        <div class="text-secondary mt-2">
+          Yakin ingin menghapus <strong id="hapus-nama"></strong> secara permanen?
+          <br><small class="text-danger">Tindakan ini tidak dapat dibatalkan.</small>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary me-auto"
+                data-bs-dismiss="modal">Batal</button>
+        <button type="button" id="btn-konfirmasi-hapus" class="btn btn-danger">Ya, Hapus</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Modal Tambah User -->
@@ -234,31 +262,25 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
 <script>
 const baseUrl = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
 
-// Pakai event delegation + data-attribute — aman dari karakter spesial di nama/email
+// Edit
 document.querySelectorAll('.btn-edit').forEach(btn => {
   btn.addEventListener('click', function () {
-    // data-user sudah di-decode otomatis oleh browser dari HTML entities
     const raw = this.getAttribute('data-user');
     let u;
-    try {
-      u = JSON.parse(raw);
-    } catch (e) {
-      console.error('JSON parse error:', e, raw);
-      alert('Gagal membuka form edit. Silakan refresh halaman.');
-      return;
+    try { u = JSON.parse(raw); } catch (e) {
+      alert('Gagal membuka form edit. Silakan refresh halaman.'); return;
     }
-
     document.getElementById('edit-name').value     = u.name  ?? '';
     document.getElementById('edit-email').value    = u.email ?? '';
     document.getElementById('edit-role').value     = u.role  ?? 'peserta';
     document.getElementById('edit-dept').value     = u.department_id ?? '';
     document.getElementById('edit-active').checked = u.is_active == 1;
     document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
-
     new bootstrap.Modal(document.getElementById('modalEditUser')).show();
   });
 });
 
+// Nonaktifkan
 document.querySelectorAll('.btn-nonaktif').forEach(btn => {
   btn.addEventListener('click', async function () {
     if (!confirm('Nonaktifkan user ini?')) return;
@@ -275,5 +297,35 @@ document.querySelectorAll('.btn-nonaktif').forEach(btn => {
       alert(d.message || 'Gagal menonaktifkan user');
     }
   });
+});
+
+// Hapus permanen
+let hapusUrl  = '';
+let hapusId   = '';
+
+document.querySelectorAll('.btn-hapus').forEach(btn => {
+  btn.addEventListener('click', function () {
+    hapusUrl = this.dataset.url;
+    hapusId  = this.dataset.id;
+    document.getElementById('hapus-nama').textContent = this.dataset.name;
+    new bootstrap.Modal(document.getElementById('modalHapusUser')).show();
+  });
+});
+
+document.getElementById('btn-konfirmasi-hapus').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-konfirmasi-hapus');
+  btn.disabled = true;
+  btn.textContent = 'Menghapus...';
+  const res = await fetch(hapusUrl, { method: 'POST' });
+  const d   = await res.json();
+  bootstrap.Modal.getInstance(document.getElementById('modalHapusUser')).hide();
+  btn.disabled = false;
+  btn.textContent = 'Ya, Hapus';
+  if (d.success) {
+    const row = document.getElementById('row-' + hapusId);
+    if (row) row.remove();
+  } else {
+    alert(d.message || 'Gagal menghapus user');
+  }
 });
 </script>

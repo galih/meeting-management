@@ -23,7 +23,6 @@ spl_autoload_register(function(string $class): void {
 
 require_once APP_PATH . '/config/app.php';
 
-// Error reporting — hanya tampil saat debug mode aktif
 if (defined('APP_DEBUG') && APP_DEBUG === true) {
     ini_set('display_errors', '1');
     ini_set('display_startup_errors', '1');
@@ -82,10 +81,11 @@ $router->post('/tindak-lanjut/{id}/status', [TindakLanjutController::class, 'upd
 $router->post('/tindak-lanjut/{id}/delete', [TindakLanjutController::class, 'destroy']);
 
 // === USERS ===
-$router->get('/users',               [UserController::class, 'index']);
-$router->post('/users',              [UserController::class, 'store']);
-$router->post('/users/{id}/update',  [UserController::class, 'update']);
-$router->post('/users/{id}/delete',  [UserController::class, 'delete']);
+$router->get('/users',                [UserController::class, 'index']);
+$router->post('/users',               [UserController::class, 'store']);
+$router->post('/users/{id}/update',   [UserController::class, 'update']);
+$router->post('/users/{id}/delete',   [UserController::class, 'delete']);
+$router->post('/users/{id}/destroy',  [UserController::class, 'destroy']);
 
 // === DEPARTMENTS ===
 $router->get('/departments',               [DepartmentController::class, 'index']);
