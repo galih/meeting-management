@@ -1,9 +1,10 @@
+Options -Indexes
 RewriteEngine On
 
-# Izinkan akses langsung ke file/folder yang memang ada (assets, dll)
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
+# ── 1. Izinkan file & folder fisik (CSS, JS, gambar, uploads) ──────────────
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
 
-# Semua request diteruskan ke index.php di root
-RewriteRule ^wicara/(.*)$ /wicara/index.php [L,QSA]
-RewriteRule ^$ /wicara/index.php [L,QSA]
+# ── 2. Teruskan semua request lain ke index.php (front controller) ─────────
+RewriteRule ^ index.php [L,QSA]
