@@ -28,16 +28,16 @@ $baseUrl = rtrim(BASE_URL, '/');
       </div>
       <div class="card-body">
         <dl class="row mb-0">
-          <dt class="col-5 text-muted">Status</dt>
+          <dt class="col-5 fw-semibold small">Status</dt>
           <dd class="col-7">
             <span class="badge bg-<?= match($meeting['status']) {
               'scheduled'=>'blue','ongoing'=>'orange',
               'done'=>'green','cancelled'=>'red',default=>'secondary'
             } ?>"><?= ucfirst($meeting['status']) ?></span>
           </dd>
-          <dt class="col-5 text-muted">Departemen</dt>
+          <dt class="col-5 fw-semibold small">Departemen</dt>
           <dd class="col-7"><?= htmlspecialchars($meeting['dept_name'] ?? '-') ?></dd>
-          <dt class="col-5 text-muted">Lokasi</dt>
+          <dt class="col-5 fw-semibold small">Lokasi</dt>
           <dd class="col-7">
             <?php if (!empty($meeting['location']) && str_starts_with($meeting['location'], 'http')): ?>
               <a href="<?= htmlspecialchars($meeting['location']) ?>" target="_blank" rel="noopener">🔗 Link Kegiatan</a>
@@ -45,17 +45,17 @@ $baseUrl = rtrim(BASE_URL, '/');
               <?= htmlspecialchars($meeting['location'] ?? '-') ?>
             <?php endif; ?>
           </dd>
-          <dt class="col-5 text-muted">Mulai</dt>
+          <dt class="col-5 fw-semibold small">Mulai</dt>
           <dd class="col-7"><?= date('d M Y H:i', strtotime($meeting['start_datetime'])) ?></dd>
-          <dt class="col-5 text-muted">Selesai</dt>
+          <dt class="col-5 fw-semibold small">Selesai</dt>
           <dd class="col-7"><?= date('d M Y H:i', strtotime($meeting['end_datetime'])) ?></dd>
-          <dt class="col-5 text-muted">Dibuat oleh</dt>
+          <dt class="col-5 fw-semibold small">Dibuat oleh</dt>
           <dd class="col-7"><?= htmlspecialchars($meeting['creator_name'] ?? '-') ?></dd>
         </dl>
         <?php if (!empty($meeting['description'])): ?>
         <hr>
-        <div class="text-muted small fw-semibold mb-1">Agenda</div>
-        <p class="mb-0 small"><?= nl2br(htmlspecialchars($meeting['description'])) ?></p>
+        <div class="fw-semibold small mb-1">Agenda</div>
+        <p class="mb-0"><?= nl2br(htmlspecialchars($meeting['description'])) ?></p>
         <?php endif; ?>
       </div>
       <!-- Action Buttons -->
@@ -99,7 +99,7 @@ $baseUrl = rtrim(BASE_URL, '/');
       </div>
       <div class="list-group list-group-flush">
         <?php if (empty($participants)): ?>
-        <div class="list-group-item text-muted text-center py-3">Belum ada peserta</div>
+        <div class="list-group-item text-center py-3">Belum ada peserta</div>
         <?php endif; ?>
         <?php foreach ($participants as $p): ?>
         <div class="list-group-item">
@@ -136,7 +136,7 @@ $baseUrl = rtrim(BASE_URL, '/');
         <?php endif; ?>
       </div>
       <?php if (empty($tindakLanjutList)): ?>
-      <div class="card-body text-center text-muted py-5">
+      <div class="card-body text-center py-5">
         <p class="mb-0">Belum ada tindak lanjut untuk kegiatan ini</p>
       </div>
       <?php else: ?>
@@ -162,7 +162,7 @@ $baseUrl = rtrim(BASE_URL, '/');
                 <?php endif; ?>
               </td>
               <td><?= htmlspecialchars($tl['assigned_name'] ?? '-') ?></td>
-              <td class="text-muted">
+              <td>
                 <?= !empty($tl['due_date']) ? date('d M Y', strtotime($tl['due_date'])) : '-' ?>
               </td>
               <td>
