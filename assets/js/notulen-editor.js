@@ -1,0 +1,179 @@
+/* globals Quill, MEETING_ID, CURRENT_USER_ID, IS_EDITOR,
+   INITIAL_CONTENT, SAVE_URL, SYNC_URL */
+
+let quill         = null;
+let currentVersion = 0;
+let isSyncing      = false;
+let saveTimer      = null;
+
+function showToast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `alert alert-${type} alert-dismissible position-fixed bottom-0 end-0 m-3 shadow`;
+  el.style.zIndex = '9999';
+  el.innerHTML = msg + '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+function debouncedSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(doSave, 1500);
+}
+
+async function doSave() {
+  if (!quill) return;
+  const saveStatus = document.getElementById('save-status');
+  if (saveStatus) saveStatus.textContent = 'Menyimpan...';
+  try {
+    const content = quill.root.innerHTML;
+    // Jangan simpan jika hanya placeholder kosong Quill
+    const isEmpty = quill.getText().trim().length === 0;
+    const html    = isEmpty ? '' : content;
+
+    const res  = await fetch(SAVE_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ meeting_id: MEETING_ID, content: html })
+    });
+    const text = await res.text();
+    let data;
+    try   { data = JSON.parse(text); }
+    catch (e) {
+      console.error('Response bukan JSON:', text);
+      if (saveStatus) saveStatus.textContent = '\u2717 Server error';
+      return;
+    }
+    if (data.success) {
+      if (data.version) currentVersion = data.version;
+      if (saveStatus) saveStatus.textContent = '\u2713 Tersimpan ' + new Date().toLocaleTimeString('id-ID');
+    } else {
+      if (saveStatus) saveStatus.textContent = '\u2717 Gagal: ' + (data.message || 'error');
+      if (res.status === 403) showToast('\u26a0\ufe0f Sesi kadaluarsa. <a href="/logout" class="alert-link">Login ulang</a>', 'warning');
+    }
+  } catch (e) {
+    console.error('Save error:', e);
+    if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
+  }
+}
+
+async function pollNotulen() {
+  if (isSyncing || !quill) return;
+  isSyncing = true;
+  try {
+    const res  = await fetch(`${SYNC_URL}?meeting_id=${MEETING_ID}&version=${currentVersion}`);
+    const data = await res.json();
+    if (data.status === 'updated') {
+      currentVersion = data.data.version;
+      if (parseInt(data.data.last_edited_by_id) !== CURRENT_USER_ID) {
+        quill.root.innerHTML = data.data.content || '';
+        showToast(`\u270f\ufe0f <strong>${data.data.editor_name}</strong> memperbarui notulen`);
+      }
+    }
+  } catch (e) {
+    const syncEl = document.getElementById('sync-status');
+    if (syncEl) syncEl.innerHTML = '<span class="status-dot bg-red d-inline-block me-1"></span>Offline';
+  } finally {
+    isSyncing = false;
+    setTimeout(pollNotulen, 5000);
+  }
+}
+
+function initQuill() {
+  const container = document.getElementById('quill-editor');
+  if (!container) return;
+
+  if (typeof Quill === 'undefined') {
+    container.innerHTML = '<div class="alert alert-warning m-3">Editor gagal dimuat. Silakan refresh halaman.</div>';
+    return;
+  }
+
+  const toolbarOptions = IS_EDITOR ? [
+    [{ header: [2, 3, 4, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ color: [] }, { background: [] }],
+    [{ list: 'ordered' }, { list: 'bullet' }, { list: 'check' }],
+    [{ indent: '-1' }, { indent: '+1' }],
+    ['blockquote', 'code-block'],
+    ['link'],
+    ['clean']
+  ] : false;
+
+  quill = new Quill(container, {
+    theme:       'snow',
+    readOnly:    !IS_EDITOR,
+    placeholder: IS_EDITOR ? 'Mulai tulis notulen di sini...' : 'Belum ada isi notulen.',
+    modules: {
+      toolbar: toolbarOptions
+    }
+  });
+
+  // Set konten awal
+  if (INITIAL_CONTENT && INITIAL_CONTENT.trim() !== '') {
+    quill.root.innerHTML = INITIAL_CONTENT;
+  }
+
+  // Auto-save saat mengetik (khusus editor)
+  if (IS_EDITOR) {
+    quill.on('text-change', debouncedSave);
+  }
+
+  // Tombol simpan manual
+  const btnManual = document.getElementById('btn-save-manual');
+  if (btnManual) {
+    btnManual.addEventListener('click', async () => {
+      btnManual.disabled = true;
+      await doSave();
+      btnManual.disabled = false;
+    });
+  }
+
+  // Tindak Lanjut — simpan via API
+  const btnTl = document.getElementById('btn-tl2-save');
+  if (btnTl) {
+    btnTl.addEventListener('click', async () => {
+      const desc     = document.getElementById('tl2-desk').value.trim();
+      const assignTo = document.getElementById('tl2-assign').value;
+      const deadline = document.getElementById('tl2-deadline').value;
+      const priority = document.getElementById('tl2-priority').value;
+      if (!desc) { alert('Deskripsi wajib diisi'); return; }
+
+      btnTl.disabled = true;
+      try {
+        const res  = await fetch(`${BASE_URL}/tindak-lanjut`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            meeting_id:  MEETING_ID,
+            description: desc,
+            assigned_to: assignTo || null,
+            due_date:    deadline || null,
+            priority
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          // Tutup modal, reload halaman agar daftar TL ter-update
+          const modal = bootstrap.Modal.getInstance(document.getElementById('modalTL'));
+          if (modal) modal.hide();
+          location.reload();
+        } else {
+          alert(data.message || 'Gagal menyimpan tindak lanjut');
+        }
+      } catch (e) {
+        alert('Terjadi kesalahan. Coba lagi.');
+      } finally {
+        btnTl.disabled = false;
+      }
+    });
+  }
+
+  // Mulai polling sinkronisasi
+  pollNotulen();
+}
+
+// Jalankan setelah DOM siap
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initQuill);
+} else {
+  initQuill();
+}

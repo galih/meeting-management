@@ -18,7 +18,7 @@ class NotulisController
         if (!$notulen) {
             Database::getInstance()->prepare(
                 "INSERT INTO notulen (meeting_id, content, version) VALUES (?,?,0)"
-            )->execute([$id, '{}']);
+            )->execute([$id, '']);
             $notulen = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$id]);
         }
 
@@ -34,33 +34,41 @@ class NotulisController
         $saveUrl = rtrim(BASE_URL, '/') . '/api/notulen/save';
         $syncUrl = rtrim(BASE_URL, '/') . '/api/notulen/sync';
 
-        // EditorJS CDN di-load di <head> agar sudah siap sebelum body scripts jalan
+        // Quill CSS di <head>
         $headScripts = '
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@2.28.2/dist/editorjs.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/header@2.8.1/dist/header.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@1.4.2/dist/nested-list.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@1.6.0/dist/checklist.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/table@2.3.0/dist/table.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@1.1.0/dist/underline.umd.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
 ';
 
-        // Semua konstanta JS + kedua file JS di-inject di akhir body
         $allUsersJson = json_encode(array_values(array_map(
             fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']],
             $users
         )));
 
+        // Konten Quill: jika kosong/null simpan string kosong, bukan JSON EditorJS
+        $rawContent = $notulen['content'] ?? '';
+        // Jika konten lama masih format EditorJS JSON ({"blocks":[...]}), reset ke kosong
+        $initialContent = '';
+        if (!empty($rawContent)) {
+            $decoded = json_decode($rawContent, true);
+            // Jika bukan EditorJS format (tidak punya key 'blocks'), anggap HTML biasa
+            if ($decoded === null || !isset($decoded['blocks'])) {
+                $initialContent = $rawContent;
+            }
+            // Jika EditorJS format lama → biarkan kosong (tidak bisa dikonversi)
+        }
+
         $scripts = '
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
 <script>
 const MEETING_ID      = ' . $id . ';
 const CURRENT_USER_ID = ' . (int)($user['id'] ?? 0) . ';
 const IS_EDITOR       = ' . ($canEdit ? 'true' : 'false') . ';
 const SAVE_URL        = ' . json_encode($saveUrl) . ';
 const SYNC_URL        = ' . json_encode($syncUrl) . ';
-const INITIAL_CONTENT = ' . json_encode($notulen['content'] ?? '{}') . ';
+const INITIAL_CONTENT = ' . json_encode($initialContent) . ';
 const ALL_USERS       = ' . $allUsersJson . ';
 </script>
-<script src="' . BASE_URL . '/assets/js/notulen-realtime.js"></script>
+<script src="' . BASE_URL . '/assets/js/notulen-editor.js"></script>
 <script src="' . BASE_URL . '/assets/js/notulen-comments.js"></script>
 ';
 
@@ -90,13 +98,14 @@ const ALL_USERS       = ' . $allUsersJson . ';
         $raw       = file_get_contents('php://input');
         $body      = json_decode($raw, true);
         $meetingId = (int)($body['meeting_id'] ?? 0);
-        $content   = $body['content'] ?? null;
+        $content   = $body['content'] ?? null; // HTML string dari Quill
 
         if (!$meetingId || $content === null) {
             echo json_encode(['success' => false, 'message' => 'Data tidak lengkap']); exit;
         }
 
-        $contentJson = is_string($content) ? $content : json_encode($content);
+        // Quill mengirim HTML — simpan langsung
+        $contentHtml = is_string($content) ? $content : '';
         $userId      = Auth::id();
 
         $existing = Database::queryOne("SELECT id, version FROM notulen WHERE meeting_id=?", [$meetingId]);
@@ -105,18 +114,18 @@ const ALL_USERS       = ' . $allUsersJson . ';
             Database::getInstance()->prepare(
                 "UPDATE notulen SET content=?, version=?, last_edited_by=?, updated_at=NOW()
                  WHERE meeting_id=?"
-            )->execute([$contentJson, $newVersion, $userId, $meetingId]);
+            )->execute([$contentHtml, $newVersion, $userId, $meetingId]);
         } else {
             $newVersion = 1;
             Database::getInstance()->prepare(
                 "INSERT INTO notulen (meeting_id, content, version, last_edited_by, updated_at)
                  VALUES (?,?,?,?,NOW())"
-            )->execute([$meetingId, $contentJson, $newVersion, $userId]);
+            )->execute([$meetingId, $contentHtml, $newVersion, $userId]);
         }
 
         Database::getInstance()->prepare(
             "INSERT INTO notulen_history (meeting_id, content, version, edited_by) VALUES (?,?,?,?)"
-        )->execute([$meetingId, $contentJson, $newVersion, $userId]);
+        )->execute([$meetingId, $contentHtml, $newVersion, $userId]);
 
         echo json_encode(['success' => true, 'version' => $newVersion]);
         exit;

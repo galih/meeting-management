@@ -1,9 +1,9 @@
 <?php
-$baseUrl   = rtrim(BASE_URL, '/');
-$pdfUrl    = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
-$histUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
-$backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
-$canEdit   = Auth::hasRole('admin', 'sekretaris');
+$baseUrl = rtrim(BASE_URL, '/');
+$pdfUrl  = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
+$histUrl = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
+$backUrl = $baseUrl . '/meetings/' . $meeting['id'];
+$canEdit = Auth::hasRole('admin', 'sekretaris');
 ?>
 
 <div class="row g-3">
@@ -17,7 +17,8 @@ $canEdit   = Auth::hasRole('admin', 'sekretaris');
                viewBox="0 0 24 24" fill="none" stroke="#f76707" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
-            <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
           </svg>
           Notulen: <?= htmlspecialchars($meeting['title']) ?>
         </h3>
@@ -27,13 +28,9 @@ $canEdit   = Auth::hasRole('admin', 'sekretaris');
           </span>
           <span id="save-status" class="text-muted small">Tersimpan</span>
           <?php if ($canEdit): ?>
-          <button id="btn-save-manual" class="btn btn-sm btn-primary ms-1">
-            💾 Simpan
-          </button>
+          <button id="btn-save-manual" class="btn btn-sm btn-primary ms-1">💾 Simpan</button>
           <?php endif; ?>
-          <a href="<?= $pdfUrl ?>" target="_blank" class="btn btn-sm btn-outline-danger ms-1">
-            🖨️ PDF
-          </a>
+          <a href="<?= $pdfUrl ?>" target="_blank" class="btn btn-sm btn-outline-danger ms-1">🖨️ PDF</a>
           <?php if ($canEdit): ?>
           <a href="<?= $histUrl ?>" class="btn btn-sm btn-outline-secondary ms-1">Riwayat</a>
           <?php endif; ?>
@@ -48,8 +45,10 @@ $canEdit   = Auth::hasRole('admin', 'sekretaris');
       <?php endif; ?>
 
       <div class="card-body p-0">
-        <!-- EditorJS holder -->
-        <div id="editorjs" class="p-3" style="min-height:480px;"></div>
+        <!-- Quill editor container -->
+        <div id="quill-editor"
+             style="min-height:480px; font-size:15px; border:none;"
+             class="p-1"></div>
       </div>
     </div>
 
@@ -76,8 +75,9 @@ $canEdit   = Auth::hasRole('admin', 'sekretaris');
           </span>
           <div class="flex-fill">
             <div class="position-relative">
+              <div id="mention-dropdown" class="dropdown-menu"></div>
               <textarea id="comment-input" class="form-control" rows="2"
-                        placeholder="Tulis komentar..."></textarea>
+                        placeholder="Tulis komentar... (ketik @ untuk mention)"></textarea>
             </div>
             <div class="d-flex justify-content-between align-items-center mt-1">
               <small class="text-muted" id="reply-indicator"></small>
@@ -160,7 +160,7 @@ $canEdit   = Auth::hasRole('admin', 'sekretaris');
   </div>
 </div>
 
-<!-- Modal TL -->
+<!-- Modal Tindak Lanjut -->
 <?php if ($canEdit): ?>
 <div class="modal modal-blur fade" id="modalTL" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
