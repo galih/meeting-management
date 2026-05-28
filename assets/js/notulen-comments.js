@@ -4,9 +4,9 @@
 (function () {
   'use strict';
 
-  let replyToId      = null;
-  let showResolved   = false;
-  let mentionUsers   = [];
+  let replyToId       = null;
+  let showResolved    = false;
+  let mentionUsers    = [];
   let pendingMentions = [];
 
   const commentList    = document.getElementById('comment-list');
@@ -20,18 +20,53 @@
 
   if (typeof ALL_USERS !== 'undefined') mentionUsers = ALL_USERS;
 
+  const baseUrl   = (typeof BASE_URL   !== 'undefined') ? BASE_URL.replace(/\/$/, '')   : '';
+  const meetingId = (typeof MEETING_ID !== 'undefined') ? MEETING_ID : null;
+
+  if (!meetingId) {
+    commentList.innerHTML = '<p class="text-danger text-center py-3 small">Error: MEETING_ID tidak terdefinisi.</p>';
+    return;
+  }
+
+  /* ── Helpers ─────────────────────────────────────────── */
+  function escHtml(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function formatMention(s) {
+    return s.replace(/@([\w][\w\s]*)/g, '<strong class="text-orange">@$1</strong>');
+  }
+  function formatTime(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) + ' ' +
+           d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  /* Fetch wrapper — tangkap semua error & tampilkan di panel */
+  async function apiFetch(url, options = {}) {
+    const res = await fetch(url, { credentials: 'same-origin', ...options });
+    const ct  = res.headers.get('content-type') || '';
+    if (!ct.includes('application/json')) {
+      const txt = await res.text();
+      throw new Error(
+        `Server HTTP ${res.status} — response bukan JSON:\n` +
+        txt.replace(/<[^>]+>/g, ' ').trim().substring(0, 300)
+      );
+    }
+    return res.json();
+  }
+
   /* ── Load & Render ─────────────────────────────────────── */
   async function loadComments() {
     try {
-      const res  = await fetch(`${BASE_URL}/api/notulen/${MEETING_ID}/comments`);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      if (data.success) renderComments(data.comments);
-    } catch (e) {
-      console.error('Gagal memuat komentar:', e);
-      if (commentList.children.length === 0) {
-        commentList.innerHTML = '<p class="text-muted text-center py-3 small">Gagal memuat komentar.</p>';
+      const data = await apiFetch(`${baseUrl}/api/notulen/${meetingId}/comments`);
+      if (data.success) {
+        renderComments(data.comments);
+      } else {
+        commentList.innerHTML = `<p class="text-danger text-center py-3 small">Gagal: ${escHtml(data.message)}</p>`;
       }
+    } catch (e) {
+      commentList.innerHTML = `<div class="alert alert-danger m-2 py-2 small"><strong>Error load komentar:</strong><br><pre style="font-size:10px;white-space:pre-wrap;">${escHtml(e.message)}</pre></div>`;
     }
   }
 
@@ -49,11 +84,10 @@
   }
 
   function renderThread(c) {
-    const avatar   = c.user_name ? c.user_name.charAt(0).toUpperCase() : '?';
-    const time     = formatTime(c.created_at);
+    const avatar  = c.user_name ? c.user_name.charAt(0).toUpperCase() : '?';
+    const isAdmin = typeof IS_EDITOR !== 'undefined' && IS_EDITOR;
     const resolved = c.is_resolved
       ? '<span class="badge bg-green-lt ms-1" style="font-size:10px;">✓ Selesai</span>' : '';
-    const isAdmin  = typeof IS_EDITOR !== 'undefined' && IS_EDITOR;
 
     const repliesHtml = (c.replies || []).map(r => `
       <div class="d-flex gap-2 mt-2 ms-4">
@@ -68,7 +102,7 @@
           <p class="mb-0" style="font-size:13px;">${formatMention(escHtml(r.content))}</p>
         </div>
         ${r.user_id == CURRENT_USER_ID
-          ? `<button class="btn btn-sm btn-ghost-danger p-0 px-1 btn-del-comment" data-id="${r.id}" style="font-size:11px;">✕</button>`
+          ? `<button class="btn btn-sm btn-ghost-danger p-0 px-1 btn-del-comment" data-id="${r.id}">✕</button>`
           : ''}
       </div>
     `).join('');
@@ -76,13 +110,11 @@
     return `
     <div class="border rounded p-2 mb-2 ${c.is_resolved ? 'opacity-75 bg-light' : ''}" data-comment-id="${c.id}">
       <div class="d-flex gap-2">
-        <span class="avatar avatar-sm" style="background:var(--brand,#7B1C1C);color:#fff;font-size:12px;font-weight:700;flex-shrink:0;">
-          ${avatar}
-        </span>
+        <span class="avatar avatar-sm" style="background:var(--brand,#7B1C1C);color:#fff;font-size:12px;font-weight:700;flex-shrink:0;">${avatar}</span>
         <div class="flex-fill">
           <div class="d-flex align-items-center gap-2 flex-wrap">
             <strong style="font-size:13px;">${escHtml(c.user_name)}</strong>
-            <small class="text-muted">${time}</small>
+            <small class="text-muted">${formatTime(c.created_at)}</small>
             ${resolved}
           </div>
           <p class="mb-1" style="font-size:13px;">${formatMention(escHtml(c.content))}</p>
@@ -122,10 +154,9 @@
     document.querySelectorAll('.btn-resolve').forEach(btn => {
       btn.addEventListener('click', async () => {
         try {
-          const res  = await fetch(`${BASE_URL}/api/comments/${btn.dataset.id}/resolve`, { method: 'POST' });
-          const data = await res.json();
+          const data = await apiFetch(`${baseUrl}/api/comments/${btn.dataset.id}/resolve`, { method: 'POST' });
           if (data.success) loadComments();
-        } catch (e) { console.error('Resolve error:', e); }
+        } catch (e) { alert('Resolve error: ' + e.message); }
       });
     });
 
@@ -133,10 +164,9 @@
       btn.addEventListener('click', async () => {
         if (!confirm('Hapus komentar ini?')) return;
         try {
-          const res  = await fetch(`${BASE_URL}/api/comments/${btn.dataset.id}/delete`, { method: 'POST' });
-          const data = await res.json();
+          const data = await apiFetch(`${baseUrl}/api/comments/${btn.dataset.id}/delete`, { method: 'POST' });
           if (data.success) loadComments();
-        } catch (e) { console.error('Delete error:', e); }
+        } catch (e) { alert('Delete error: ' + e.message); }
       });
     });
   }
@@ -145,17 +175,13 @@
   if (submitBtn) {
     submitBtn.addEventListener('click', async () => {
       const content = commentInput ? commentInput.value.trim() : '';
-      if (!content) {
-        commentInput?.focus();
-        return;
-      }
+      if (!content) { commentInput?.focus(); return; }
 
-      submitBtn.disabled = true;
-      const originalText = submitBtn.textContent;
+      submitBtn.disabled    = true;
       submitBtn.textContent = 'Mengirim...';
 
       try {
-        const res = await fetch(`${BASE_URL}/api/notulen/${MEETING_ID}/comments`, {
+        const data = await apiFetch(`${baseUrl}/api/notulen/${meetingId}/comments`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
           body:    JSON.stringify({
@@ -165,35 +191,29 @@
           })
         });
 
-        let data;
-        try {
-          data = await res.json();
-        } catch (e) {
-          const raw = await res.text().catch(() => '');
-          console.error('Response bukan JSON:', raw.substring(0, 500));
-          alert('Gagal mengirim komentar: server error. Cek log PHP.');
-          return;
-        }
-
         if (data.success) {
           if (commentInput) commentInput.value = '';
-          replyToId = null;
+          replyToId       = null;
           pendingMentions = [];
           if (replyIndicator) replyIndicator.innerHTML = '';
           loadComments();
         } else {
-          alert('Gagal: ' + (data.message || 'error tidak diketahui'));
+          // Tampilkan error di panel supaya terlihat
+          commentList.insertAdjacentHTML('afterbegin',
+            `<div class="alert alert-danger m-2 py-2 small">Gagal simpan: ${escHtml(data.message)}</div>`
+          );
         }
       } catch (e) {
-        console.error('Submit comment error:', e);
-        alert('Tidak dapat mengirim komentar. Periksa koneksi internet.');
+        // Tampilkan raw error (termasuk redirect HTML) langsung di panel
+        commentList.insertAdjacentHTML('afterbegin',
+          `<div class="alert alert-danger m-2 py-2 small"><strong>Error kirim komentar:</strong><br><pre style="font-size:10px;white-space:pre-wrap;max-height:120px;overflow:auto;">${escHtml(e.message)}</pre></div>`
+        );
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        submitBtn.disabled    = false;
+        submitBtn.textContent = 'Kirim';
       }
     });
 
-    // Kirim dengan Enter (tanpa Shift)
     commentInput?.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -208,11 +228,9 @@
     commentInput.addEventListener('input', () => {
       const val   = commentInput.value;
       const atIdx = val.lastIndexOf('@');
-      if (atIdx === -1 || (atIdx > 0 && val[atIdx - 1] !== ' ') && val.slice(atIdx + 1).includes(' ')) {
-        dropdown.style.display = 'none'; return;
-      }
+      if (atIdx === -1) { dropdown.style.display = 'none'; return; }
       const q = val.slice(atIdx + 1).toLowerCase();
-      if (!q) { dropdown.style.display = 'none'; return; }
+      if (!q || q.includes(' ')) { dropdown.style.display = 'none'; return; }
       const matches = mentionUsers.filter(u => u.name.toLowerCase().includes(q));
       if (!matches.length) { dropdown.style.display = 'none'; return; }
       dropdown.innerHTML = matches.slice(0, 5).map(u =>
@@ -222,8 +240,7 @@
       dropdown.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', e => {
           e.preventDefault();
-          const before = val.slice(0, atIdx);
-          commentInput.value = before + '@' + item.dataset.name + ' ';
+          commentInput.value = val.slice(0, atIdx) + '@' + item.dataset.name + ' ';
           pendingMentions.push(parseInt(item.dataset.id));
           dropdown.style.display = 'none';
         });
@@ -237,20 +254,6 @@
     toggleBtn.textContent = showResolved ? 'Sembunyikan Selesai' : 'Tampilkan Selesai';
     loadComments();
   });
-
-  /* ── Helpers ────────────────────────────────────────────── */
-  function escHtml(s) {
-    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-  function formatMention(s) {
-    return s.replace(/@([\w][\w\s]*)/g, '<strong class="text-orange">@$1</strong>');
-  }
-  function formatTime(ts) {
-    if (!ts) return '';
-    const d = new Date(ts);
-    return d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) + ' ' +
-           d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
-  }
 
   loadComments();
   setInterval(loadComments, 15000);
