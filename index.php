@@ -135,7 +135,15 @@ $router->post('/api/settings/remove-login-bg',  [SettingController::class, 'remo
 $router->post('/api/settings/save-smtp',        [SettingController::class, 'saveSMTP']);
 $router->post('/api/settings/test-smtp',        [SettingController::class, 'testSMTP']);
 
-// ── Dispatch ──────────────────────────────────────────────────────────────────────────────
+// === TEMPLATE NOTULEN ===
+$router->get('/notulen-templates',                   [NotulenTemplateController::class, 'index']);
+$router->post('/notulen-templates',                  [NotulenTemplateController::class, 'store']);
+$router->post('/notulen-templates/{id}/update',      [NotulenTemplateController::class, 'update']);
+$router->post('/notulen-templates/{id}/delete',      [NotulenTemplateController::class, 'destroy']);
+$router->get('/api/notulen-templates',               [NotulenTemplateController::class, 'apiList']);
+$router->get('/api/notulen-templates/{id}',          [NotulenTemplateController::class, 'apiGet']);
+
+// ── Dispatch ────────────────────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
