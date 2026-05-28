@@ -70,6 +70,7 @@ $baseUrl = rtrim(BASE_URL, '/');
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <form method="POST" action="<?= $baseUrl ?>/departments">
+        <?= Auth::csrfField() ?>
         <div class="modal-header">
           <h5 class="modal-title">Tambah Departemen</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -114,6 +115,7 @@ $baseUrl = rtrim(BASE_URL, '/');
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <form method="POST" id="formEditDept">
+        <?= Auth::csrfField() ?>
         <div class="modal-header">
           <h5 class="modal-title">Edit Departemen</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

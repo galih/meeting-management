@@ -44,6 +44,7 @@
       </div>
       <div class="card-body">
         <form method="POST" action="<?= $baseUrl ?>/profile/update">
+          <?= Auth::csrfField() ?>
           <div class="mb-3">
             <label class="form-label">Nama Lengkap</label>
             <input type="text" class="form-control"
@@ -85,6 +86,7 @@
       </div>
       <div class="card-body">
         <form method="POST" action="<?= $baseUrl ?>/profile/change-password">
+          <?= Auth::csrfField() ?>
           <div class="mb-3">
             <label class="form-label required">Password Saat Ini</label>
             <div class="input-group">

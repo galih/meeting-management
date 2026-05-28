@@ -83,6 +83,7 @@ $baseUrl = rtrim(BASE_URL, '/');
         <form method="POST"
               action="<?= $baseUrl ?>/meetings/<?= $meeting['id'] ?>/delete"
               onsubmit="return confirm('Yakin ingin menghapus kegiatan \"<?= htmlspecialchars(addslashes($meeting['title'])) ?>\"?\n\nSemua notulen, peserta, dan tindak lanjut terkait akan ikut terhapus.')">
+          <?= Auth::csrfField() ?>
           <button type="submit" class="btn btn-danger w-100">
             🗑️ Hapus Kegiatan
           </button>
@@ -192,6 +193,7 @@ $baseUrl = rtrim(BASE_URL, '/');
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
       <form method="POST" action="<?= $baseUrl ?>/meetings/<?= $meeting['id'] ?>/status">
+        <?= Auth::csrfField() ?>
         <div class="modal-header">
           <h5 class="modal-title">Ubah Status Kegiatan</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
