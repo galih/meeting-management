@@ -1,28 +1,51 @@
 <?php
 class DepartmentController
 {
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // Pastikan kolom hierarki sudah ada; jalankan DDL jika belum
+    // ---------------------------------------------------------------
+    private static function ensureColumns(): void
+    {
+        $db = Database::getInstance();
+
+        // Cek apakah kolom 'level' sudah ada
+        $cols = $db->query("SHOW COLUMNS FROM departments LIKE 'level'")->fetchAll();
+        if (empty($cols)) {
+            $db->exec("ALTER TABLE departments
+                ADD COLUMN parent_id INT DEFAULT NULL AFTER id,
+                ADD COLUMN level TINYINT UNSIGNED NOT NULL DEFAULT 1
+                    COMMENT '1=Unit Kerja, 2=Bidang/Bagian, 3=Sub Bidang/Sub Bagian' AFTER code");
+            // FK boleh gagal kalau sudah ada, pakai try-catch
+            try {
+                $db->exec("ALTER TABLE departments
+                    ADD CONSTRAINT fk_dept_parent
+                    FOREIGN KEY (parent_id) REFERENCES departments(id) ON DELETE SET NULL");
+            } catch (\Throwable $e) { /* ignore jika sudah ada */ }
+        }
+    }
+
+    // ---------------------------------------------------------------
     // Halaman manajemen Unit Kerja
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
     public static function index(): void
     {
         Auth::requireRole('admin');
+        self::ensureColumns();
 
-        // Ambil semua node aktif sekaligus, susun pohon di PHP
         $rows = Database::query(
             "SELECT d.*,
-                    u.name  AS head_name,
-                    p.name  AS parent_name,
+                    u.name AS head_name,
+                    p.name AS parent_name,
                     (SELECT COUNT(*) FROM users
                      WHERE department_id = d.id AND is_active = 1) AS total_users
              FROM departments d
              LEFT JOIN users u ON u.id = d.head_id
              LEFT JOIN departments p ON p.id = d.parent_id
              WHERE d.is_active = 1
-             ORDER BY d.level ASC, d.parent_id ASC, d.name ASC"
+             ORDER BY d.level ASC, ISNULL(d.parent_id) DESC, d.parent_id ASC, d.name ASC"
         );
 
-        // Bangun pohon: [level1 => [..., children => [level2 => [..., children => [level3]]]]]
+        // Bangun pohon di PHP
         $tree  = [];
         $index = [];
         foreach ($rows as &$r) {
@@ -31,7 +54,7 @@ class DepartmentController
         }
         unset($r);
         foreach ($rows as &$r) {
-            if ($r['parent_id'] && isset($index[$r['parent_id']])) {
+            if (!empty($r['parent_id']) && isset($index[$r['parent_id']])) {
                 $index[$r['parent_id']]['children'][] = &$r;
             } else {
                 $tree[] = &$r;
@@ -39,27 +62,28 @@ class DepartmentController
         }
         unset($r);
 
-        $allUsers  = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
-        // Untuk dropdown parent: hanya level 1 & 2
-        $parents   = Database::query(
-            "SELECT id, name, level FROM departments WHERE is_active=1 AND level < 3 ORDER BY level, name"
+        $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
+        $parents  = Database::query(
+            "SELECT id, name, level FROM departments WHERE is_active=1 AND level < 3 ORDER BY level ASC, name ASC"
         );
 
         View::layout('departments/index', [
-            'pageTitle'  => 'Unit Kerja',
-            'tree'       => $tree,
-            'allUsers'   => $allUsers,
-            'parents'    => $parents,
+            'pageTitle' => 'Unit Kerja',
+            'tree'      => $tree,
+            'allUsers'  => $allUsers,
+            'parents'   => $parents,
         ]);
     }
 
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Tambah unit baru
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
     public static function store(): void
     {
         Auth::requireRole('admin');
-        $name     = trim($_POST['name']     ?? '');
+        self::ensureColumns();
+
+        $name     = trim($_POST['name']        ?? '');
         $code     = strtoupper(trim($_POST['code'] ?? ''));
         $desc     = trim($_POST['description'] ?? '');
         $headId   = !empty($_POST['head_id'])   ? (int)$_POST['head_id']   : null;
@@ -70,7 +94,6 @@ class DepartmentController
             header('Location: ' . BASE_URL . '/departments'); exit;
         }
 
-        // Tentukan level dari parent
         $level = 1;
         if ($parentId) {
             $parent = Database::queryOne("SELECT level FROM departments WHERE id=?", [$parentId]);
@@ -86,13 +109,15 @@ class DepartmentController
         header('Location: ' . BASE_URL . '/departments'); exit;
     }
 
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
     // Update unit
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
     public static function update(int $id): void
     {
         Auth::requireRole('admin');
-        $name     = trim($_POST['name']     ?? '');
+        self::ensureColumns();
+
+        $name     = trim($_POST['name']        ?? '');
         $code     = strtoupper(trim($_POST['code'] ?? ''));
         $desc     = trim($_POST['description'] ?? '');
         $headId   = !empty($_POST['head_id'])   ? (int)$_POST['head_id']   : null;
@@ -112,13 +137,12 @@ class DepartmentController
         header('Location: ' . BASE_URL . '/departments'); exit;
     }
 
-    // ----------------------------------------------------------------
-    // Soft-delete (nonaktifkan beserta semua turunannya)
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // Soft-delete beserta semua turunan
+    // ---------------------------------------------------------------
     public static function delete(int $id): void
     {
         Auth::requireRole('admin');
-        // Nonaktifkan node ini dan semua anaknya (hingga 2 level)
         Database::getInstance()->prepare(
             "UPDATE departments SET is_active=0
              WHERE id=? OR parent_id=?
@@ -128,13 +152,13 @@ class DepartmentController
         echo json_encode(['success' => true]); exit;
     }
 
-    // ----------------------------------------------------------------
-    // API list (untuk dropdown di form meeting/user dsb.)
-    // Mengembalikan flat list dengan indikasi level untuk grouping
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
+    // API flat list (dropdown di meeting/user)
+    // ---------------------------------------------------------------
     public static function apiList(): void
     {
         Auth::requireAuth();
+        self::ensureColumns();
         $list = Database::query(
             "SELECT id, name, code, level, parent_id
              FROM departments
@@ -145,10 +169,10 @@ class DepartmentController
         echo json_encode($list); exit;
     }
 
-    // ----------------------------------------------------------------
-    // API: ambil sub-unit berdasarkan parent (untuk dropdown cascade)
+    // ---------------------------------------------------------------
+    // API children cascade
     // GET /api/departments/children?parent_id=X
-    // ----------------------------------------------------------------
+    // ---------------------------------------------------------------
     public static function apiChildren(): void
     {
         Auth::requireAuth();
