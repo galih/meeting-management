@@ -20,8 +20,18 @@
 
   if (typeof ALL_USERS !== 'undefined') mentionUsers = ALL_USERS;
 
-  const baseUrl   = (typeof BASE_URL   !== 'undefined') ? BASE_URL.replace(/\/$/, '')   : '';
+  const baseUrl   = (typeof BASE_URL   !== 'undefined') ? BASE_URL.replace(/\/$/, '') : '';
   const meetingId = (typeof MEETING_ID !== 'undefined') ? MEETING_ID : null;
+
+  // ── DEBUG BANNER — hapus setelah masalah ditemukan ──
+  commentList.innerHTML = `
+    <div class="alert alert-info m-2 py-2" style="font-size:11px;">
+      <strong>DEBUG:</strong><br>
+      MEETING_ID = <code>${meetingId}</code><br>
+      BASE_URL = <code>${escHtml(baseUrl)}</code><br>
+      Fetch URL = <code>${escHtml(baseUrl)}/api/notulen/${meetingId}/comments</code><br>
+      <span id="debug-response">Menunggu response...</span>
+    </div>`;
 
   if (!meetingId) {
     commentList.innerHTML = '<p class="text-danger text-center py-3 small">Error: MEETING_ID tidak terdefinisi.</p>';
@@ -42,16 +52,12 @@
            d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
   }
 
-  /* Fetch wrapper — tangkap semua error & tampilkan di panel */
   async function apiFetch(url, options = {}) {
     const res = await fetch(url, { credentials: 'same-origin', ...options });
     const ct  = res.headers.get('content-type') || '';
     if (!ct.includes('application/json')) {
       const txt = await res.text();
-      throw new Error(
-        `Server HTTP ${res.status} — response bukan JSON:\n` +
-        txt.replace(/<[^>]+>/g, ' ').trim().substring(0, 300)
-      );
+      throw new Error(`HTTP ${res.status} bukan JSON:\n` + txt.replace(/<[^>]+>/g,' ').trim().substring(0,300));
     }
     return res.json();
   }
@@ -59,14 +65,20 @@
   /* ── Load & Render ─────────────────────────────────────── */
   async function loadComments() {
     try {
-      const data = await apiFetch(`${baseUrl}/api/notulen/${meetingId}/comments`);
+      const url  = `${baseUrl}/api/notulen/${meetingId}/comments`;
+      const data = await apiFetch(url);
+
+      // Update debug banner
+      const dbg = document.getElementById('debug-response');
+      if (dbg) dbg.innerHTML = `Response: <code>${escHtml(JSON.stringify(data).substring(0,200))}</code>`;
+
       if (data.success) {
         renderComments(data.comments);
       } else {
         commentList.innerHTML = `<p class="text-danger text-center py-3 small">Gagal: ${escHtml(data.message)}</p>`;
       }
     } catch (e) {
-      commentList.innerHTML = `<div class="alert alert-danger m-2 py-2 small"><strong>Error load komentar:</strong><br><pre style="font-size:10px;white-space:pre-wrap;">${escHtml(e.message)}</pre></div>`;
+      commentList.innerHTML = `<div class="alert alert-danger m-2 py-2 small"><strong>Error:</strong><br><pre style="font-size:10px;white-space:pre-wrap;">${escHtml(e.message)}</pre></div>`;
     }
   }
 
@@ -150,7 +162,6 @@
         commentInput?.focus();
       });
     });
-
     document.querySelectorAll('.btn-resolve').forEach(btn => {
       btn.addEventListener('click', async () => {
         try {
@@ -159,7 +170,6 @@
         } catch (e) { alert('Resolve error: ' + e.message); }
       });
     });
-
     document.querySelectorAll('.btn-del-comment').forEach(btn => {
       btn.addEventListener('click', async () => {
         if (!confirm('Hapus komentar ini?')) return;
@@ -171,7 +181,7 @@
     });
   }
 
-  /* ── Submit Komentar ────────────────────────────────────── */
+  /* ── Submit ──────────────────────────────────────────────── */
   if (submitBtn) {
     submitBtn.addEventListener('click', async () => {
       const content = commentInput ? commentInput.value.trim() : '';
@@ -184,30 +194,21 @@
         const data = await apiFetch(`${baseUrl}/api/notulen/${meetingId}/comments`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({
-            content,
-            parent_id: replyToId,
-            mentions:  pendingMentions
-          })
+          body:    JSON.stringify({ content, parent_id: replyToId, mentions: pendingMentions })
         });
 
         if (data.success) {
           if (commentInput) commentInput.value = '';
-          replyToId       = null;
-          pendingMentions = [];
+          replyToId = null; pendingMentions = [];
           if (replyIndicator) replyIndicator.innerHTML = '';
           loadComments();
         } else {
-          // Tampilkan error di panel supaya terlihat
           commentList.insertAdjacentHTML('afterbegin',
-            `<div class="alert alert-danger m-2 py-2 small">Gagal simpan: ${escHtml(data.message)}</div>`
-          );
+            `<div class="alert alert-danger m-2 py-2 small">Gagal: ${escHtml(data.message)}</div>`);
         }
       } catch (e) {
-        // Tampilkan raw error (termasuk redirect HTML) langsung di panel
         commentList.insertAdjacentHTML('afterbegin',
-          `<div class="alert alert-danger m-2 py-2 small"><strong>Error kirim komentar:</strong><br><pre style="font-size:10px;white-space:pre-wrap;max-height:120px;overflow:auto;">${escHtml(e.message)}</pre></div>`
-        );
+          `<div class="alert alert-danger m-2 py-2 small"><strong>Error:</strong><br><pre style="font-size:10px;white-space:pre-wrap;max-height:120px;overflow:auto;">${escHtml(e.message)}</pre></div>`);
       } finally {
         submitBtn.disabled    = false;
         submitBtn.textContent = 'Kirim';
@@ -215,14 +216,11 @@
     });
 
     commentInput?.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        submitBtn.click();
-      }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitBtn.click(); }
     });
   }
 
-  /* ── Mention Dropdown ───────────────────────────────────── */
+  /* ── Mention ─────────────────────────────────────────────── */
   const dropdown = document.getElementById('mention-dropdown');
   if (dropdown && commentInput) {
     commentInput.addEventListener('input', () => {
@@ -248,7 +246,7 @@
     });
   }
 
-  /* ── Toggle Resolved ────────────────────────────────────── */
+  /* ── Toggle Resolved ───────────────────────────────────── */
   toggleBtn?.addEventListener('click', () => {
     showResolved = !showResolved;
     toggleBtn.textContent = showResolved ? 'Sembunyikan Selesai' : 'Tampilkan Selesai';
