@@ -121,43 +121,66 @@ const ALL_USERS       = ' . $allUsersJson . ';
         Auth::requireAuth();
         header('Content-Type: application/json');
 
-        if (!Auth::hasRole('admin', 'sekretaris')) {
-            http_response_code(403);
-            echo json_encode(['success' => false, 'message' => 'Akses ditolak.']);
+        // Tangkap semua output tak terduga (PHP warning/notice) agar response tetap JSON bersih
+        ob_start();
+
+        try {
+            if (!Auth::hasRole('admin', 'sekretaris')) {
+                ob_end_clean();
+                http_response_code(403);
+                echo json_encode(['success' => false, 'message' => 'Akses ditolak.']);
+                exit;
+            }
+
+            $raw       = file_get_contents('php://input');
+            $body      = json_decode($raw, true);
+            $meetingId = (int)($body['meeting_id'] ?? 0);
+            $content   = $body['content'] ?? null;
+
+            if (!$meetingId || $content === null) {
+                ob_end_clean();
+                echo json_encode(['success' => false, 'message' => 'Data tidak lengkap']);
+                exit;
+            }
+
+            $contentHtml = is_string($content) ? $content : '';
+            $userId      = Auth::id();
+
+            $existing = Database::queryOne("SELECT id, version FROM notulen WHERE meeting_id=?", [$meetingId]);
+            if ($existing) {
+                $newVersion = ($existing['version'] ?? 0) + 1;
+                // Gunakan kolom 'updated_by' sesuai schema (bukan last_edited_by)
+                Database::getInstance()->prepare(
+                    "UPDATE notulen SET content=?, version=?, updated_by=?, updated_at=NOW() WHERE meeting_id=?"
+                )->execute([$contentHtml, $newVersion, $userId, $meetingId]);
+            } else {
+                $newVersion = 1;
+                Database::getInstance()->prepare(
+                    "INSERT INTO notulen (meeting_id, content, version, updated_by, updated_at) VALUES (?,?,?,?,NOW())"
+                )->execute([$meetingId, $contentHtml, $newVersion, $userId]);
+            }
+
+            // Simpan ke history (gunakan INSERT IGNORE agar aman jika ada constraint)
+            try {
+                Database::getInstance()->prepare(
+                    "INSERT INTO notulen_history (meeting_id, content, version, edited_by) VALUES (?,?,?,?)"
+                )->execute([$meetingId, $contentHtml, $newVersion, $userId]);
+            } catch (\Throwable $e) {
+                // History gagal tidak boleh membatalkan save utama
+                error_log('notulen_history insert error: ' . $e->getMessage());
+            }
+
+            ob_end_clean();
+            echo json_encode(['success' => true, 'version' => $newVersion]);
+            exit;
+
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            error_log('NotulisController::save error: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan server: ' . $e->getMessage()]);
             exit;
         }
-
-        $raw       = file_get_contents('php://input');
-        $body      = json_decode($raw, true);
-        $meetingId = (int)($body['meeting_id'] ?? 0);
-        $content   = $body['content'] ?? null;
-
-        if (!$meetingId || $content === null) {
-            echo json_encode(['success' => false, 'message' => 'Data tidak lengkap']); exit;
-        }
-
-        $contentHtml = is_string($content) ? $content : '';
-        $userId      = Auth::id();
-
-        $existing = Database::queryOne("SELECT id, version FROM notulen WHERE meeting_id=?", [$meetingId]);
-        if ($existing) {
-            $newVersion = ($existing['version'] ?? 0) + 1;
-            Database::getInstance()->prepare(
-                "UPDATE notulen SET content=?, version=?, last_edited_by=?, updated_at=NOW() WHERE meeting_id=?"
-            )->execute([$contentHtml, $newVersion, $userId, $meetingId]);
-        } else {
-            $newVersion = 1;
-            Database::getInstance()->prepare(
-                "INSERT INTO notulen (meeting_id, content, version, last_edited_by, updated_at) VALUES (?,?,?,?,NOW())"
-            )->execute([$meetingId, $contentHtml, $newVersion, $userId]);
-        }
-
-        Database::getInstance()->prepare(
-            "INSERT INTO notulen_history (meeting_id, content, version, edited_by) VALUES (?,?,?,?)"
-        )->execute([$meetingId, $contentHtml, $newVersion, $userId]);
-
-        echo json_encode(['success' => true, 'version' => $newVersion]);
-        exit;
     }
 
     public static function sync(): void
@@ -172,9 +195,10 @@ const ALL_USERS       = ' . $allUsersJson . ';
             echo json_encode(['status' => 'error', 'message' => 'meeting_id wajib']); exit;
         }
 
+        // Gunakan updated_by sesuai schema
         $notulen = Database::queryOne(
             "SELECT n.*, u.name AS editor_name, u.id AS last_edited_by_id
-             FROM notulen n LEFT JOIN users u ON u.id=n.last_edited_by
+             FROM notulen n LEFT JOIN users u ON u.id=n.updated_by
              WHERE n.meeting_id=?",
             [$meetingId]
         );
@@ -182,7 +206,6 @@ const ALL_USERS       = ' . $allUsersJson . ';
         if (!$notulen) { echo json_encode(['status' => 'no_notulen']); exit; }
 
         if ((int)$notulen['version'] > $clientVersion) {
-            // Normalisasi konten sebelum dikirim ke client
             $notulen['content'] = self::normalizeContent($notulen['content'] ?? '');
             echo json_encode(['status' => 'updated', 'data' => $notulen]); exit;
         }

@@ -15,6 +15,11 @@ function showToast(msg, type = 'info') {
   setTimeout(() => el.remove(), 4000);
 }
 
+function setSaveStatus(msg) {
+  const el = document.getElementById('save-status');
+  if (el) el.textContent = msg;
+}
+
 function debouncedSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(doSave, 1500);
@@ -22,34 +27,48 @@ function debouncedSave() {
 
 async function doSave() {
   if (!quill) return;
-  const saveStatus = document.getElementById('save-status');
-  if (saveStatus) saveStatus.textContent = 'Menyimpan...';
+  setSaveStatus('Menyimpan...');
   try {
     const isEmpty = quill.getText().trim().length === 0;
     const html    = isEmpty ? '' : quill.root.innerHTML;
-    const res     = await fetch(SAVE_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ meeting_id: MEETING_ID, content: html })
-    });
-    const text = await res.text();
-    let data;
-    try   { data = JSON.parse(text); }
-    catch (e) {
-      console.error('Response bukan JSON:', text);
-      if (saveStatus) saveStatus.textContent = '\u2717 Server error';
+
+    let res;
+    try {
+      res = await fetch(SAVE_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ meeting_id: MEETING_ID, content: html })
+      });
+    } catch (networkErr) {
+      setSaveStatus('✗ Tidak ada koneksi');
       return;
     }
+
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error('Response bukan JSON:', text.substring(0, 500));
+      setSaveStatus('✗ Server error (response tidak valid)');
+      showToast('⚠️ Gagal menyimpan notulen. Periksa log server.', 'danger');
+      return;
+    }
+
     if (data.success) {
       if (data.version) currentVersion = data.version;
-      if (saveStatus) saveStatus.textContent = '\u2713 Tersimpan ' + new Date().toLocaleTimeString('id-ID');
+      setSaveStatus('✓ Tersimpan ' + new Date().toLocaleTimeString('id-ID'));
     } else {
-      if (saveStatus) saveStatus.textContent = '\u2717 Gagal: ' + (data.message || 'error');
-      if (res.status === 403) showToast('\u26a0\ufe0f Sesi kadaluarsa. <a href="/logout" class="alert-link">Login ulang</a>', 'warning');
+      setSaveStatus('✗ Gagal: ' + (data.message || 'error tidak diketahui'));
+      if (res.status === 403) {
+        showToast('⚠️ Sesi kadaluarsa. <a href="/logout" class="alert-link">Login ulang</a>', 'warning');
+      } else {
+        showToast('✗ Gagal simpan: ' + (data.message || 'error'), 'danger');
+      }
     }
   } catch (e) {
     console.error('Save error:', e);
-    if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
+    setSaveStatus('✗ Gagal simpan');
   }
 }
 
@@ -62,9 +81,8 @@ async function pollNotulen() {
     if (data.status === 'updated') {
       currentVersion = data.data.version;
       if (parseInt(data.data.last_edited_by_id) !== CURRENT_USER_ID) {
-        // Konten dari server sudah dinormalisasi (HTML) oleh NotulisController::sync()
         quill.root.innerHTML = data.data.content || '';
-        showToast(`\u270f\ufe0f <strong>${data.data.editor_name}</strong> memperbarui notulen`);
+        showToast(`✏️ <strong>${data.data.editor_name}</strong> memperbarui notulen`);
       }
     }
   } catch (e) {
@@ -103,7 +121,6 @@ function initQuill() {
     modules: { toolbar: toolbarOptions }
   });
 
-  // Set konten awal — INITIAL_CONTENT sudah HTML (dinormalisasi server)
   if (INITIAL_CONTENT && INITIAL_CONTENT.trim() !== '') {
     quill.root.innerHTML = INITIAL_CONTENT;
   }
