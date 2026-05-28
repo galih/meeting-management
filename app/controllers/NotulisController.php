@@ -44,7 +44,12 @@ class NotulisController
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@1.1.0/dist/underline.umd.min.js"></script>
 ';
 
-        // Konstanta + file JS utama di-inject di akhir body (setelah Tabler selesai)
+        // Semua konstanta JS + kedua file JS di-inject di akhir body
+        $allUsersJson = json_encode(array_values(array_map(
+            fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']],
+            $users
+        )));
+
         $scripts = '
 <script>
 const MEETING_ID      = ' . $id . ';
@@ -53,8 +58,10 @@ const IS_EDITOR       = ' . ($canEdit ? 'true' : 'false') . ';
 const SAVE_URL        = ' . json_encode($saveUrl) . ';
 const SYNC_URL        = ' . json_encode($syncUrl) . ';
 const INITIAL_CONTENT = ' . json_encode($notulen['content'] ?? '{}') . ';
+const ALL_USERS       = ' . $allUsersJson . ';
 </script>
 <script src="' . BASE_URL . '/assets/js/notulen-realtime.js"></script>
+<script src="' . BASE_URL . '/assets/js/notulen-comments.js"></script>
 ';
 
         View::layout('notulen/editor', [

@@ -3,7 +3,6 @@ class CommentController
 {
     /**
      * GET /api/notulen/{meetingId}/comments
-     * Ambil semua komentar (beserta replies) untuk sebuah meeting
      */
     public static function index(int $meetingId): void
     {
@@ -17,7 +16,6 @@ class CommentController
              ORDER BY nc.created_at ASC",
             [$meetingId]
         );
-        // Attach replies
         foreach ($comments as &$c) {
             $c['replies'] = Database::query(
                 "SELECT nc.*, u.name AS user_name
@@ -34,16 +32,15 @@ class CommentController
 
     /**
      * POST /api/notulen/{meetingId}/comments
-     * Tambah komentar baru (atau reply)
      */
     public static function store(int $meetingId): void
     {
         Auth::requireAuth();
-        $body     = json_decode(file_get_contents('php://input'), true);
+        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
         $content  = trim($body['content']  ?? '');
-        $blockId  = $body['block_id']  ?? null;
+        $blockId  = $body['block_id']      ?? null;
         $parentId = !empty($body['parent_id']) ? (int)$body['parent_id'] : null;
-        $mentions = $body['mentions']  ?? []; // array of user_id
+        $mentions = (array)($body['mentions'] ?? []);
 
         if (empty($content)) {
             self::json(false, 'Komentar tidak boleh kosong'); return;
@@ -56,7 +53,10 @@ class CommentController
         )->execute([$meetingId, $blockId, $parentId, Auth::id(), $content]);
         $commentId = (int)$db->lastInsertId();
 
-        // Simpan mentions & kirim notifikasi
+        $baseUrl  = rtrim(BASE_URL, '/') . '/notulen/' . $meetingId;
+        $userName = Auth::user()['name'] ?? 'Seseorang';
+
+        // Simpan mentions & kirim notifikasi — Notification::send() hanya terima 4 argumen
         foreach ($mentions as $uid) {
             $uid = (int)$uid;
             $db->prepare(
@@ -65,9 +65,8 @@ class CommentController
             Notification::send(
                 $uid,
                 'comment_mention',
-                'Anda disebut di komentar',
-                Auth::user()['name'] . ' menyebut Anda di notulen.',
-                ['meeting_id' => $meetingId, 'comment_id' => $commentId]
+                "{$userName} menyebut Anda di notulen.",
+                $baseUrl
             );
         }
 
@@ -79,11 +78,10 @@ class CommentController
             );
             foreach ($participants as $p) {
                 Notification::send(
-                    $p['user_id'],
+                    (int)$p['user_id'],
                     'notulen_comment',
-                    'Komentar baru di notulen',
-                    Auth::user()['name'] . ' menambahkan komentar.',
-                    ['meeting_id' => $meetingId]
+                    "{$userName} menambahkan komentar di notulen.",
+                    $baseUrl
                 );
             }
         }
@@ -98,7 +96,6 @@ class CommentController
 
     /**
      * POST /api/comments/{id}/resolve
-     * Resolve / unresolve thread komentar
      */
     public static function resolve(int $id): void
     {
@@ -120,8 +117,7 @@ class CommentController
         Auth::requireAuth();
         $c = Database::queryOne("SELECT * FROM notulen_comments WHERE id=?", [$id]);
         if (!$c) { self::json(false, 'Tidak ditemukan'); return; }
-        // Hanya pemilik komentar atau admin yang bisa hapus
-        if ($c['user_id'] !== Auth::id() && !Auth::can('admin')) {
+        if ((int)$c['user_id'] !== Auth::id() && !Auth::hasRole('admin')) {
             self::json(false, 'Akses ditolak'); return;
         }
         Database::getInstance()->prepare("DELETE FROM notulen_comments WHERE id=?")->execute([$id]);
@@ -131,6 +127,6 @@ class CommentController
     private static function json(bool $success, string $message, array $extra = []): void
     {
         header('Content-Type: application/json');
-        echo json_encode(array_merge(compact('success','message'), $extra)); exit;
+        echo json_encode(array_merge(compact('success', 'message'), $extra)); exit;
     }
 }
