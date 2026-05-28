@@ -27,7 +27,9 @@ function parseInitialContent() {
   try {
     if (!INITIAL_CONTENT || INITIAL_CONTENT === '{}' || INITIAL_CONTENT === '') return { blocks: [] };
     const parsed = (typeof INITIAL_CONTENT === 'string') ? JSON.parse(INITIAL_CONTENT) : INITIAL_CONTENT;
-    return (parsed && Array.isArray(parsed.blocks)) ? parsed : { blocks: [] };
+    return (parsed && Array.isArray(parsed.blocks) && parsed.blocks.length > 0)
+      ? parsed
+      : { blocks: [] };
   } catch (e) {
     return { blocks: [] };
   }
@@ -39,31 +41,25 @@ async function doSave() {
   if (saveStatus) saveStatus.textContent = 'Menyimpan...';
   try {
     const content = await editor.save();
-    const res = await fetch(SAVE_URL, {
+    const res  = await fetch(SAVE_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ meeting_id: MEETING_ID, content })
     });
-
-    // Pastikan response adalah JSON bersih
     const text = await res.text();
     let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
+    try   { data = JSON.parse(text); }
+    catch (e) {
       console.error('Response bukan JSON:', text);
       if (saveStatus) saveStatus.textContent = '\u2717 Server error';
       return;
     }
-
     if (data.success) {
       if (data.version) currentVersion = data.version;
       if (saveStatus) saveStatus.textContent = '\u2713 Tersimpan ' + new Date().toLocaleTimeString('id-ID');
     } else {
       if (saveStatus) saveStatus.textContent = '\u2717 Gagal: ' + (data.message || 'error');
-      if (res.status === 403) {
-        showToast('\u26a0\ufe0f Sesi kadaluarsa. Silakan <a href="/logout" class="alert-link">logout</a> lalu login ulang.', 'warning');
-      }
+      if (res.status === 403) showToast('\u26a0\ufe0f Sesi kadaluarsa. Silakan <a href="/logout" class="alert-link">login ulang</a>.', 'warning');
     }
   } catch (e) {
     console.error('Save error:', e);
@@ -96,8 +92,7 @@ async function pollNotulen() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-
+function initEditor() {
   if (typeof EditorJS === 'undefined') {
     const holder = document.getElementById('editorjs');
     if (holder) holder.innerHTML = '<div class="alert alert-warning m-3">Editor gagal di-load. Coba refresh halaman.</div>';
@@ -111,40 +106,33 @@ document.addEventListener('DOMContentLoaded', () => {
     readOnly:    !IS_EDITOR,
     placeholder: IS_EDITOR ? 'Mulai tulis notulen di sini...' : '',
     tools: {
-      header: {
-        class: Header,
-        inlineToolbar: true,
-        config: { levels: [2, 3, 4], defaultLevel: 2 }
-      },
-      list: {
-        class: NestedList,
-        inlineToolbar: true,
-        config: { defaultStyle: 'unordered' }
-      },
-      checklist: {
-        class: Checklist,
-        inlineToolbar: true
-      },
-      table: {
-        class: Table,
-        config: { rows: 2, cols: 3, withHeadings: true }
-      },
+      header:    { class: Header,     inlineToolbar: true, config: { levels: [2,3,4], defaultLevel: 2 } },
+      list:      { class: NestedList, inlineToolbar: true, config: { defaultStyle: 'unordered' } },
+      checklist: { class: Checklist,  inlineToolbar: true },
+      table:     { class: Table,      config: { rows: 2, cols: 3, withHeadings: true } },
       underline: { class: Underline }
     },
     data: parseInitialContent(),
     onReady() {
       pollNotulen();
-      const btnManual = document.getElementById('btn-save-manual');
-      if (btnManual) {
-        btnManual.addEventListener('click', async () => {
-          btnManual.disabled = true;
+      const btn = document.getElementById('btn-save-manual');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
           await doSave();
-          btnManual.disabled = false;
+          btn.disabled = false;
         });
       }
     },
-    // onChange di EditorJS 2.28+ menerima (api, event) — tidak pakai debounce wrapper lama
     onChange: IS_EDITOR ? (_api, _event) => { debouncedSave(); } : undefined
   });
+}
 
-});
+// Gunakan DOMContentLoaded; karena EditorJS CDN ada di <head> ia sudah ter-parse
+// sebelum body scripts berjalan — initEditor() aman dipanggil di sini.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initEditor);
+} else {
+  // DOM sudah ready (script di-load async/defer atau setelah DOMContentLoaded)
+  initEditor();
+}

@@ -14,7 +14,6 @@ class NotulisController
         );
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan'; exit; }
 
-        // Ambil / buat notulen
         $notulen = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$id]);
         if (!$notulen) {
             Database::getInstance()->prepare(
@@ -28,16 +27,15 @@ class NotulisController
              FROM tindak_lanjut tl LEFT JOIN users u ON u.id=tl.assigned_to
              WHERE tl.meeting_id=? ORDER BY tl.created_at DESC", [$id]
         );
-        $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
-        $user  = Auth::user();
+        $users   = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
+        $user    = Auth::user();
+        $canEdit = Auth::hasRole('admin', 'sekretaris');
 
-        $saveUrl    = rtrim(BASE_URL, '/') . '/api/notulen/save';
-        $syncUrl    = rtrim(BASE_URL, '/') . '/api/notulen/sync';
-        $canEdit    = Auth::hasRole('admin', 'sekretaris');
-        $initialContent = $notulen['content'] ?? '{}';
+        $saveUrl = rtrim(BASE_URL, '/') . '/api/notulen/save';
+        $syncUrl = rtrim(BASE_URL, '/') . '/api/notulen/sync';
 
-        // Script EditorJS diinjek hanya di halaman ini
-        $editorScripts = '
+        // EditorJS CDN di-load di <head> agar sudah siap sebelum body scripts jalan
+        $headScripts = '
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@2.28.2/dist/editorjs.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@2.8.1/dist/header.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@1.4.2/dist/nested-list.umd.min.js"></script>
@@ -46,14 +44,15 @@ class NotulisController
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@1.1.0/dist/underline.umd.min.js"></script>
 ';
 
-        $scripts = $editorScripts . '
+        // Konstanta + file JS utama di-inject di akhir body (setelah Tabler selesai)
+        $scripts = '
 <script>
-const MEETING_ID       = ' . $id . ';
-const CURRENT_USER_ID  = ' . (int)($user['id'] ?? 0) . ';
-const IS_EDITOR        = ' . ($canEdit ? 'true' : 'false') . ';
-const SAVE_URL         = ' . json_encode($saveUrl) . ';
-const SYNC_URL         = ' . json_encode($syncUrl) . ';
-const INITIAL_CONTENT  = ' . json_encode($initialContent) . ';
+const MEETING_ID      = ' . $id . ';
+const CURRENT_USER_ID = ' . (int)($user['id'] ?? 0) . ';
+const IS_EDITOR       = ' . ($canEdit ? 'true' : 'false') . ';
+const SAVE_URL        = ' . json_encode($saveUrl) . ';
+const SYNC_URL        = ' . json_encode($syncUrl) . ';
+const INITIAL_CONTENT = ' . json_encode($notulen['content'] ?? '{}') . ';
 </script>
 <script src="' . BASE_URL . '/assets/js/notulen-realtime.js"></script>
 ';
@@ -65,6 +64,7 @@ const INITIAL_CONTENT  = ' . json_encode($initialContent) . ';
             'tindakLanjutList' => $tindakLanjutList,
             'users'            => $users,
             'user'             => $user,
+            'headScripts'      => $headScripts,
             'scripts'          => $scripts,
         ]);
     }
@@ -107,10 +107,8 @@ const INITIAL_CONTENT  = ' . json_encode($initialContent) . ';
             )->execute([$meetingId, $contentJson, $newVersion, $userId]);
         }
 
-        // Simpan ke history
         Database::getInstance()->prepare(
-            "INSERT INTO notulen_history (meeting_id, content, version, edited_by)
-             VALUES (?,?,?,?)"
+            "INSERT INTO notulen_history (meeting_id, content, version, edited_by) VALUES (?,?,?,?)"
         )->execute([$meetingId, $contentJson, $newVersion, $userId]);
 
         echo json_encode(['success' => true, 'version' => $newVersion]);
@@ -122,8 +120,8 @@ const INITIAL_CONTENT  = ' . json_encode($initialContent) . ';
         Auth::requireAuth();
         header('Content-Type: application/json');
 
-        $meetingId      = (int)($_GET['meeting_id'] ?? 0);
-        $clientVersion  = (int)($_GET['version']    ?? 0);
+        $meetingId     = (int)($_GET['meeting_id'] ?? 0);
+        $clientVersion = (int)($_GET['version']    ?? 0);
 
         if (!$meetingId) {
             echo json_encode(['status' => 'error', 'message' => 'meeting_id wajib']); exit;
@@ -136,9 +134,7 @@ const INITIAL_CONTENT  = ' . json_encode($initialContent) . ';
             [$meetingId]
         );
 
-        if (!$notulen) {
-            echo json_encode(['status' => 'no_notulen']); exit;
-        }
+        if (!$notulen) { echo json_encode(['status' => 'no_notulen']); exit; }
 
         if ((int)$notulen['version'] > $clientVersion) {
             echo json_encode(['status' => 'updated', 'data' => $notulen]); exit;

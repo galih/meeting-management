@@ -18,6 +18,9 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
   <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css"/>
 
+  <!-- Page-specific <head> scripts/styles (mis. EditorJS CDN untuk halaman notulen) -->
+  <?= $headScripts ?? '' ?>
+
   <style>
     :root {
       --tblr-primary:        #f76707;
@@ -104,6 +107,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
               </div>
             </a>
             <div class="dropdown-menu dropdown-menu-end">
+              <a href="<?= BASE_URL ?>/profile" class="dropdown-item">Profil Saya</a>
               <div class="dropdown-divider"></div>
               <a href="<?= BASE_URL ?>/logout" class="dropdown-item text-danger">Logout</a>
             </div>
@@ -148,7 +152,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
   </div><!-- .page-wrapper -->
 </div><!-- .wrapper -->
 
-<!-- Scripts -->
+<!-- Scripts: urutan wajib dipertahankan -->
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
@@ -156,7 +160,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
 <script src="<?= BASE_URL ?>/assets/js/notifications.js"></script>
 
-<!-- Page-specific scripts diinjek di sini (termasuk EditorJS khusus halaman notulen) -->
+<!-- Page-specific body scripts -->
 <?= $scripts ?? '' ?>
 </body>
 </html>
