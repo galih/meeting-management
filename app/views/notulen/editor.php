@@ -117,13 +117,13 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
       </div>
     </div>
 
-    <!-- ============ PANEL LAMPIRAN ============
-         data-meeting-id wajib ada — dibaca oleh meeting-attachments.js
-    ================================================ -->
+    <!-- Panel Lampiran
+         data-meeting-id dibaca oleh meeting-attachments.js
+         MEETING_ID global juga sudah di-set oleh controller
+    -->
     <div class="card mb-3"
          id="attachment-panel"
          data-meeting-id="<?= (int)$meeting['id'] ?>">
-
       <div class="card-header">
         <h4 class="card-title">
           <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1 text-brand" width="18" height="18"
@@ -176,7 +176,6 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
         </div>
       </div>
     </div>
-    <!-- /END PANEL LAMPIRAN -->
 
     <!-- Tindak Lanjut -->
     <div class="card">
@@ -212,8 +211,8 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
       </div>
     </div>
 
-  </div><!-- /col-lg-4 -->
-</div><!-- /row -->
+  </div>
+</div>
 
 <!-- Modal Tindak Lanjut -->
 <?php if ($canEdit): ?>
@@ -261,11 +260,3 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
   </div>
 </div>
 <?php endif; ?>
-
-<?php
-// Load meeting-attachments.js — MEETING_ID dibaca dari data-meeting-id pada #attachment-panel
-// TIDAK perlu window.MEETING_ID karena JS sudah baca dari dataset
-$scripts = ($scripts ?? '') . '
-<script src="' . $baseUrl . '/assets/js/meeting-attachments.js"></script>
-';
-?>
