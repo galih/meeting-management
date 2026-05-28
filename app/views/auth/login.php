@@ -17,13 +17,31 @@ $loginBg  = SettingController::get('login_bg');
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css"/>
   <?php if ($loginBg): ?>
   <style>
-    body {
-      background-image: url('<?= htmlspecialchars($loginBg) ?>');
-      background-size: cover;
-      background-position: center;
-      background-repeat: no-repeat;
+    /*
+     * Background image hanya tampil di layar >= 768px (tablet/desktop).
+     * Di mobile (< 768px) background tidak dimuat via CSS background-image,
+     * sehingga browser tidak men-download file gambar sama sekali.
+     */
+    @media (min-width: 768px) {
+      body {
+        background-image: url('<?= htmlspecialchars($loginBg) ?>');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+      }
+      .card {
+        background: rgba(255,255,255,0.95);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+      }
     }
-    .card { background: rgba(255,255,255,0.95); backdrop-filter: blur(4px); }
+    /* Mobile: background putih bersih, tanpa download gambar */
+    @media (max-width: 767.98px) {
+      body {
+        background: #f4f6fb;
+      }
+    }
     .page-center { min-height: 100vh; }
   </style>
   <?php endif; ?>
