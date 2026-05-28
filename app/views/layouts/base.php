@@ -104,7 +104,6 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
               </div>
             </a>
             <div class="dropdown-menu dropdown-menu-end">
-              <a href="<?= BASE_URL ?>/profile" class="dropdown-item">Profil Saya</a>
               <div class="dropdown-divider"></div>
               <a href="<?= BASE_URL ?>/logout" class="dropdown-item text-danger">Logout</a>
             </div>
@@ -149,22 +148,15 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
   </div><!-- .page-wrapper -->
 </div><!-- .wrapper -->
 
-<!-- Scripts: urutan wajib dipertahankan -->
+<!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-
-<!-- EditorJS: versi di-pin agar tidak breaking di shared hosting -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@2.28.2/dist/editorjs.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/header@2.8.1/dist/header.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/list@1.10.0/dist/list.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@1.6.0/dist/checklist.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/table@2.3.0/dist/table.umd.min.js"></script>
 
 <!-- BASE_URL global -->
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
 <script src="<?= BASE_URL ?>/assets/js/notifications.js"></script>
 
-<!-- Page-specific scripts (notulen-realtime.js dll) diinjek di sini -->
+<!-- Page-specific scripts diinjek di sini (termasuk EditorJS khusus halaman notulen) -->
 <?= $scripts ?? '' ?>
 </body>
 </html>

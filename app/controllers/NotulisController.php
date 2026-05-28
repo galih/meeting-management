@@ -1,219 +1,170 @@
 <?php
+declare(strict_types=1);
+
 class NotulisController
 {
-    public static function editor(int $meetingId): void
+    public static function editor(int $id): void
     {
         Auth::requireAuth();
+
         $meeting = Database::queryOne(
             "SELECT m.*, u.name AS creator_name
              FROM meetings m LEFT JOIN users u ON u.id=m.created_by
-             WHERE m.id=?",
-            [$meetingId]
+             WHERE m.id=?", [$id]
         );
-        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan'; exit; }
 
-        $notulen = Database::queryOne(
-            "SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]
-        );
+        // Ambil / buat notulen
+        $notulen = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$id]);
         if (!$notulen) {
-            $emptyContent = json_encode(['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0']);
             Database::getInstance()->prepare(
-                "INSERT INTO notulen (meeting_id, content, version, created_by, updated_by) VALUES (?,?,1,?,?)"
-            )->execute([$meetingId, $emptyContent, Auth::id(), Auth::id()]);
-            $notulen = Database::queryOne(
-                "SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]
-            );
+                "INSERT INTO notulen (meeting_id, content, version) VALUES (?,?,0)"
+            )->execute([$id, '{}']);
+            $notulen = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$id]);
         }
-
-        if (empty($notulen['content'])) {
-            $notulen['content'] = json_encode(['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0']);
-        }
-
-        $participants = Database::query(
-            "SELECT u.id, u.name FROM meeting_participants mp
-             JOIN users u ON u.id=mp.user_id WHERE mp.meeting_id=?",
-            [$meetingId]
-        );
-
-        $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
         $tindakLanjutList = Database::query(
             "SELECT tl.*, u.name AS assigned_name
-             FROM tindak_lanjut tl
-             LEFT JOIN users u ON u.id = tl.assigned_to
-             WHERE tl.meeting_id = ?
-             ORDER BY tl.created_at DESC",
-            [$meetingId]
+             FROM tindak_lanjut tl LEFT JOIN users u ON u.id=tl.assigned_to
+             WHERE tl.meeting_id=? ORDER BY tl.created_at DESC", [$id]
         );
+        $users = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
+        $user  = Auth::user();
 
-        $baseUrl      = rtrim(BASE_URL, '/');
-        $isEditor     = Auth::hasRole('admin', 'sekretaris') ? 'true' : 'false';
-        $meetingIdInt = (int)$meeting['id'];
-        $userId       = (int)Auth::id();
-        $usersJson    = json_encode(array_map(fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']], $users));
-        $saveUrl      = json_encode($baseUrl . '/api/notulen/save');
-        $syncUrl      = json_encode($baseUrl . '/api/notulen/sync');
-        $tlUrl        = json_encode($baseUrl . '/tindak-lanjut');
+        $saveUrl    = rtrim(BASE_URL, '/') . '/api/notulen/save';
+        $syncUrl    = rtrim(BASE_URL, '/') . '/api/notulen/sync';
+        $canEdit    = Auth::hasRole('admin', 'sekretaris');
+        $initialContent = $notulen['content'] ?? '{}';
 
-        $contentDecoded = json_decode($notulen['content'] ?? '{}');
-        if (!$contentDecoded || !isset($contentDecoded->blocks)) {
-            $contentDecoded = (object)['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0'];
-        }
-        $contentJson = json_encode($contentDecoded);
+        // Script EditorJS diinjek hanya di halaman ini
+        $editorScripts = '
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@2.28.2/dist/editorjs.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/header@2.8.1/dist/header.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/nested-list@1.4.2/dist/nested-list.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/checklist@1.6.0/dist/checklist.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/table@2.3.0/dist/table.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/underline@1.1.0/dist/underline.umd.min.js"></script>
+';
 
-        $scripts = <<<HTML
+        $scripts = $editorScripts . '
 <script>
-const MEETING_ID      = {$meetingIdInt};
-const CURRENT_USER_ID = {$userId};
-const IS_EDITOR       = {$isEditor};
-const INITIAL_CONTENT = {$contentJson};
-const ALL_USERS       = {$usersJson};
-const SAVE_URL        = {$saveUrl};
-const SYNC_URL        = {$syncUrl};
+const MEETING_ID       = ' . $id . ';
+const CURRENT_USER_ID  = ' . (int)($user['id'] ?? 0) . ';
+const IS_EDITOR        = ' . ($canEdit ? 'true' : 'false') . ';
+const SAVE_URL         = ' . json_encode($saveUrl) . ';
+const SYNC_URL         = ' . json_encode($syncUrl) . ';
+const INITIAL_CONTENT  = ' . json_encode($initialContent) . ';
 </script>
-<script src="{$baseUrl}/assets/js/notulen-realtime.js"></script>
-<script src="{$baseUrl}/assets/js/notulen-comments.js"></script>
-<script>
-document.getElementById('btn-tl2-save')?.addEventListener('click', async () => {
-  const desk = document.getElementById('tl2-desk').value.trim();
-  if (!desk) { alert('Deskripsi wajib diisi!'); return; }
-  const res = await fetch({$tlUrl}, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      meeting_id:  MEETING_ID,
-      description: desk,
-      assigned_to: document.getElementById('tl2-assign').value,
-      due_date:    document.getElementById('tl2-deadline').value,
-      priority:    document.getElementById('tl2-priority').value,
-    })
-  });
-  const d = await res.json();
-  if (d.success) {
-    bootstrap.Modal.getInstance(document.getElementById('modalTL')).hide();
-    location.reload();
-  } else {
-    alert(d.message || 'Gagal menyimpan');
-  }
-});
-</script>
-HTML;
+<script src="' . BASE_URL . '/assets/js/notulen-realtime.js"></script>
+';
 
         View::layout('notulen/editor', [
-            'pageTitle'        => 'Notulen — ' . $meeting['title'],
+            'pageTitle'        => 'Notulen: ' . $meeting['title'],
             'meeting'          => $meeting,
             'notulen'          => $notulen,
-            'participants'     => $participants,
-            'users'            => $users,
             'tindakLanjutList' => $tindakLanjutList,
-            'user'             => Auth::user(),
+            'users'            => $users,
+            'user'             => $user,
             'scripts'          => $scripts,
-        ]);
-    }
-
-    public static function history(int $meetingId): void
-    {
-        Auth::requireRole('admin', 'sekretaris');
-
-        $meeting = Database::queryOne(
-            "SELECT m.*, u.name AS creator_name
-             FROM meetings m LEFT JOIN users u ON u.id=m.created_by
-             WHERE m.id=?",
-            [$meetingId]
-        );
-        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
-
-        $history = Database::query(
-            "SELECT nh.*, u.name AS editor_name
-             FROM notulen_history nh
-             LEFT JOIN users u ON u.id=nh.edited_by
-             WHERE nh.meeting_id=?
-             ORDER BY nh.created_at DESC",
-            [$meetingId]
-        );
-
-        View::layout('notulen/history', [
-            'pageTitle' => 'Riwayat Notulen — ' . $meeting['title'],
-            'meeting'   => $meeting,
-            'history'   => $history,
         ]);
     }
 
     public static function save(): void
     {
-        // Return JSON 403 (bukan HTML) agar JS bisa handle dengan benar
+        Auth::requireAuth();
+        header('Content-Type: application/json');
+
         if (!Auth::hasRole('admin', 'sekretaris')) {
             http_response_code(403);
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'Akses ditolak. Silakan logout dan login ulang.']);
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak.']);
             exit;
         }
 
-        $input     = json_decode(file_get_contents('php://input'), true) ?? $_POST;
-        $meetingId = (int)($input['meeting_id'] ?? 0);
-        $content   = $input['content'] ?? '';
+        $raw       = file_get_contents('php://input');
+        $body      = json_decode($raw, true);
+        $meetingId = (int)($body['meeting_id'] ?? 0);
+        $content   = $body['content'] ?? null;
 
-        if (!$meetingId) {
-            header('Content-Type: application/json');
-            echo json_encode(['success' => false, 'message' => 'meeting_id wajib']); exit;
+        if (!$meetingId || $content === null) {
+            echo json_encode(['success' => false, 'message' => 'Data tidak lengkap']); exit;
         }
 
-        if (is_array($content)) {
-            $content = json_encode($content);
-        }
+        $contentJson = is_string($content) ? $content : json_encode($content);
+        $userId      = Auth::id();
 
-        $existing = Database::queryOne(
-            "SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]
-        );
-
-        $db = Database::getInstance();
+        $existing = Database::queryOne("SELECT id, version FROM notulen WHERE meeting_id=?", [$meetingId]);
         if ($existing) {
-            $db->prepare(
-                "INSERT INTO notulen_history (meeting_id, content, version, edited_by) VALUES (?,?,?,?)"
-            )->execute([$meetingId, $existing['content'], $existing['version'], Auth::id()]);
-            $db->prepare(
-                "UPDATE notulen SET content=?, version=version+1, updated_by=?, updated_at=NOW() WHERE meeting_id=?"
-            )->execute([$content, Auth::id(), $meetingId]);
-            $version = ($existing['version'] ?? 0) + 1;
+            $newVersion = ($existing['version'] ?? 0) + 1;
+            Database::getInstance()->prepare(
+                "UPDATE notulen SET content=?, version=?, last_edited_by=?, updated_at=NOW()
+                 WHERE meeting_id=?"
+            )->execute([$contentJson, $newVersion, $userId, $meetingId]);
         } else {
-            $db->prepare(
-                "INSERT INTO notulen (meeting_id, content, version, created_by, updated_by) VALUES (?,?,1,?,?)"
-            )->execute([$meetingId, $content, Auth::id(), Auth::id()]);
-            $version = 1;
+            $newVersion = 1;
+            Database::getInstance()->prepare(
+                "INSERT INTO notulen (meeting_id, content, version, last_edited_by, updated_at)
+                 VALUES (?,?,?,?,NOW())"
+            )->execute([$meetingId, $contentJson, $newVersion, $userId]);
         }
 
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'message' => 'Notulen disimpan.', 'version' => $version]); exit;
+        // Simpan ke history
+        Database::getInstance()->prepare(
+            "INSERT INTO notulen_history (meeting_id, content, version, edited_by)
+             VALUES (?,?,?,?)"
+        )->execute([$meetingId, $contentJson, $newVersion, $userId]);
+
+        echo json_encode(['success' => true, 'version' => $newVersion]);
+        exit;
     }
 
     public static function sync(): void
     {
         Auth::requireAuth();
-        $meetingId     = (int)($_GET['meeting_id'] ?? 0);
-        $clientVersion = (int)($_GET['version']    ?? 0);
+        header('Content-Type: application/json');
+
+        $meetingId      = (int)($_GET['meeting_id'] ?? 0);
+        $clientVersion  = (int)($_GET['version']    ?? 0);
+
+        if (!$meetingId) {
+            echo json_encode(['status' => 'error', 'message' => 'meeting_id wajib']); exit;
+        }
 
         $notulen = Database::queryOne(
-            "SELECT n.content, n.version, n.updated_at, u.name AS editor_name, u.id AS last_edited_by_id
-             FROM notulen n
-             LEFT JOIN users u ON u.id = n.updated_by
+            "SELECT n.*, u.name AS editor_name, u.id AS last_edited_by_id
+             FROM notulen n LEFT JOIN users u ON u.id=n.last_edited_by
              WHERE n.meeting_id=?",
             [$meetingId]
         );
 
-        if (!$notulen || $notulen['version'] <= $clientVersion) {
-            header('Content-Type: application/json');
-            echo json_encode(['status' => 'ok', 'version' => $notulen['version'] ?? 0]); exit;
+        if (!$notulen) {
+            echo json_encode(['status' => 'no_notulen']); exit;
         }
 
-        header('Content-Type: application/json');
-        echo json_encode([
-            'status' => 'updated',
-            'data'   => [
-                'content'           => $notulen['content'],
-                'version'           => $notulen['version'],
-                'editor_name'       => $notulen['editor_name'] ?? '',
-                'last_edited_by_id' => $notulen['last_edited_by_id'],
-            ],
-        ]); exit;
+        if ((int)$notulen['version'] > $clientVersion) {
+            echo json_encode(['status' => 'updated', 'data' => $notulen]); exit;
+        }
+
+        echo json_encode(['status' => 'current']); exit;
+    }
+
+    public static function history(int $id): void
+    {
+        Auth::requireRole('admin', 'sekretaris');
+
+        $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$id]);
+        if (!$meeting) { http_response_code(404); exit; }
+
+        $histories = Database::query(
+            "SELECT nh.*, u.name AS editor_name
+             FROM notulen_history nh LEFT JOIN users u ON u.id=nh.edited_by
+             WHERE nh.meeting_id=? ORDER BY nh.created_at DESC",
+            [$id]
+        );
+
+        View::layout('notulen/history', [
+            'pageTitle' => 'Riwayat Notulen',
+            'meeting'   => $meeting,
+            'histories' => $histories,
+        ]);
     }
 }

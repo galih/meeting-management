@@ -48,6 +48,7 @@ $canEdit   = Auth::hasRole('admin', 'sekretaris');
       <?php endif; ?>
 
       <div class="card-body p-0">
+        <!-- EditorJS holder -->
         <div id="editorjs" class="p-3" style="min-height:480px;"></div>
       </div>
     </div>
@@ -76,8 +77,7 @@ $canEdit   = Auth::hasRole('admin', 'sekretaris');
           <div class="flex-fill">
             <div class="position-relative">
               <textarea id="comment-input" class="form-control" rows="2"
-                        placeholder="Tulis komentar... gunakan @nama untuk mention"></textarea>
-              <div id="mention-dropdown" class="dropdown-menu show p-1" style="display:none!important;"></div>
+                        placeholder="Tulis komentar..."></textarea>
             </div>
             <div class="d-flex justify-content-between align-items-center mt-1">
               <small class="text-muted" id="reply-indicator"></small>
