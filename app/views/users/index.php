@@ -23,7 +23,7 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
       <form method="GET" action="<?= $baseUrl ?>/users" class="d-flex gap-2">
         <input type="text" name="q" value="<?= htmlspecialchars($search ?? '') ?>"
                class="form-control form-control-sm" style="width:220px;"
-               placeholder="Cari nama atau email...">
+               placeholder="Cari nama, username, atau email...">
         <button class="btn btn-sm btn-outline-secondary">Cari</button>
         <?php if (!empty($search)): ?>
         <a href="<?= $baseUrl ?>/users" class="btn btn-sm btn-ghost-secondary">Reset</a>
@@ -45,13 +45,13 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
       <thead>
         <tr>
           <th style="width:40px;">#</th>
-          <th>Nama</th><th>Email</th><th>Departemen</th><th>Role</th><th>Status</th>
+          <th>Nama</th><th>Username</th><th>Email</th><th>Departemen</th><th>Role</th><th>Status</th>
           <th>Dibuat</th><th>Aksi</th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($users)): ?>
-        <tr><td colspan="8" class="text-center text-muted py-5">Tidak ada pengguna ditemukan</td></tr>
+        <tr><td colspan="9" class="text-center text-muted py-5">Tidak ada pengguna ditemukan</td></tr>
         <?php endif; ?>
         <?php foreach ($users as $i => $u): ?>
         <tr id="row-<?= $u['id'] ?>">
@@ -65,6 +65,7 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
               <div class="fw-semibold"><?= htmlspecialchars($u['name']) ?></div>
             </div>
           </td>
+          <td class="text-muted"><code><?= htmlspecialchars($u['username']) ?></code></td>
           <td class="text-muted"><?= htmlspecialchars($u['email']) ?></td>
           <td class="text-muted"><?= htmlspecialchars($u['dept_name'] ?? '-') ?></td>
           <td>
@@ -167,6 +168,14 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
             <input type="text" name="name" class="form-control" required placeholder="Nama lengkap">
           </div>
           <div class="mb-3">
+            <label class="form-label required">Username
+              <small class="text-muted">(untuk login, tanpa spasi)</small>
+            </label>
+            <input type="text" name="username" class="form-control" required
+                   placeholder="contoh: john.doe" pattern="[a-zA-Z0-9._-]+"
+                   title="Hanya huruf, angka, titik, underscore, atau strip">
+          </div>
+          <div class="mb-3">
             <label class="form-label required">Email</label>
             <input type="email" name="email" class="form-control" required placeholder="email@domain.com">
           </div>
@@ -215,6 +224,14 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
           <div class="mb-3">
             <label class="form-label required">Nama Lengkap</label>
             <input type="text" name="name" id="edit-name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label required">Username
+              <small class="text-muted">(untuk login)</small>
+            </label>
+            <input type="text" name="username" id="edit-username" class="form-control" required
+                   pattern="[a-zA-Z0-9._-]+"
+                   title="Hanya huruf, angka, titik, underscore, atau strip">
           </div>
           <div class="mb-3">
             <label class="form-label required">Email</label>
@@ -270,9 +287,10 @@ document.querySelectorAll('.btn-edit').forEach(btn => {
     try { u = JSON.parse(raw); } catch (e) {
       alert('Gagal membuka form edit. Silakan refresh halaman.'); return;
     }
-    document.getElementById('edit-name').value     = u.name  ?? '';
-    document.getElementById('edit-email').value    = u.email ?? '';
-    document.getElementById('edit-role').value     = u.role  ?? 'peserta';
+    document.getElementById('edit-name').value     = u.name     ?? '';
+    document.getElementById('edit-username').value = u.username ?? '';
+    document.getElementById('edit-email').value    = u.email    ?? '';
+    document.getElementById('edit-role').value     = u.role     ?? 'peserta';
     document.getElementById('edit-dept').value     = u.department_id ?? '';
     document.getElementById('edit-active').checked = u.is_active == 1;
     document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
@@ -300,8 +318,8 @@ document.querySelectorAll('.btn-nonaktif').forEach(btn => {
 });
 
 // Hapus permanen
-let hapusUrl  = '';
-let hapusId   = '';
+let hapusUrl = '';
+let hapusId  = '';
 
 document.querySelectorAll('.btn-hapus').forEach(btn => {
   btn.addEventListener('click', function () {

@@ -13,7 +13,8 @@ class UserController
         $where  = ['u.is_active IN (0,1)'];
         $params = [];
         if ($search) {
-            $where[]  = '(u.name LIKE ? OR u.email LIKE ?)';
+            $where[]  = '(u.name LIKE ? OR u.username LIKE ? OR u.email LIKE ?)';
+            $params[] = "%{$search}%";
             $params[] = "%{$search}%";
             $params[] = "%{$search}%";
         }
@@ -50,19 +51,35 @@ class UserController
     public static function store(): void
     {
         Auth::requireRole('admin');
-        $d = $_POST;
-        $exist = Database::queryOne("SELECT id FROM users WHERE email=?", [trim($d['email'])]);
-        if ($exist) {
+        $d        = $_POST;
+        $username = trim($d['username'] ?? '');
+        $email    = trim($d['email'] ?? '');
+
+        if (!$username) {
+            $_SESSION['flash_error'] = 'Username wajib diisi.';
+            header('Location: ' . BASE_URL . '/users'); exit;
+        }
+
+        // Cek duplikat username
+        if (Database::queryOne("SELECT id FROM users WHERE username=?", [$username])) {
+            $_SESSION['flash_error'] = 'Username sudah digunakan.';
+            header('Location: ' . BASE_URL . '/users'); exit;
+        }
+
+        // Cek duplikat email
+        if (Database::queryOne("SELECT id FROM users WHERE email=?", [$email])) {
             $_SESSION['flash_error'] = 'Email sudah digunakan.';
             header('Location: ' . BASE_URL . '/users'); exit;
         }
+
         $hash = password_hash($d['password'], PASSWORD_BCRYPT, ['cost' => 12]);
         Database::getInstance()->prepare(
-            "INSERT INTO users (name, email, password, role, department_id, is_active)
-             VALUES (?,?,?,?,?,1)"
+            "INSERT INTO users (username, name, email, password, role, department_id, is_active)
+             VALUES (?,?,?,?,?,?,1)"
         )->execute([
+            $username,
             trim($d['name']),
-            trim($d['email']),
+            $email,
             $hash,
             $d['role'] ?? 'peserta',
             !empty($d['department_id']) ? (int)$d['department_id'] : null,
@@ -74,29 +91,43 @@ class UserController
     public static function update(int $id): void
     {
         Auth::requireRole('admin');
-        $d = $_POST;
-        $exist = Database::queryOne(
-            "SELECT id FROM users WHERE email=? AND id!=?", [trim($d['email']), $id]
-        );
-        if ($exist) {
-            $_SESSION['flash_error'] = 'Email sudah digunakan.';
+        $d        = $_POST;
+        $username = trim($d['username'] ?? '');
+        $email    = trim($d['email']    ?? '');
+
+        if (!$username) {
+            $_SESSION['flash_error'] = 'Username wajib diisi.';
             header('Location: ' . BASE_URL . '/users'); exit;
         }
+
+        // Cek duplikat username (kecuali user ini sendiri)
+        if (Database::queryOne("SELECT id FROM users WHERE username=? AND id!=?", [$username, $id])) {
+            $_SESSION['flash_error'] = 'Username sudah digunakan akun lain.';
+            header('Location: ' . BASE_URL . '/users'); exit;
+        }
+
+        // Cek duplikat email
+        if (Database::queryOne("SELECT id FROM users WHERE email=? AND id!=?", [$email, $id])) {
+            $_SESSION['flash_error'] = 'Email sudah digunakan akun lain.';
+            header('Location: ' . BASE_URL . '/users'); exit;
+        }
+
         $db       = Database::getInstance();
         $isActive = isset($d['is_active']) ? 1 : 0;
+
         if (!empty($d['password'])) {
             $hash = password_hash($d['password'], PASSWORD_BCRYPT, ['cost' => 12]);
             $db->prepare(
-                "UPDATE users SET name=?, email=?, password=?, role=?, department_id=?, is_active=? WHERE id=?"
+                "UPDATE users SET username=?, name=?, email=?, password=?, role=?, department_id=?, is_active=? WHERE id=?"
             )->execute([
-                trim($d['name']), trim($d['email']), $hash, $d['role'],
+                $username, trim($d['name']), $email, $hash, $d['role'],
                 !empty($d['department_id']) ? (int)$d['department_id'] : null, $isActive, $id,
             ]);
         } else {
             $db->prepare(
-                "UPDATE users SET name=?, email=?, role=?, department_id=?, is_active=? WHERE id=?"
+                "UPDATE users SET username=?, name=?, email=?, role=?, department_id=?, is_active=? WHERE id=?"
             )->execute([
-                trim($d['name']), trim($d['email']), $d['role'],
+                $username, trim($d['name']), $email, $d['role'],
                 !empty($d['department_id']) ? (int)$d['department_id'] : null, $isActive, $id,
             ]);
         }
@@ -137,7 +168,6 @@ class UserController
             Database::getInstance()->prepare("DELETE FROM users WHERE id=?")->execute([$id]);
             echo json_encode(['success' => true, 'message' => 'User berhasil dihapus']);
         } catch (\PDOException $e) {
-            // Jika ada foreign key constraint (user punya data di tabel lain)
             echo json_encode([
                 'success' => false,
                 'message' => 'Tidak dapat dihapus karena user memiliki data terkait (meeting, notulen, dll). Nonaktifkan saja.'
