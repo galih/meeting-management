@@ -120,6 +120,13 @@ $router->get('/api/notifications',        [NotifikasiController::class, 'index']
 $router->post('/api/notifications/read',  [NotifikasiController::class, 'markRead']);
 $router->get('/notifications',            [NotifikasiController::class, 'page']);
 
+// === SETTINGS ===
+$router->get('/settings',                       [SettingController::class, 'index']);
+$router->post('/api/settings/upload-logo',      [SettingController::class, 'uploadLogo']);
+$router->post('/api/settings/upload-login-bg',  [SettingController::class, 'uploadLoginBg']);
+$router->post('/api/settings/remove-logo',      [SettingController::class, 'removeLogo']);
+$router->post('/api/settings/remove-login-bg',  [SettingController::class, 'removeLoginBg']);
+
 // ── Dispatch ──────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
