@@ -1,9 +1,10 @@
 <?php
-$baseUrl = rtrim(BASE_URL, '/');
-$pdfUrl  = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
-$histUrl = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
-$backUrl = $baseUrl . '/meetings/' . $meeting['id'];
-$canEdit = Auth::hasRole('admin', 'sekretaris');
+$baseUrl  = rtrim(BASE_URL, '/');
+$pdfUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
+$docxUrl  = $baseUrl . '/notulen/' . $meeting['id'] . '/export-docx';
+$histUrl  = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
+$backUrl  = $baseUrl . '/meetings/' . $meeting['id'];
+$canEdit  = Auth::hasRole('admin', 'sekretaris');
 
 $statusBadge   = ['pending'=>'secondary','in_progress'=>'blue','done'=>'green','cancelled'=>'red'];
 $priorityBadge = ['high'=>'red','medium'=>'yellow','low'=>'green'];
@@ -32,14 +33,31 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
           </span>
           <span id="save-status" class="text-muted small">Tersimpan</span>
           <?php if ($canEdit): ?>
-          <!-- Tombol Pilih Template -->
           <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
                   id="btn-pick-template" title="Pilih template notulen">
             📋 Template
           </button>
           <button id="btn-save-manual" class="btn btn-sm btn-primary ms-1">💾 Simpan</button>
           <?php endif; ?>
-          <a href="<?= $pdfUrl ?>" target="_blank" class="btn btn-sm btn-outline-danger ms-1">🖨️ PDF</a>
+          <!-- Dropdown Export -->
+          <div class="dropdown ms-1">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+              📤 Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <a class="dropdown-item" href="<?= $pdfUrl ?>" target="_blank">
+                  🖨️ Export PDF
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="<?= $docxUrl ?>">
+                  📄 Export Word (.docx)
+                </a>
+              </li>
+            </ul>
+          </div>
           <?php if ($canEdit): ?>
           <a href="<?= $histUrl ?>" class="btn btn-sm btn-outline-secondary ms-1">Riwayat</a>
           <?php endif; ?>
@@ -348,7 +366,6 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
 
           if (!d.success) { alert(d.message || 'Gagal memuat template.'); return; }
 
-          // Gunakan window.quill — sudah di-expose oleh notulen-editor.js
           if (!window.quill) {
             alert('Editor belum siap, coba lagi sesaat.');
             return;
