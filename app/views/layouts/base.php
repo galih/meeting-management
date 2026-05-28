@@ -60,6 +60,7 @@ $user = Auth::user();
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
 <script src="<?= BASE_URL ?>/assets/js/notifications.js"></script>
 <?= $scripts ?? '' ?>
