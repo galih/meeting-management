@@ -51,7 +51,10 @@ $router->post('/reset-password', [AuthController::class, 'resetPassword']);
 
 // === DASHBOARD ===
 $router->get('/', [DashboardController::class, 'index']);
-$router->get('/api/dashboard/chart-monthly', [DashboardController::class, 'chartMonthly']);
+$router->get('/api/dashboard/chart-monthly',  [DashboardController::class, 'chartMonthly']);
+$router->get('/api/dashboard/chart-tl-status',[DashboardController::class, 'chartTlStatus']);
+$router->get('/api/dashboard/chart-top-dept', [DashboardController::class, 'chartTopDept']);
+$router->get('/api/dashboard/chart-tl-trend', [DashboardController::class, 'chartTlTrend']);
 
 // === PROFILE ===
 $router->get('/profile',                   [ProfileController::class, 'index']);
