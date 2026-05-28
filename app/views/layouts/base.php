@@ -17,8 +17,8 @@ $user = Auth::user();
   <?= $headScripts ?? '' ?>
 
   <style>
-  /* ── Spotify Music Widget ── */
-  #music-fab {
+  /* ── YouTube Music Widget ── */
+  #yt-fab {
     position: fixed;
     bottom: 24px;
     right: 24px;
@@ -26,7 +26,7 @@ $user = Auth::user();
     width: 46px;
     height: 46px;
     border-radius: 50%;
-    background: #1DB954;
+    background: #FF0000;
     color: #fff;
     border: none;
     box-shadow: 0 4px 16px rgba(0,0,0,.3);
@@ -36,16 +36,16 @@ $user = Auth::user();
     cursor: pointer;
     transition: transform .2s, background .2s;
   }
-  #music-fab:hover { transform: scale(1.1); background: #1ed760; }
-  #music-fab svg { width:22px;height:22px; }
+  #yt-fab:hover { transform: scale(1.1); background: #cc0000; }
+  #yt-fab svg { width:22px;height:22px; }
 
-  #music-widget {
+  #yt-widget {
     position: fixed;
     bottom: 82px;
     right: 24px;
     z-index: 1080;
     width: 340px;
-    background: #121212;
+    background: #0f0f0f;
     border-radius: 16px;
     box-shadow: 0 8px 40px rgba(0,0,0,.5);
     overflow: hidden;
@@ -53,17 +53,17 @@ $user = Auth::user();
     flex-direction: column;
     font-family: inherit;
   }
-  #music-widget.open { display: flex; }
+  #yt-widget.open { display: flex; }
 
-  #music-header {
+  #yt-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 11px 14px;
-    background: #1DB954;
+    background: #FF0000;
     color: #fff;
   }
-  #music-header .title {
+  #yt-header .title {
     font-size: 13px;
     font-weight: 700;
     letter-spacing: .04em;
@@ -71,9 +71,9 @@ $user = Auth::user();
     align-items: center;
     gap: 7px;
   }
-  #music-header-actions { display:flex;gap:4px; }
-  #music-header-actions button {
-    background: rgba(0,0,0,.2);
+  #yt-header-actions { display:flex;gap:4px; }
+  #yt-header-actions button {
+    background: rgba(0,0,0,.25);
     border: none;
     color: #fff;
     border-radius: 6px;
@@ -82,19 +82,47 @@ $user = Auth::user();
     cursor: pointer;
     transition: background .15s;
   }
-  #music-header-actions button:hover { background: rgba(0,0,0,.4); }
+  #yt-header-actions button:hover { background: rgba(0,0,0,.45); }
 
-  #music-iframe-wrap { width:100%; background:#000; }
-  #music-iframe-wrap iframe { width:100%;border:none;display:block; }
+  #yt-iframe-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+  }
+  #yt-iframe-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+  }
+  #yt-error-msg {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: #111;
+    color: rgba(255,255,255,.7);
+    font-size: 12px;
+    text-align: center;
+    padding: 20px 16px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    line-height: 1.5;
+  }
+  #yt-error-msg.show { display: flex; }
+  #yt-error-msg .err-icon { font-size: 28px; }
+  #yt-error-msg a { color: #FF0000; text-decoration: none; font-weight: 600; }
 
-  #music-input-wrap {
+  #yt-input-wrap {
     padding: 10px 12px;
     background: #181818;
     display: flex;
     gap: 6px;
     align-items: center;
   }
-  #music-input-wrap input {
+  #yt-input-wrap input {
     flex: 1;
     background: #282828;
     border: 1px solid rgba(255,255,255,.1);
@@ -105,10 +133,10 @@ $user = Auth::user();
     outline: none;
     transition: border-color .15s;
   }
-  #music-input-wrap input::placeholder { color: rgba(255,255,255,.35); }
-  #music-input-wrap input:focus { border-color: #1DB954; }
-  #music-input-wrap button {
-    background: #1DB954;
+  #yt-input-wrap input::placeholder { color: rgba(255,255,255,.35); }
+  #yt-input-wrap input:focus { border-color: #FF0000; }
+  #yt-input-wrap button {
+    background: #FF0000;
     border: none;
     color: #fff;
     border-radius: 8px;
@@ -119,16 +147,16 @@ $user = Auth::user();
     white-space: nowrap;
     transition: background .15s;
   }
-  #music-input-wrap button:hover { background: #1ed760; }
+  #yt-input-wrap button:hover { background: #cc0000; }
 
-  #music-hint {
+  #yt-hint {
     padding: 0 12px 10px;
     background: #181818;
     color: rgba(255,255,255,.3);
     font-size: 10.5px;
     line-height: 1.5;
   }
-  #music-hint a { color: #1DB954; text-decoration: none; }
+  #yt-hint code { color: #FF0000; }
   </style>
 </head>
 <body class="antialiased">
@@ -172,45 +200,50 @@ $user = Auth::user();
     </footer>
   </div>
 
-  <!-- ── Spotify Music Widget ── -->
-  <button id="music-fab" title="Spotify Music Player" aria-label="Buka Spotify Player">
-    <!-- Spotify icon -->
+  <!-- ── YouTube Music Widget ── -->
+  <button id="yt-fab" title="YouTube Music Player" aria-label="Buka YouTube Player">
     <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.314a.75.75 0 0 1-1.032.25c-2.826-1.727-6.38-2.117-10.566-1.16a.75.75 0 1 1-.334-1.462c4.583-1.047 8.516-.596 11.682 1.34a.75.75 0 0 1 .25 1.032zm1.47-3.27a.937.937 0 0 1-1.288.308C14.894 12.315 11.1 11.82 6.59 13.1a.937.937 0 0 1-.474-1.814c5.016-1.394 9.253-.792 12.562 1.47a.937.937 0 0 1 .308 1.288zm.126-3.404C15.533 8.387 10.64 8.227 7.25 9.27a1.125 1.125 0 0 1-.652-2.152c3.89-1.178 9.373-.95 13.072 1.47a1.125 1.125 0 0 1-1.558 1.052z"/>
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
     </svg>
   </button>
 
-  <div id="music-widget" role="complementary" aria-label="Spotify Music Player">
-    <div id="music-header">
+  <div id="yt-widget" role="complementary" aria-label="YouTube Music Player">
+    <div id="yt-header">
       <span class="title">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.314a.75.75 0 0 1-1.032.25c-2.826-1.727-6.38-2.117-10.566-1.16a.75.75 0 1 1-.334-1.462c4.583-1.047 8.516-.596 11.682 1.34a.75.75 0 0 1 .25 1.032zm1.47-3.27a.937.937 0 0 1-1.288.308C14.894 12.315 11.1 11.82 6.59 13.1a.937.937 0 0 1-.474-1.814c5.016-1.394 9.253-.792 12.562 1.47a.937.937 0 0 1 .308 1.288zm.126-3.404C15.533 8.387 10.64 8.227 7.25 9.27a1.125 1.125 0 0 1-.652-2.152c3.89-1.178 9.373-.95 13.072 1.47a1.125 1.125 0 0 1-1.558 1.052z"/>
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
         </svg>
-        Spotify Player
+        YouTube Player
       </span>
-      <div id="music-header-actions">
-        <button id="music-minimize" title="Minimize">&#8211;</button>
-        <button id="music-close" title="Tutup &amp; matikan">&#10005;</button>
+      <div id="yt-header-actions">
+        <button id="yt-minimize" title="Minimize">&#8211;</button>
+        <button id="yt-close" title="Tutup &amp; matikan">&#10005;</button>
       </div>
     </div>
 
-    <div id="music-iframe-wrap">
-      <iframe id="music-iframe"
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-        loading="lazy"
-        height="352"
+    <div id="yt-iframe-wrap">
+      <iframe id="yt-iframe"
+        allow="autoplay; encrypted-media"
+        allowfullscreen
         src=""></iframe>
+      <div id="yt-error-msg">
+        <span class="err-icon">🚫</span>
+        <span>Video/playlist ini tidak bisa di-embed.<br>Coba URL lain atau buka langsung di
+          <a id="yt-error-link" href="#" target="_blank" rel="noopener">YouTube</a>.
+        </span>
+      </div>
     </div>
 
-    <div id="music-input-wrap">
-      <input type="text" id="music-url-input"
-             placeholder="Paste URL Spotify playlist / album / track">
-      <button id="music-load-btn">Putar</button>
+    <div id="yt-input-wrap">
+      <input type="text" id="yt-url-input"
+             placeholder="Paste URL YouTube video / playlist">
+      <button id="yt-load-btn">Putar</button>
     </div>
-    <div id="music-hint">
-      Contoh URL:<br>
-      <code style="color:#1DB954">open.spotify.com/playlist/...</code><br>
-      <code style="color:#1DB954">open.spotify.com/track/...</code><br>
+    <div id="yt-hint">
+      Contoh URL yang bisa dipakai:<br>
+      <code>youtu.be/jfKfPfyJRdk</code> &nbsp;·&nbsp;
+      <code>youtube.com/watch?v=...</code><br>
+      <code>youtube.com/playlist?list=...</code><br>
       Preferensi disimpan otomatis di browser.
     </div>
   </div>
@@ -225,45 +258,67 @@ $user = Auth::user();
 
 <script>
 (function () {
-  const LS_URL     = 'spotify_url';
-  const LS_OPEN    = 'spotify_open';
-  const LS_ENABLED = 'spotify_enabled';
+  const LS_URL     = 'yt_music_url';
+  const LS_OPEN    = 'yt_music_open';
+  const LS_ENABLED = 'yt_music_enabled';
 
-  const fab      = document.getElementById('music-fab');
-  const widget   = document.getElementById('music-widget');
-  const iframe   = document.getElementById('music-iframe');
-  const urlInput = document.getElementById('music-url-input');
-  const loadBtn  = document.getElementById('music-load-btn');
-  const minBtn   = document.getElementById('music-minimize');
-  const closeBtn = document.getElementById('music-close');
+  const fab      = document.getElementById('yt-fab');
+  const widget   = document.getElementById('yt-widget');
+  const iframe   = document.getElementById('yt-iframe');
+  const errMsg   = document.getElementById('yt-error-msg');
+  const errLink  = document.getElementById('yt-error-link');
+  const urlInput = document.getElementById('yt-url-input');
+  const loadBtn  = document.getElementById('yt-load-btn');
+  const minBtn   = document.getElementById('yt-minimize');
+  const closeBtn = document.getElementById('yt-close');
 
-  /**
-   * Konversi URL Spotify biasa → Spotify Embed URL
-   * open.spotify.com/playlist/ID  →  open.spotify.com/embed/playlist/ID
-   * open.spotify.com/track/ID     →  open.spotify.com/embed/track/ID
-   * open.spotify.com/album/ID     →  open.spotify.com/embed/album/ID
-   */
   function toEmbedUrl(raw) {
     raw = raw.trim();
     if (!raw) return '';
     try {
-      const u = new URL(raw);
-      if (!u.hostname.includes('spotify.com')) return raw;
-      // Ganti /playlist/, /track/, /album/ → /embed/playlist/ dst
-      const path = u.pathname.replace(/^\/(intl-[a-z]+\/)?/, '/');
-      const embedPath = path.replace(/^\/(playlist|track|album|episode|show)/, '/embed/$1');
-      return 'https://open.spotify.com' + embedPath + '?utm_source=generator&theme=0';
-    } catch (e) {
-      return raw;
-    }
+      const u    = new URL(raw);
+      const list = u.searchParams.get('list');
+      const v    = u.searchParams.get('v');
+      let embed  = 'https://www.youtube-nocookie.com/embed/';
+
+      if (list && v)  embed += v + '?list=' + list + '&autoplay=1&rel=0';
+      else if (list)  embed += 'videoseries?list=' + list + '&autoplay=1&rel=0';
+      else if (v)     embed += v + '?autoplay=1&rel=0';
+      else if (u.hostname === 'youtu.be') {
+        const id = u.pathname.replace(/^\//, '');
+        embed += id + '?autoplay=1&rel=0';
+      } else return raw;
+
+      return embed;
+    } catch (e) { return raw; }
   }
 
   function loadUrl(raw) {
     const embed = toEmbedUrl(raw);
     if (!embed) return;
-    iframe.src = embed;
+    errMsg.classList.remove('show');
+    errLink.href = raw;
+    iframe.src   = embed;
     localStorage.setItem(LS_URL, raw);
   }
+
+  // Deteksi error embed via postMessage dari YouTube iframe
+  window.addEventListener('message', e => {
+    if (e.origin.includes('youtube') && e.data && e.data.event === 'onError') {
+      if ([100, 101, 150].includes(e.data.info)) {
+        errMsg.classList.add('show');
+      }
+    }
+  });
+
+  // Fallback: deteksi error via load event (jika YouTube kirim halaman error)
+  iframe.addEventListener('load', () => {
+    try {
+      // Jika iframe kosong / about:blank → tidak perlu cek
+      if (!iframe.src || iframe.src === window.location.href) return;
+      errMsg.classList.remove('show');
+    } catch (e) {}
+  });
 
   function openWidget() {
     widget.classList.add('open');
@@ -279,6 +334,7 @@ $user = Auth::user();
   function closeWidget() {
     widget.classList.remove('open');
     iframe.src = '';
+    errMsg.classList.remove('show');
     localStorage.setItem(LS_OPEN, '0');
     localStorage.setItem(LS_ENABLED, '0');
   }
@@ -289,7 +345,7 @@ $user = Auth::user();
     } else {
       openWidget();
       const saved = localStorage.getItem(LS_URL);
-      if (saved && !iframe.src.includes('spotify')) {
+      if (saved && !iframe.src.includes('youtube')) {
         urlInput.value = saved;
         loadUrl(saved);
       }
@@ -298,24 +354,21 @@ $user = Auth::user();
 
   minBtn.addEventListener('click', minimizeWidget);
   closeBtn.addEventListener('click', closeWidget);
-
   loadBtn.addEventListener('click', () => {
     const val = urlInput.value.trim();
     if (!val) return;
     loadUrl(val);
   });
-
   urlInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') loadBtn.click();
   });
 
-  // Restore state saat halaman load
+  // Restore state
   const savedUrl  = localStorage.getItem(LS_URL);
   const wasOpen   = localStorage.getItem(LS_OPEN) === '1';
   const isEnabled = localStorage.getItem(LS_ENABLED) !== '0';
 
   if (savedUrl) urlInput.value = savedUrl;
-
   if (isEnabled && wasOpen && savedUrl) {
     openWidget();
     loadUrl(savedUrl);
