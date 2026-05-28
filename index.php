@@ -132,6 +132,8 @@ $router->post('/api/settings/upload-logo',      [SettingController::class, 'uplo
 $router->post('/api/settings/upload-login-bg',  [SettingController::class, 'uploadLoginBg']);
 $router->post('/api/settings/remove-logo',      [SettingController::class, 'removeLogo']);
 $router->post('/api/settings/remove-login-bg',  [SettingController::class, 'removeLoginBg']);
+$router->post('/api/settings/save-smtp',        [SettingController::class, 'saveSMTP']);
+$router->post('/api/settings/test-smtp',        [SettingController::class, 'testSMTP']);
 
 // ── Dispatch ──────────────────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
