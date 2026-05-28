@@ -4,6 +4,11 @@ $pdfUrl  = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
 $histUrl = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
 $backUrl = $baseUrl . '/meetings/' . $meeting['id'];
 $canEdit = Auth::hasRole('admin', 'sekretaris');
+
+// Helper: badge warna status tindak lanjut
+$statusBadge   = ['pending'=>'secondary','in_progress'=>'blue','done'=>'green','cancelled'=>'red'];
+$priorityBadge = ['high'=>'red','medium'=>'yellow','low'=>'green'];
+$meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cancelled'=>'red'];
 ?>
 
 <div class="row g-3">
@@ -13,8 +18,8 @@ $canEdit = Auth::hasRole('admin', 'sekretaris');
     <div class="card">
       <div class="card-header">
         <h3 class="card-title">
-          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-2" width="24" height="24"
-               viewBox="0 0 24 24" fill="none" stroke="#f76707" stroke-width="2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-2 text-brand" width="24" height="24"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
             <line x1="16" y1="13" x2="8" y2="13"/>
@@ -45,7 +50,6 @@ $canEdit = Auth::hasRole('admin', 'sekretaris');
       <?php endif; ?>
 
       <div class="card-body p-0">
-        <!-- Quill editor container -->
         <div id="quill-editor"
              style="min-height:480px; font-size:15px; border:none;"
              class="p-1"></div>
@@ -57,10 +61,10 @@ $canEdit = Auth::hasRole('admin', 'sekretaris');
       <div class="card-header">
         <h4 class="card-title">
           💬 Diskusi
-          <span class="badge bg-orange-lt text-orange ms-1" id="comment-count">0</span>
+          <span class="badge bg-blue-lt text-blue ms-1" id="comment-count">0</span>
         </h4>
         <div class="card-options">
-          <button class="btn btn-sm btn-outline-primary" id="btn-toggle-resolved">
+          <button class="btn btn-sm btn-outline-secondary" id="btn-toggle-resolved">
             Tampilkan Selesai
           </button>
         </div>
@@ -70,14 +74,15 @@ $canEdit = Auth::hasRole('admin', 'sekretaris');
       </div>
       <div class="card-footer">
         <div class="d-flex gap-2 align-items-start">
-          <span class="avatar avatar-sm" style="background:#f76707;color:#fff;font-weight:700;flex-shrink:0;">
+          <span class="avatar avatar-sm"
+                style="background:var(--brand);color:#fff;font-weight:700;flex-shrink:0;">
             <?= strtoupper(mb_substr($user['name'], 0, 1)) ?>
           </span>
           <div class="flex-fill">
             <div class="position-relative">
               <div id="mention-dropdown" class="dropdown-menu"></div>
               <textarea id="comment-input" class="form-control" rows="2"
-                        placeholder="Tulis komentar... (ketik @ untuk mention)"></textarea>
+                        placeholder="Tulis komentar... (ketik @ untuk mention, Enter untuk kirim)"></textarea>
             </div>
             <div class="d-flex justify-content-between align-items-center mt-1">
               <small class="text-muted" id="reply-indicator"></small>
@@ -105,10 +110,9 @@ $canEdit = Auth::hasRole('admin', 'sekretaris');
           <dd class="col-7"><?= date('d M Y H:i', strtotime($meeting['end_datetime'])) ?></dd>
           <dt class="col-5 text-muted">Status</dt>
           <dd class="col-7">
-            <span class="badge bg-<?= match($meeting['status']) {
-              'scheduled'=>'blue','ongoing'=>'orange',
-              'done'=>'green','cancelled'=>'red',default=>'secondary'
-            } ?>-lt"><?= ucfirst($meeting['status']) ?></span>
+            <span class="badge bg-<?= $meetingBadge[$meeting['status']] ?? 'secondary' ?>-lt">
+              <?= ucfirst($meeting['status']) ?>
+            </span>
           </dd>
         </dl>
       </div>
@@ -138,9 +142,8 @@ $canEdit = Auth::hasRole('admin', 'sekretaris');
         <div class="list-group-item px-3 py-2">
           <div class="d-flex justify-content-between align-items-start">
             <span class="small fw-semibold"><?= htmlspecialchars($tl['description']) ?></span>
-            <span class="badge bg-<?= match($tl['priority']) {
-              'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'
-            } ?>-lt ms-1" style="font-size:9px;"><?= ucfirst($tl['priority']) ?></span>
+            <span class="badge bg-<?= $priorityBadge[$tl['priority']] ?? 'secondary' ?>-lt ms-1"
+                  style="font-size:9px;"><?= ucfirst($tl['priority']) ?></span>
           </div>
           <div class="text-muted" style="font-size:11px;">
             👤 <?= htmlspecialchars($tl['assigned_name'] ?? '-') ?>
@@ -148,10 +151,8 @@ $canEdit = Auth::hasRole('admin', 'sekretaris');
               | 📅 <?= date('d M Y', strtotime($tl['due_date'])) ?>
             <?php endif; ?>
           </div>
-          <span class="badge bg-<?= match($tl['status']) {
-            'pending'=>'secondary','in_progress'=>'blue',
-            'done'=>'green','cancelled'=>'red',default=>'secondary'
-          } ?>" style="font-size:9px;"><?= ucfirst(str_replace('_', ' ', $tl['status'])) ?></span>
+          <span class="badge bg-<?= $statusBadge[$tl['status']] ?? 'secondary' ?>"
+                style="font-size:9px;"><?= ucfirst(str_replace('_', ' ', $tl['status'])) ?></span>
         </div>
         <?php endforeach; ?>
       </div>
