@@ -1,13 +1,5 @@
 <?php
 $baseUrl = rtrim(BASE_URL, '/');
-
-$statusColor = match($meeting['status']) {
-    'scheduled' => 'blue',
-    'ongoing'   => 'orange',
-    'done'      => 'green',
-    'cancelled' => 'red',
-    default     => 'secondary',
-};
 ?>
 
 <!-- Flash -->
@@ -17,15 +9,6 @@ $statusColor = match($meeting['status']) {
   <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php unset($_SESSION['flash_success']); endif; ?>
-
-<!-- Page Header -->
-<div class="page-header d-print-none mb-3">
-  <div class="d-flex align-items-center gap-2 flex-wrap">
-    <a href="<?= $baseUrl ?>/meetings" class="btn btn-sm btn-outline-secondary">&larr; Kembali</a>
-    <h2 class="page-title mb-0 me-2"><?= htmlspecialchars($meeting['title']) ?></h2>
-    <span class="badge bg-<?= $statusColor ?>"><?= ucfirst($meeting['status']) ?></span>
-  </div>
-</div>
 
 <div class="row row-cards">
 
@@ -37,14 +20,21 @@ $statusColor = match($meeting['status']) {
       <div class="card-header">
         <h3 class="card-title">Detail Kegiatan</h3>
         <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
-        <div class="card-options">
+        <div class="card-options gap-1">
           <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
                   data-bs-target="#modalEditStatus">Ubah Status</button>
         </div>
         <?php endif; ?>
       </div>
       <div class="card-body">
-        <dl class="row mb-0 small">
+        <dl class="row mb-0">
+          <dt class="col-5 text-muted">Status</dt>
+          <dd class="col-7">
+            <span class="badge bg-<?= match($meeting['status']) {
+              'scheduled'=>'blue','ongoing'=>'orange',
+              'done'=>'green','cancelled'=>'red',default=>'secondary'
+            } ?>"><?= ucfirst($meeting['status']) ?></span>
+          </dd>
           <dt class="col-5 text-muted">Departemen</dt>
           <dd class="col-7"><?= htmlspecialchars($meeting['dept_name'] ?? '-') ?></dd>
           <dt class="col-5 text-muted">Lokasi</dt>
@@ -63,74 +53,68 @@ $statusColor = match($meeting['status']) {
           <dd class="col-7"><?= htmlspecialchars($meeting['creator_name'] ?? '-') ?></dd>
         </dl>
         <?php if (!empty($meeting['description'])): ?>
-        <hr class="my-2">
+        <hr>
         <div class="text-muted small fw-semibold mb-1">Agenda</div>
         <p class="mb-0 small"><?= nl2br(htmlspecialchars($meeting['description'])) ?></p>
         <?php endif; ?>
       </div>
       <!-- Action Buttons -->
-      <div class="card-footer">
-        <div class="btn-list">
-          <a href="<?= $baseUrl ?>/notulen/<?= $meeting['id'] ?>" class="btn btn-primary w-100">
-            📝 Buka Notulen
-          </a>
-          <a href="<?= $baseUrl ?>/notulen/<?= $meeting['id'] ?>/export-pdf"
-             target="_blank" class="btn btn-outline-danger w-100">
-            🖨️ Export PDF
-          </a>
-          <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
-          <button class="btn btn-outline-primary w-100" id="btn-send-invitation">
-            📧 Kirim Undangan
-          </button>
-          <?php if ($meeting['status'] === 'done'): ?>
-          <button class="btn btn-outline-success w-100" id="btn-send-summary">
-            📋 Kirim Ringkasan
-          </button>
-          <?php endif; ?>
-          <?php endif; ?>
+      <div class="card-footer d-grid gap-2">
+        <a href="<?= $baseUrl ?>/notulen/<?= $meeting['id'] ?>" class="btn btn-primary">
+          📝 Buka Notulen
+        </a>
+        <a href="<?= $baseUrl ?>/notulen/<?= $meeting['id'] ?>/export-pdf"
+           target="_blank" class="btn btn-outline-danger">
+          🖨️ Export PDF
+        </a>
+        <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
+        <button class="btn btn-outline-primary" id="btn-send-invitation">
+          📧 Kirim Undangan
+        </button>
+        <?php if ($meeting['status'] === 'done'): ?>
+        <button class="btn btn-outline-success" id="btn-send-summary">
+          📋 Kirim Ringkasan
+        </button>
+        <?php endif; ?>
+        <?php endif; ?>
 
-          <?php if (Auth::hasRole('admin')): ?>
-          <div class="w-100"><hr class="my-2"></div>
-          <form method="POST" class="w-100"
-                action="<?= $baseUrl ?>/meetings/<?= $meeting['id'] ?>/delete"
-                onsubmit="return confirm('Yakin ingin menghapus kegiatan &quot;<?= htmlspecialchars(addslashes($meeting['title'])) ?>&quot;?\n\nSemua notulen, peserta, dan tindak lanjut terkait akan ikut terhapus.')">
-            <?= Auth::csrfField() ?>
-            <button type="submit" class="btn btn-danger w-100">🗑️ Hapus Kegiatan</button>
-          </form>
-          <?php endif; ?>
-        </div>
+        <?php if (Auth::hasRole('admin')): ?>
+        <hr class="my-1">
+        <form method="POST"
+              action="<?= $baseUrl ?>/meetings/<?= $meeting['id'] ?>/delete"
+              onsubmit="return confirm('Yakin ingin menghapus kegiatan &quot;<?= htmlspecialchars(addslashes($meeting['title'])) ?>&quot;?\n\nSemua notulen, peserta, dan tindak lanjut terkait akan ikut terhapus.')">
+          <?= Auth::csrfField() ?>
+          <button type="submit" class="btn btn-danger w-100">
+            🗑️ Hapus Kegiatan
+          </button>
+        </form>
+        <?php endif; ?>
       </div>
     </div>
 
     <!-- Peserta -->
     <div class="card">
       <div class="card-header">
-        <h3 class="card-title">Peserta <span class="badge bg-blue-lt text-blue ms-1"><?= count($participants) ?></span></h3>
+        <h3 class="card-title">Peserta (<?= count($participants) ?>)</h3>
       </div>
-      <div class="list-group list-group-flush" style="max-height:360px;overflow-y:auto;">
+      <div class="list-group list-group-flush">
         <?php if (empty($participants)): ?>
-        <div class="list-group-item text-muted text-center py-3 small">Belum ada peserta</div>
+        <div class="list-group-item text-muted text-center py-3">Belum ada peserta</div>
         <?php endif; ?>
         <?php foreach ($participants as $p): ?>
-        <div class="list-group-item px-3 py-2">
+        <div class="list-group-item">
           <div class="d-flex align-items-center gap-2">
-            <span class="avatar avatar-sm" style="background:var(--tblr-primary);color:#fff;font-size:.7rem;font-weight:700;flex-shrink:0;">
+            <span class="avatar avatar-sm"
+                  style="background:#f76707;color:white;font-size:12px;font-weight:700;">
               <?= strtoupper(mb_substr($p['name'], 0, 1)) ?>
             </span>
-            <div class="flex-fill" style="min-width:0;">
-              <div class="fw-semibold text-truncate" style="font-size:13px;"><?= htmlspecialchars($p['name']) ?></div>
-              <?php if (!empty($p['email'])): ?>
-              <div class="text-muted text-truncate" style="font-size:11px;"><?= htmlspecialchars($p['email']) ?></div>
-              <?php endif; ?>
+            <div class="flex-fill">
+              <div class="fw-semibold" style="font-size:13px;"><?= htmlspecialchars($p['name']) ?></div>
             </div>
             <span class="badge bg-<?= match($p['status']) {
-              'accepted' => 'green',
-              'invited'  => 'blue',
-              'declined' => 'red',
-              'attended' => 'teal',
-              'pending'  => 'secondary',
-              default    => 'secondary',
-            } ?>-lt flex-shrink-0" style="font-size:10px;"><?= ucfirst($p['status']) ?></span>
+              'accepted'=>'green','invited'=>'blue','declined'=>'red',
+              'attended'=>'teal','pending'=>'secondary',default=>'secondary'
+            } ?>-lt" style="font-size:10px;"><?= ucfirst($p['status']) ?></span>
           </div>
         </div>
         <?php endforeach; ?>
@@ -153,23 +137,15 @@ $statusColor = match($meeting['status']) {
       </div>
       <?php if (empty($tindakLanjutList)): ?>
       <div class="card-body text-center text-muted py-5">
-        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-lg text-muted mb-2" width="40" height="40"
-             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <polyline points="9 11 12 14 22 4"/>
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-        </svg>
-        <p class="mb-0 text-muted">Belum ada tindak lanjut untuk kegiatan ini</p>
+        <p class="mb-0">Belum ada tindak lanjut untuk kegiatan ini</p>
       </div>
       <?php else: ?>
       <div class="table-responsive">
-        <table class="table table-vcenter table-hover card-table">
+        <table class="table table-vcenter card-table">
           <thead>
             <tr>
-              <th>Deskripsi</th>
-              <th class="text-nowrap">PIC</th>
-              <th class="text-nowrap">Deadline</th>
-              <th class="text-nowrap">Prioritas</th>
-              <th class="text-nowrap">Status</th>
+              <th>Deskripsi</th><th>PIC</th><th>Deadline</th>
+              <th>Prioritas</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -177,48 +153,28 @@ $statusColor = match($meeting['status']) {
               $overdue = !empty($tl['due_date'])
                 && $tl['due_date'] < date('Y-m-d')
                 && !in_array($tl['status'], ['done', 'cancelled']);
-              $priorityColor = match($tl['priority']) {
-                'high'   => 'red',
-                'medium' => 'yellow',
-                'low'    => 'green',
-                default  => 'secondary',
-              };
-              $statusColor = match($tl['status']) {
-                'pending'     => 'secondary',
-                'in_progress' => 'blue',
-                'done'        => 'green',
-                'cancelled'   => 'red',
-                default       => 'secondary',
-              };
             ?>
-            <tr<?= $overdue ? ' class="table-danger"' : '' ?>>
-              <td style="max-width:260px;">
-                <div class="text-truncate" style="max-width:240px;" title="<?= htmlspecialchars($tl['description']) ?>">
-                  <?= htmlspecialchars($tl['description']) ?>
-                </div>
+            <tr class="<?= $overdue ? 'table-danger' : '' ?>">
+              <td>
+                <?= htmlspecialchars($tl['description']) ?>
                 <?php if ($overdue): ?>
-                <span class="badge bg-red-lt text-red" style="font-size:9px;">Terlambat</span>
+                  <span class="badge bg-red ms-1 small">Terlambat</span>
                 <?php endif; ?>
               </td>
-              <td class="text-nowrap text-muted"><?= htmlspecialchars($tl['assigned_name'] ?? '-') ?></td>
-              <td class="text-nowrap text-muted">
-                <?php if (!empty($tl['due_date'])): ?>
-                  <span class="<?= $overdue ? 'text-danger fw-semibold' : '' ?>">
-                    <?= date('d M Y', strtotime($tl['due_date'])) ?>
-                  </span>
-                <?php else: ?>
-                  -
-                <?php endif; ?>
+              <td><?= htmlspecialchars($tl['assigned_name'] ?? '-') ?></td>
+              <td class="text-muted">
+                <?= !empty($tl['due_date']) ? date('d M Y', strtotime($tl['due_date'])) : '-' ?>
               </td>
-              <td class="text-nowrap">
-                <span class="badge bg-<?= $priorityColor ?>-lt">
-                  <?= ucfirst($tl['priority']) ?>
-                </span>
+              <td>
+                <span class="badge bg-<?= match($tl['priority']) {
+                  'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'
+                } ?>-lt"><?= ucfirst($tl['priority']) ?></span>
               </td>
-              <td class="text-nowrap">
-                <span class="badge bg-<?= $statusColor ?>">
-                  <?= ucfirst(str_replace('_', ' ', $tl['status'])) ?>
-                </span>
+              <td>
+                <span class="badge bg-<?= match($tl['status']) {
+                  'pending'=>'secondary','in_progress'=>'blue',
+                  'done'=>'green','cancelled'=>'red',default=>'secondary'
+                } ?>"><?= ucfirst(str_replace('_', ' ', $tl['status'])) ?></span>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -311,10 +267,10 @@ $statusColor = match($meeting['status']) {
 <?php endif; ?>
 
 <?php
-$tlUrl      = json_encode($baseUrl . '/tindak-lanjut');
-$inviteUrl  = json_encode($baseUrl . '/meetings/' . $meeting['id'] . '/send-invitations');
-$summaryUrl = json_encode($baseUrl . '/meetings/' . $meeting['id'] . '/send-summary');
-$meetingId  = (int)$meeting['id'];
+$tlUrl       = json_encode($baseUrl . '/tindak-lanjut');
+$inviteUrl   = json_encode($baseUrl . '/meetings/' . $meeting['id'] . '/send-invitations');
+$summaryUrl  = json_encode($baseUrl . '/meetings/' . $meeting['id'] . '/send-summary');
+$meetingId   = (int)$meeting['id'];
 ?>
 <script>
 const MID = <?= $meetingId ?>;
@@ -349,7 +305,7 @@ document.getElementById('btn-send-invitation')?.addEventListener('click', async 
   btn.disabled = true; btn.textContent = '⏳ Mengirim...';
   const res  = await fetch(<?= $inviteUrl ?>, { method: 'POST' });
   const data = await res.json();
-  btn.disabled = false; btn.innerHTML = '📧 Kirim Undangan';
+  btn.disabled = false; btn.textContent = '📧 Kirim Undangan';
   alert(data.message || (data.success ? 'Undangan terkirim!' : 'Gagal mengirim.'));
 });
 
@@ -359,7 +315,7 @@ document.getElementById('btn-send-summary')?.addEventListener('click', async () 
   btn.disabled = true; btn.textContent = '⏳ Mengirim...';
   const res  = await fetch(<?= $summaryUrl ?>, { method: 'POST' });
   const data = await res.json();
-  btn.disabled = false; btn.innerHTML = '📋 Kirim Ringkasan';
+  btn.disabled = false; btn.textContent = '📋 Kirim Ringkasan';
   alert(data.message || (data.success ? 'Ringkasan terkirim!' : 'Gagal mengirim.'));
 });
 </script>
