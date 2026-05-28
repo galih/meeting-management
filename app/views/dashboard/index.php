@@ -151,10 +151,12 @@ if ($user['role'] === 'admin') {
 
 </div>
 
-<!-- Chart Statistik Kegiatan Per Bulan -->
-<div class="row mt-4">
-  <div class="col-12">
-    <div class="card">
+<!-- ===== ANALYTICS ROW 1: Meeting Per Bulan + Status TL ===== -->
+<div class="row mt-4 g-3">
+
+  <!-- Chart: Meeting Per Bulan -->
+  <div class="col-lg-8">
+    <div class="card h-100">
       <div class="card-header">
         <h3 class="card-title">
           <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="18" height="18" viewBox="0 0 24 24"
@@ -164,7 +166,7 @@ if ($user['role'] === 'admin') {
             <line x1="6" y1="20" x2="6" y2="14"/>
             <line x1="2" y1="20" x2="22" y2="20"/>
           </svg>
-          Statistik Kegiatan Per Bulan
+          Kegiatan Per Bulan
         </h3>
         <div class="card-options">
           <select id="chartYearSelect" class="form-select form-select-sm" style="width:auto;">
@@ -175,64 +177,272 @@ if ($user['role'] === 'admin') {
         </div>
       </div>
       <div class="card-body">
-        <canvas id="chartKegiatan" height="100"></canvas>
+        <canvas id="chartKegiatan" height="120"></canvas>
       </div>
     </div>
   </div>
+
+  <!-- Chart: Distribusi Status Tindak Lanjut (Donut) -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <h3 class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="#f76707" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 2a10 10 0 0 1 10 10"/>
+          </svg>
+          Status Tindak Lanjut
+        </h3>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <div style="max-width:220px;width:100%;">
+          <canvas id="chartTlStatus"></canvas>
+        </div>
+      </div>
+      <div class="card-footer py-2" id="tl-status-legend" style="font-size:12px;"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== ANALYTICS ROW 2: Tren TL + Top Departemen ===== -->
+<div class="row mt-3 g-3">
+
+  <!-- Chart: Tren Selesai vs Terlambat -->
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-header">
+        <h3 class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="#f76707" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          Tren Tindak Lanjut
+        </h3>
+        <div class="card-options">
+          <select id="trendYearSelect" class="form-select form-select-sm" style="width:auto;">
+            <?php foreach ($availableYears as $yr): ?>
+            <option value="<?= $yr ?>" <?= $yr == date('Y') ? 'selected' : '' ?>><?= $yr ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      </div>
+      <div class="card-body">
+        <canvas id="chartTlTrend" height="120"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart: Top Departemen (admin only) -->
+  <div class="col-lg-4">
+    <div class="card h-100">
+      <div class="card-header">
+        <h3 class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="#f76707" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          Top Departemen
+        </h3>
+      </div>
+      <div class="card-body">
+        <canvas id="chartTopDept" height="180"></canvas>
+        <div id="no-dept-data" class="text-center text-muted py-4 d-none" style="font-size:13px;">
+          📊 Data departemen tidak tersedia
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
 (function () {
-  const apiBase = <?= json_encode($baseUrl . '/api/dashboard/chart-monthly') ?>;
-  const months  = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-  let chart;
+  const BASE     = <?= json_encode($baseUrl) ?>;
+  const months   = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const isAdmin  = <?= json_encode($user['role'] === 'admin') ?>;
 
-  function buildChart(labels, data, year) {
-    const ctx = document.getElementById('chartKegiatan').getContext('2d');
-    if (chart) chart.destroy();
-    chart = new Chart(ctx, {
+  // ── Helpers ──────────────────────────────────────────────
+  function defaultChartOptions(opts = {}) {
+    return Object.assign({
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: false } },
+    }, opts);
+  }
+
+  // ── 1. Chart Kegiatan Per Bulan (Bar) ────────────────────
+  let chartKegiatan;
+  async function loadChartKegiatan(year) {
+    const res  = await fetch(BASE + '/api/dashboard/chart-monthly?year=' + year);
+    const json = await res.json();
+    const ctx  = document.getElementById('chartKegiatan').getContext('2d');
+    if (chartKegiatan) chartKegiatan.destroy();
+    chartKegiatan = new Chart(ctx, {
       type: 'bar',
       data: {
-        labels,
+        labels: months,
         datasets: [{
-          label: 'Jumlah Kegiatan ' + year,
-          data,
-          backgroundColor: 'rgba(123, 28, 28, 0.75)',
-          borderColor:     '#7B1C1C',
+          label: 'Kegiatan ' + json.year,
+          data: json.data,
+          backgroundColor: 'rgba(123,28,28,0.75)',
+          borderColor: '#7B1C1C',
           borderWidth: 1,
           borderRadius: 4,
         }]
       },
+      options: defaultChartOptions({
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => ' ' + c.parsed.y + ' kegiatan' } }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: 'rgba(0,0,0,.06)' } },
+          x: { grid: { display: false } }
+        }
+      })
+    });
+  }
+  const selYear = document.getElementById('chartYearSelect');
+  loadChartKegiatan(selYear.value);
+  selYear.addEventListener('change', () => loadChartKegiatan(selYear.value));
+
+  // ── 2. Chart Status TL (Donut) ───────────────────────────
+  async function loadChartTlStatus() {
+    const res  = await fetch(BASE + '/api/dashboard/chart-tl-status');
+    const json = await res.json();
+    const d    = json.data;
+    const labels  = ['Pending', 'Dikerjakan', 'Selesai', 'Dibatalkan', 'Terlambat'];
+    const keys    = ['pending', 'in_progress', 'done', 'cancelled', 'overdue'];
+    const colors  = ['#f59f00','#4263eb','#2fb344','#adb5bd','#d63939'];
+    const values  = keys.map(k => d[k] || 0);
+    const ctx     = document.getElementById('chartTlStatus').getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
+      },
       options: {
+        responsive: true,
+        cutout: '65%',
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + c.parsed } }
+        }
+      }
+    });
+    // Legend manual
+    const lg = document.getElementById('tl-status-legend');
+    lg.innerHTML = keys.map((k, i) =>
+      `<span class="d-inline-flex align-items-center gap-1 me-2 mb-1">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colors[i]};"></span>
+        <span class="text-muted">${labels[i]}</span>
+        <strong>${values[i]}</strong>
+      </span>`
+    ).join('');
+  }
+  loadChartTlStatus();
+
+  // ── 3. Chart Tren TL Selesai vs Terlambat (Line) ─────────
+  let chartTrend;
+  async function loadChartTrend(year) {
+    const res  = await fetch(BASE + '/api/dashboard/chart-tl-trend?year=' + year);
+    const json = await res.json();
+    const ctx  = document.getElementById('chartTlTrend').getContext('2d');
+    if (chartTrend) chartTrend.destroy();
+    chartTrend = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: months,
+        datasets: [
+          {
+            label: 'Selesai',
+            data: json.done,
+            borderColor: '#2fb344',
+            backgroundColor: 'rgba(47,179,68,.12)',
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          },
+          {
+            label: 'Terlambat',
+            data: json.overdue,
+            borderColor: '#d63939',
+            backgroundColor: 'rgba(214,57,57,.10)',
+            tension: 0.4,
+            fill: true,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+          }
+        ]
+      },
+      options: defaultChartOptions({
+        plugins: {
+          legend: { display: true, position: 'top', labels: { boxWidth: 12, font: { size: 12 } } },
+          tooltip: { mode: 'index', intersect: false }
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: 'rgba(0,0,0,.06)' } },
+          x: { grid: { display: false } }
+        },
+        interaction: { mode: 'nearest', axis: 'x', intersect: false }
+      })
+    });
+  }
+  const selTrend = document.getElementById('trendYearSelect');
+  loadChartTrend(selTrend.value);
+  selTrend.addEventListener('change', () => loadChartTrend(selTrend.value));
+
+  // ── 4. Chart Top Departemen (Horizontal Bar, admin only) ──
+  async function loadChartTopDept() {
+    if (!isAdmin) {
+      document.getElementById('chartTopDept').closest('.card').style.display = 'none';
+      return;
+    }
+    const res  = await fetch(BASE + '/api/dashboard/chart-top-dept');
+    const json = await res.json();
+    if (!json.labels.length) {
+      document.getElementById('chartTopDept').style.display = 'none';
+      document.getElementById('no-dept-data').classList.remove('d-none');
+      return;
+    }
+    const ctx = document.getElementById('chartTopDept').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: json.labels,
+        datasets: [{
+          label: 'Jumlah Meeting',
+          data: json.data,
+          backgroundColor: [
+            'rgba(66,99,235,.75)','rgba(47,179,68,.75)',
+            'rgba(245,159,0,.75)','rgba(214,57,57,.75)','rgba(123,28,28,.75)'
+          ],
+          borderRadius: 4,
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        indexAxis: 'y',
         responsive: true,
         plugins: {
           legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: ctx => ' ' + ctx.parsed.y + ' kegiatan'
-            }
-          }
+          tooltip: { callbacks: { label: c => ' ' + c.parsed.x + ' meeting' } }
         },
         scales: {
-          y: {
-            beginAtZero: true,
-            ticks: { stepSize: 1, precision: 0 },
-            grid: { color: 'rgba(0,0,0,.06)' }
-          },
-          x: { grid: { display: false } }
+          x: { beginAtZero: true, ticks: { stepSize: 1, precision: 0 }, grid: { color: 'rgba(0,0,0,.06)' } },
+          y: { grid: { display: false }, ticks: { font: { size: 12 } } }
         }
       }
     });
   }
+  loadChartTopDept();
 
-  async function loadChart(year) {
-    const res  = await fetch(apiBase + '?year=' + year);
-    const json = await res.json();
-    buildChart(months, json.data, json.year);
-  }
-
-  const sel = document.getElementById('chartYearSelect');
-  loadChart(sel.value);
-  sel.addEventListener('change', () => loadChart(sel.value));
 })();
 </script>
