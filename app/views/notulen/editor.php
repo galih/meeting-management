@@ -3,6 +3,7 @@ $baseUrl   = rtrim(BASE_URL, '/');
 $pdfUrl    = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
 $histUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
 $backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
+$canEdit   = Auth::hasRole('admin', 'sekretaris');
 ?>
 
 <div class="row g-3">
@@ -25,14 +26,27 @@ $backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
             <span class="status-dot status-dot-animated bg-green d-inline-block me-1"></span>Live
           </span>
           <span id="save-status" class="text-muted small">Tersimpan</span>
+          <?php if ($canEdit): ?>
+          <button id="btn-save-manual" class="btn btn-sm btn-primary ms-1">
+            💾 Simpan
+          </button>
+          <?php endif; ?>
           <a href="<?= $pdfUrl ?>" target="_blank" class="btn btn-sm btn-outline-danger ms-1">
             🖨️ PDF
           </a>
-          <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
+          <?php if ($canEdit): ?>
           <a href="<?= $histUrl ?>" class="btn btn-sm btn-outline-secondary ms-1">Riwayat</a>
           <?php endif; ?>
         </div>
       </div>
+
+      <?php if (!$canEdit): ?>
+      <div class="alert alert-info alert-dismissible m-3 mb-0 py-2">
+        🔒 Anda hanya bisa membaca notulen ini.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+      <?php endif; ?>
+
       <div class="card-body p-0">
         <div id="editorjs" class="p-3" style="min-height:480px;"></div>
       </div>
@@ -109,7 +123,7 @@ $backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
     <div class="card">
       <div class="card-header">
         <h4 class="card-title">Tindak Lanjut</h4>
-        <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
+        <?php if ($canEdit): ?>
         <div class="card-options">
           <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
                   data-bs-target="#modalTL">+ Tambah</button>
@@ -147,7 +161,7 @@ $backUrl   = $baseUrl . '/meetings/' . $meeting['id'];
 </div>
 
 <!-- Modal TL -->
-<?php if (Auth::hasRole('admin', 'sekretaris')): ?>
+<?php if ($canEdit): ?>
 <div class="modal modal-blur fade" id="modalTL" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">

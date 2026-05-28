@@ -30,6 +30,33 @@ function parseInitialContent() {
   }
 }
 
+async function doSave() {
+  const saveStatus = document.getElementById('save-status');
+  if (saveStatus) saveStatus.textContent = 'Menyimpan...';
+  try {
+    const content = await editor.save();
+    const res = await fetch(SAVE_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ meeting_id: MEETING_ID, content })
+    });
+    const data = await res.json();
+    if (data.success) {
+      if (data.version) currentVersion = data.version;
+      if (saveStatus) saveStatus.textContent = '\u2713 Tersimpan ' + new Date().toLocaleTimeString('id-ID');
+    } else {
+      if (saveStatus) saveStatus.textContent = '\u2717 Gagal: ' + (data.message || 'error');
+      // Jika 403 (session expired), tampilkan peringatan lebih jelas
+      if (res.status === 403) {
+        showToast('\u26a0\ufe0f Sesi kadaluarsa. Silakan <a href="/logout" class="alert-link">logout</a> lalu login ulang.', 'warning');
+      }
+    }
+  } catch (e) {
+    console.error('Save error:', e);
+    if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
+  }
+}
+
 async function pollNotulen() {
   if (isSyncing || !editor) return;
   isSyncing = true;
@@ -55,10 +82,8 @@ async function pollNotulen() {
   }
 }
 
-// Semua init di dalam DOMContentLoaded — pastikan DOM dan CDN sudah siap
 document.addEventListener('DOMContentLoaded', () => {
 
-  // Cek apakah EditorJS dan semua plugin berhasil di-load
   if (typeof EditorJS === 'undefined') {
     console.error('EditorJS gagal di-load dari CDN.');
     const holder = document.getElementById('editorjs');
@@ -79,29 +104,15 @@ document.addEventListener('DOMContentLoaded', () => {
     data: parseInitialContent(),
     onReady: () => {
       pollNotulen();
+      // Tombol Simpan Manual
+      document.getElementById('btn-save-manual')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btn-save-manual');
+        btn.disabled = true;
+        await doSave();
+        btn.disabled = false;
+      });
     },
-    onChange: IS_EDITOR ? debounce(async () => {
-      const saveStatus = document.getElementById('save-status');
-      if (saveStatus) saveStatus.textContent = 'Menyimpan...';
-      try {
-        const content = await editor.save();
-        const res = await fetch(SAVE_URL, {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ meeting_id: MEETING_ID, content })
-        });
-        const data = await res.json();
-        if (data.success) {
-          if (data.version) currentVersion = data.version;
-          if (saveStatus) saveStatus.textContent = '\u2713 Tersimpan ' + new Date().toLocaleTimeString('id-ID');
-        } else {
-          if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
-        }
-      } catch (e) {
-        console.error('Save error:', e);
-        if (saveStatus) saveStatus.textContent = '\u2717 Gagal simpan';
-      }
-    }, 1500) : undefined
+    onChange: IS_EDITOR ? debounce(doSave, 1500) : undefined
   });
 
 });

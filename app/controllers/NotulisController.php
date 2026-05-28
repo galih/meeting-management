@@ -12,7 +12,6 @@ class NotulisController
         );
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
-        // Auto-create record notulen jika belum ada
         $notulen = Database::queryOne(
             "SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]
         );
@@ -47,23 +46,21 @@ class NotulisController
             [$meetingId]
         );
 
-        $baseUrl   = rtrim(BASE_URL, '/');
-        $isEditor  = Auth::hasRole('admin', 'sekretaris') ? 'true' : 'false';
+        $baseUrl      = rtrim(BASE_URL, '/');
+        $isEditor     = Auth::hasRole('admin', 'sekretaris') ? 'true' : 'false';
         $meetingIdInt = (int)$meeting['id'];
-        $userId    = (int)Auth::id();
-        $usersJson = json_encode(array_map(fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']], $users));
-        $saveUrl   = json_encode($baseUrl . '/api/notulen/save');
-        $syncUrl   = json_encode($baseUrl . '/api/notulen/sync');
-        $tlUrl     = json_encode($baseUrl . '/tindak-lanjut');
+        $userId       = (int)Auth::id();
+        $usersJson    = json_encode(array_map(fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']], $users));
+        $saveUrl      = json_encode($baseUrl . '/api/notulen/save');
+        $syncUrl      = json_encode($baseUrl . '/api/notulen/sync');
+        $tlUrl        = json_encode($baseUrl . '/tindak-lanjut');
 
-        // Decode content untuk EditorJS
         $contentDecoded = json_decode($notulen['content'] ?? '{}');
         if (!$contentDecoded || !isset($contentDecoded->blocks)) {
             $contentDecoded = (object)['time' => time() * 1000, 'blocks' => [], 'version' => '2.28.0'];
         }
         $contentJson = json_encode($contentDecoded);
 
-        // Scripts di-inject SETELAH CDN EditorJS via $scripts
         $scripts = <<<HTML
 <script>
 const MEETING_ID      = {$meetingIdInt};
@@ -144,7 +141,14 @@ HTML;
 
     public static function save(): void
     {
-        Auth::requireRole('admin', 'sekretaris');
+        // Return JSON 403 (bukan HTML) agar JS bisa handle dengan benar
+        if (!Auth::hasRole('admin', 'sekretaris')) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Akses ditolak. Silakan logout dan login ulang.']);
+            exit;
+        }
+
         $input     = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         $meetingId = (int)($input['meeting_id'] ?? 0);
         $content   = $input['content'] ?? '';
