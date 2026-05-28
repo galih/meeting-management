@@ -36,11 +36,101 @@ class SettingController
             'app_logo'        => self::getSetting('app_logo'),
             'login_bg'        => self::getSetting('login_bg'),
             'app_name_custom' => self::getSetting('app_name_custom', APP_NAME),
+            // SMTP
+            'smtp_host'       => self::getSetting('smtp_host'),
+            'smtp_port'       => self::getSetting('smtp_port', '587'),
+            'smtp_encryption' => self::getSetting('smtp_encryption', 'tls'),
+            'smtp_username'   => self::getSetting('smtp_username'),
+            'smtp_password'   => self::getSetting('smtp_password'),
+            'smtp_from_email' => self::getSetting('smtp_from_email'),
+            'smtp_from_name'  => self::getSetting('smtp_from_name', APP_NAME),
         ];
         View::layout('settings/index', [
             'pageTitle' => 'Pengaturan Aplikasi',
             'settings'  => $settings,
         ]);
+    }
+
+    public static function saveSMTP(): void
+    {
+        Auth::requireRole('admin');
+        header('Content-Type: application/json');
+
+        $fields = [
+            'smtp_host', 'smtp_port', 'smtp_encryption',
+            'smtp_username', 'smtp_from_email', 'smtp_from_name',
+        ];
+        foreach ($fields as $f) {
+            self::setSetting($f, trim($_POST[$f] ?? ''));
+        }
+        // Password: hanya update jika diisi (kosong = tidak ubah)
+        $pass = trim($_POST['smtp_password'] ?? '');
+        if ($pass !== '') {
+            self::setSetting('smtp_password', $pass);
+        }
+
+        echo json_encode(['success' => true, 'message' => 'Pengaturan SMTP berhasil disimpan.']);
+        exit;
+    }
+
+    public static function testSMTP(): void
+    {
+        Auth::requireRole('admin');
+        header('Content-Type: application/json');
+
+        $to = trim($_POST['test_email'] ?? '');
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['success' => false, 'message' => 'Alamat email tujuan tidak valid.']);
+            exit;
+        }
+
+        $host       = self::getSetting('smtp_host');
+        $port       = (int) self::getSetting('smtp_port', '587');
+        $encryption = self::getSetting('smtp_encryption', 'tls');
+        $username   = self::getSetting('smtp_username');
+        $password   = self::getSetting('smtp_password');
+        $fromEmail  = self::getSetting('smtp_from_email');
+        $fromName   = self::getSetting('smtp_from_name', APP_NAME);
+
+        if (empty($host) || empty($username) || empty($password) || empty($fromEmail)) {
+            echo json_encode(['success' => false, 'message' => 'Lengkapi pengaturan SMTP terlebih dahulu.']);
+            exit;
+        }
+
+        // Kirim via PHPMailer jika tersedia, fallback ke socket check
+        if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+            try {
+                $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+                $mail->isSMTP();
+                $mail->Host       = $host;
+                $mail->SMTPAuth   = true;
+                $mail->Username   = $username;
+                $mail->Password   = $password;
+                $mail->SMTPSecure = $encryption;
+                $mail->Port       = $port;
+                $mail->setFrom($fromEmail, $fromName);
+                $mail->addAddress($to);
+                $mail->Subject = '[' . APP_NAME . '] Test SMTP';
+                $mail->Body    = 'Email test dari ' . APP_NAME . '. Konfigurasi SMTP berhasil!';
+                $mail->send();
+                echo json_encode(['success' => true, 'message' => 'Email test berhasil dikirim ke ' . $to]);
+            } catch (\Throwable $e) {
+                echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);
+            }
+        } else {
+            // Fallback: cek koneksi socket ke SMTP host:port
+            $conn = @fsockopen(
+                ($encryption === 'ssl' ? 'ssl://' : '') . $host,
+                $port, $errno, $errstr, 5
+            );
+            if ($conn) {
+                fclose($conn);
+                echo json_encode(['success' => true, 'message' => 'Koneksi ke ' . $host . ':' . $port . ' berhasil. (PHPMailer tidak tersedia, email tidak dikirim)']);
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Gagal terhubung ke ' . $host . ':' . $port . ' — ' . $errstr]);
+            }
+        }
+        exit;
     }
 
     public static function uploadLogo(): void
@@ -131,10 +221,6 @@ class SettingController
         }
     }
 
-    /**
-     * Helper statis untuk dipakai di views/layout — ambil setting dari DB.
-     * Aman dipanggil kapan saja, return $default jika tabel belum ada.
-     */
     public static function get(string $key, string $default = ''): string
     {
         return self::getSetting($key, $default);
