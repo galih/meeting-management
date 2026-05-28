@@ -3,35 +3,33 @@ declare(strict_types=1);
 
 class DashboardController {
 
-    public function index(): void {
+    public static function index(): void {
         Auth::requireLogin();
         $user = Auth::user();
         $uid  = (int)$user['id'];
 
-        // ── Statistik berdasarkan role ──────────────────────────────
         if ($user['role'] === 'admin') {
             $stats = [
-                'total_meetings'  => Database::queryOne("SELECT COUNT(*) c FROM meetings")['c'],
-                'meeting_ongoing' => Database::queryOne("SELECT COUNT(*) c FROM meetings WHERE status='ongoing'")['c'],
-                'meeting_today'   => Database::queryOne("SELECT COUNT(*) c FROM meetings WHERE DATE(start_datetime)=CURDATE()")['c'],
-                'total_users'     => Database::queryOne("SELECT COUNT(*) c FROM users WHERE is_active=1")['c'],
-                'tl_pending'      => Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE status='pending'")['c'],
-                'tl_overdue'      => Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE due_date < CURDATE() AND status NOT IN ('done','cancelled')")['c'],
-                'tl_done'         => Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE status='done'")['c'],
+                'total_meetings'  => (int)(Database::queryOne("SELECT COUNT(*) c FROM meetings")['c'] ?? 0),
+                'meeting_ongoing' => (int)(Database::queryOne("SELECT COUNT(*) c FROM meetings WHERE status='ongoing'")['c'] ?? 0),
+                'meeting_today'   => (int)(Database::queryOne("SELECT COUNT(*) c FROM meetings WHERE DATE(start_datetime)=CURDATE()")['c'] ?? 0),
+                'total_users'     => (int)(Database::queryOne("SELECT COUNT(*) c FROM users WHERE is_active=1")['c'] ?? 0),
+                'tl_pending'      => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE status='pending'")['c'] ?? 0),
+                'tl_overdue'      => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE due_date < CURDATE() AND status NOT IN ('done','cancelled')")['c'] ?? 0),
+                'tl_done'         => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE status='done'")['c'] ?? 0),
                 'notif_unread'    => Notification::countUnread($uid),
             ];
         } else {
             $stats = [
-                'total_meetings'  => Database::queryOne("SELECT COUNT(*) c FROM meeting_participants WHERE user_id=?", [$uid])['c'],
-                'meeting_today'   => Database::queryOne("SELECT COUNT(*) c FROM meetings m JOIN meeting_participants mp ON m.id=mp.meeting_id WHERE mp.user_id=? AND DATE(m.start_datetime)=CURDATE()", [$uid])['c'],
-                'tl_pending'      => Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE assigned_to=? AND status='pending'", [$uid])['c'],
-                'tl_overdue'      => Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE assigned_to=? AND due_date < CURDATE() AND status NOT IN ('done','cancelled')", [$uid])['c'],
-                'tl_done'         => Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE assigned_to=? AND status='done'", [$uid])['c'],
+                'total_meetings'  => (int)(Database::queryOne("SELECT COUNT(*) c FROM meeting_participants WHERE user_id=?", [$uid])['c'] ?? 0),
+                'meeting_today'   => (int)(Database::queryOne("SELECT COUNT(*) c FROM meetings m JOIN meeting_participants mp ON m.id=mp.meeting_id WHERE mp.user_id=? AND DATE(m.start_datetime)=CURDATE()", [$uid])['c'] ?? 0),
+                'tl_pending'      => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE assigned_to=? AND status='pending'", [$uid])['c'] ?? 0),
+                'tl_overdue'      => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE assigned_to=? AND due_date < CURDATE() AND status NOT IN ('done','cancelled')", [$uid])['c'] ?? 0),
+                'tl_done'         => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE assigned_to=? AND status='done'", [$uid])['c'] ?? 0),
                 'notif_unread'    => Notification::countUnread($uid),
             ];
         }
 
-        // ── Meeting mendatang (7 hari ke depan) ─────────────────────
         if ($user['role'] === 'admin') {
             $upcoming = Database::query(
                 "SELECT m.*, u.name AS creator_name,
@@ -61,7 +59,6 @@ class DashboardController {
             );
         }
 
-        // ── Tindak lanjut deadline terdekat ─────────────────────────
         $tlDeadline = ($user['role'] === 'admin')
             ? Database::query(
                 "SELECT tl.*, m.title AS meeting_title, u.name AS assigned_name
@@ -81,7 +78,6 @@ class DashboardController {
                 [$uid]
               );
 
-        // ── Aktivitas terbaru ────────────────────────────────────────
         $recentActivity = Database::query(
             "SELECT * FROM notifications
              WHERE user_id = ?
@@ -89,7 +85,6 @@ class DashboardController {
             [$uid]
         );
 
-        // ── Notifikasi unread untuk navbar ───────────────────────────
         $notifications = Notification::getUnread($uid, 5);
 
         View::layout('dashboard/index', [

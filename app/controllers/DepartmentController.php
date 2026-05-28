@@ -14,7 +14,7 @@ class DepartmentController
         );
         $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
         View::layout('departments/index', [
-            'title'       => 'Manajemen Departemen',
+            'pageTitle'   => 'Manajemen Departemen',
             'departments' => $departments,
             'allUsers'    => $allUsers,
         ]);

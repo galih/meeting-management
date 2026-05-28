@@ -8,7 +8,7 @@ class CommentController
     {
         Auth::requireAuth();
         $comments = Database::query(
-            "SELECT nc.*, u.name AS user_name, u.role_id,
+            "SELECT nc.*, u.name AS user_name, u.role,
                     (SELECT COUNT(*) FROM notulen_comments r WHERE r.parent_id = nc.id) AS reply_count
              FROM notulen_comments nc
              JOIN users u ON u.id = nc.user_id
@@ -56,7 +56,7 @@ class CommentController
         $baseUrl  = rtrim(BASE_URL, '/') . '/notulen/' . $meetingId;
         $userName = Auth::user()['name'] ?? 'Seseorang';
 
-        // Simpan mentions & kirim notifikasi — Notification::send() hanya terima 4 argumen
+        // Simpan mentions & kirim notifikasi
         foreach ($mentions as $uid) {
             $uid = (int)$uid;
             $db->prepare(

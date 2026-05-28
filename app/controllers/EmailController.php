@@ -28,7 +28,7 @@ class EmailController
         $queued = 0;
         foreach ($participants as $p) {
             if (empty($p['email'])) continue;
-            $subject = '📅 Undangan Meeting: ' . $meeting['title'];
+            $subject = '\xF0\x9F\x93\x85 Undangan Meeting: ' . $meeting['title'];
             $body    = EmailTemplate::invitation($meeting, $p);
             Mailer::queue($p['email'], $p['name'], $subject, $body, 'invitation');
             $queued++;
@@ -37,14 +37,14 @@ class EmailController
         // Proses langsung (tanpa cron)
         $result = Mailer::processQueue(50);
 
-        // Notifikasi in-app
+        // Notifikasi in-app — Notification::send() menerima 4 argumen: userId, type, message, url
+        $meetingUrl = rtrim(BASE_URL, '/') . '/meetings/' . $meetingId;
         foreach ($participants as $p) {
             Notification::send(
-                $p['id'],
+                (int)$p['id'],
                 'meeting_invitation',
-                'Undangan Meeting',
                 'Anda diundang ke meeting: ' . $meeting['title'],
-                ['meeting_id' => $meetingId]
+                $meetingUrl
             );
         }
 
@@ -90,7 +90,7 @@ class EmailController
         $queued = 0;
         foreach ($participants as $p) {
             if (empty($p['email'])) continue;
-            $subject = '📋 Ringkasan Meeting: ' . $meeting['title'];
+            $subject = '\xF0\x9F\x93\x8B Ringkasan Meeting: ' . $meeting['title'];
             $body    = EmailTemplate::meetingSummary($meeting, $notulen, $tindakLanjutList, $p);
             Mailer::queue($p['email'], $p['name'], $subject, $body, 'summary');
             $queued++;
@@ -101,22 +101,22 @@ class EmailController
     }
 
     /**
-     * POST /api/email/send-reminders
+     * GET /api/email/send-reminders
      * Kirim reminder deadline tindak lanjut H-1
      * Dipanggil manual atau via cron: curl https://domain.com/api/email/send-reminders
      */
     public static function sendDeadlineReminders(): void
     {
-        // Bisa dipanggil via cron tanpa auth, atau oleh admin
         $tomorrow = date('Y-m-d', strtotime('+1 day'));
 
+        // Kolom yang benar: due_date dan description
         $tasks = Database::query(
             "SELECT tl.*, u.name AS assigned_name, u.email AS assigned_email,
                     m.title AS meeting_title
              FROM tindak_lanjut tl
              JOIN users u ON u.id = tl.assigned_to
              JOIN meetings m ON m.id = tl.meeting_id
-             WHERE tl.deadline = ?
+             WHERE tl.due_date = ?
                AND tl.status NOT IN ('done','cancelled')
                AND u.email IS NOT NULL",
             [$tomorrow]
@@ -124,7 +124,7 @@ class EmailController
 
         $queued = 0;
         foreach ($tasks as $tl) {
-            $subject = '⏰ Reminder Deadline: ' . $tl['deskripsi'];
+            $subject = '\xE2\x8F\xB0 Reminder Deadline: ' . $tl['description'];
             $user    = ['name' => $tl['assigned_name'], 'email' => $tl['assigned_email']];
             $body    = EmailTemplate::deadlineReminder($tl, $user);
             Mailer::queue($tl['assigned_email'], $tl['assigned_name'], $subject, $body, 'reminder');

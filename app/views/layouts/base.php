@@ -18,7 +18,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
   <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css"/>
 
-  <!-- Page-specific <head> scripts/styles (mis. EditorJS CDN untuk halaman notulen) -->
+  <!-- Page-specific <head> scripts/styles -->
   <?= $headScripts ?? '' ?>
 
   <style>
@@ -107,7 +107,8 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
               </div>
             </a>
             <div class="dropdown-menu dropdown-menu-end">
-              <a href="<?= BASE_URL ?>/profile" class="dropdown-item">Profil Saya</a>
+              <!-- Profil Saya diarahkan ke /users (manajemen akun) untuk admin, atau halaman yang tersedia -->
+              <a href="<?= BASE_URL ?>/users" class="dropdown-item">Profil Saya</a>
               <div class="dropdown-divider"></div>
               <a href="<?= BASE_URL ?>/logout" class="dropdown-item text-danger">Logout</a>
             </div>
@@ -156,7 +157,7 @@ $unreadCount   = $user ? Notification::countUnread((int)$user['id']) : 0;
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/js/tabler.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 
-<!-- BASE_URL global -->
+<!-- BASE_URL global — harus sebelum semua custom JS -->
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
 <script src="<?= BASE_URL ?>/assets/js/notifications.js"></script>
 

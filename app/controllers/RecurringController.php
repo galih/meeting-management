@@ -17,7 +17,7 @@ class RecurringController
         $departments = Database::query("SELECT id, name FROM departments WHERE is_active=1 ORDER BY name");
 
         View::layout('recurring/index', [
-            'title'       => 'Recurring Meeting',
+            'pageTitle'   => 'Recurring Meeting',
             'list'        => $list,
             'users'       => $users,
             'departments' => $departments,

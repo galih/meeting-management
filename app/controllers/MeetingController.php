@@ -91,19 +91,24 @@ class MeetingController
         ]);
         $meetingId = (int)$db->lastInsertId();
 
-        $participants = (array)($d['participants'] ?? []);
+        // Cast semua participant ID ke int sebelum dikirim ke DB & notifikasi
+        $participants = array_map('intval', (array)($d['participants'] ?? []));
+        $participants = array_filter($participants); // hapus 0
+
         foreach ($participants as $uid) {
             $db->prepare(
                 "INSERT IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?,?)"
-            )->execute([$meetingId, (int)$uid]);
+            )->execute([$meetingId, $uid]);
         }
 
-        Notification::sendBulk(
-            $participants,
-            'meeting_invite',
-            "Anda diundang ke meeting: {$d['title']}",
-            BASE_URL . "/meetings/{$meetingId}"
-        );
+        if (!empty($participants)) {
+            Notification::sendBulk(
+                $participants,
+                'meeting_invite',
+                "Anda diundang ke meeting: {$d['title']}",
+                BASE_URL . "/meetings/{$meetingId}"
+            );
+        }
 
         $_SESSION['flash_success'] = 'Meeting berhasil dibuat.';
         header('Location: ' . BASE_URL . "/meetings/{$meetingId}"); exit;
