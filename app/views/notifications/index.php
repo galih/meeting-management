@@ -1,11 +1,26 @@
 <?php
 $baseUrl   = rtrim(BASE_URL, '/');
 $typeIcons = [
-    'meeting_invite'    => ['icon' => '📅', 'color' => 'blue'],
-    'tindak_lanjut'     => ['icon' => '✅', 'color' => 'orange'],
-    'tindak_lanjut_due' => ['icon' => '⚠️', 'color' => 'red'],
-    'notulen_update'    => ['icon' => '📝', 'color' => 'orange'],
+    'meeting_invite'      => ['icon' => '📅', 'color' => 'blue'],
+    'meeting_invitation'  => ['icon' => '📅', 'color' => 'blue'],
+    'tindak_lanjut'       => ['icon' => '✅', 'color' => 'orange'],
+    'tindak_lanjut_due'   => ['icon' => '⚠️', 'color' => 'red'],
+    'notulen_update'      => ['icon' => '📝', 'color' => 'orange'],
+    'notulen_comment'     => ['icon' => '💬', 'color' => 'blue'],
+    'comment_mention'     => ['icon' => '@',  'color' => 'purple'],
 ];
+
+/**
+ * Bangun URL yang benar:
+ * - Jika $raw sudah full URL (http/https) → pakai langsung
+ * - Jika path relatif (misal /notulen/5) → prepend $baseUrl
+ * - Kosong → '#'
+ */
+function buildLink(string $baseUrl, string $raw): string {
+    if (empty($raw)) return '#';
+    if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) return $raw;
+    return $baseUrl . '/' . ltrim($raw, '/');
+}
 ?>
 
 <div class="card">
@@ -33,14 +48,18 @@ $typeIcons = [
 
     <?php foreach ($notifs as $n):
       $cfg  = $typeIcons[$n['type']] ?? ['icon' => '🔔', 'color' => 'secondary'];
-      $link = !empty($n['link']) ? $baseUrl . $n['link'] : '#';
+      // Kolom di tabel adalah 'url', bukan 'link'
+      $raw  = $n['url'] ?? $n['link'] ?? '';
+      $link = buildLink($baseUrl, $raw);
     ?>
     <div class="list-group-item <?= $n['is_read'] ? '' : 'bg-orange-lt' ?>">
       <div class="d-flex align-items-start gap-3">
         <span style="font-size:24px;flex-shrink:0;"><?= $cfg['icon'] ?></span>
         <div class="flex-fill">
           <div class="d-flex justify-content-between">
-            <a href="<?= htmlspecialchars($link) ?>" class="fw-semibold <?= $n['is_read'] ? 'text-muted' : 'text-dark' ?> text-decoration-none">
+            <a href="<?= htmlspecialchars($link) ?>"
+               class="fw-semibold <?= $n['is_read'] ? 'text-muted' : 'text-dark' ?> text-decoration-none"
+               <?= $link !== '#' ? '' : '' ?>>
               <?= htmlspecialchars($n['message']) ?>
             </a>
             <small class="text-muted text-nowrap ms-3">
