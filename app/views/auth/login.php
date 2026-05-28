@@ -36,7 +36,6 @@ $loginBg  = SettingController::get('login_bg');
     <div class="text-center mb-4">
       <?php if ($appLogo): ?>
         <img src="<?= htmlspecialchars($appLogo) ?>" alt="<?= APP_NAME ?>" style="max-height:72px;max-width:220px;object-fit:contain;">
-        <p class="text-muted small mt-2">Manajemen Meeting Profesional</p>
       <?php else: ?>
         <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24"
              fill="none" stroke="#f76707" stroke-width="2">
@@ -46,7 +45,6 @@ $loginBg  = SettingController::get('login_bg');
           <line x1="3"  y1="10" x2="21" y2="10"/>
         </svg>
         <h1 class="mt-2 mb-0 fw-bold" style="color:#f76707;font-size:24px;"><?= APP_NAME ?></h1>
-        <p class="text-muted small">Manajemen Meeting Profesional</p>
       <?php endif; ?>
     </div>
 

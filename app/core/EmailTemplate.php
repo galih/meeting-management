@@ -22,7 +22,6 @@ class EmailTemplate
                box-shadow:0 2px 16px rgba(0,0,0,.08); }
     .header  { background:#f76707; padding:28px 32px; text-align:center; }
     .header h1 { color:#fff; margin:0; font-size:22px; }
-    .header p  { color:rgba(255,255,255,.85); margin:4px 0 0; font-size:13px; }
     .body    { padding:32px; color:#374151; font-size:15px; line-height:1.7; }
     .body h2 { color:#f76707; font-size:18px; margin-top:0; }
     .btn     { display:inline-block; background:#f76707; color:#fff!important;
@@ -47,7 +46,6 @@ class EmailTemplate
   <div class="wrapper">
     <div class="header">
       <h1>📅 {$appName}</h1>
-      <p>Sistem Manajemen Meeting Profesional</p>
     </div>
     <div class="body">{$content}</div>
     <div class="footer">
