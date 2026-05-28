@@ -9,6 +9,8 @@ $canEdit  = Auth::hasRole('admin', 'sekretaris');
 $statusBadge   = ['pending'=>'secondary','in_progress'=>'blue','done'=>'green','cancelled'=>'red'];
 $priorityBadge = ['high'=>'red','medium'=>'yellow','low'=>'green'];
 $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cancelled'=>'red'];
+$meetingText   = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cancelled'=>'red'];
+$priorityText  = ['high'=>'red','medium'=>'yellow','low'=>'green'];
 ?>
 
 <div class="row g-3">
@@ -127,7 +129,8 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
           <dd class="col-7"><?= date('d M Y H:i', strtotime($meeting['end_datetime'])) ?></dd>
           <dt class="col-5 text-muted">Status</dt>
           <dd class="col-7">
-            <span class="badge bg-<?= $meetingBadge[$meeting['status']] ?? 'secondary' ?>-lt">
+            <?php $ms = $meetingBadge[$meeting['status']] ?? 'secondary'; ?>
+            <span class="badge bg-<?= $ms ?>-lt text-<?= $ms ?>">
               <?= ucfirst($meeting['status']) ?>
             </span>
           </dd>
@@ -215,7 +218,8 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
         <div class="list-group-item px-3 py-2">
           <div class="d-flex justify-content-between align-items-start">
             <span class="small fw-semibold"><?= htmlspecialchars($tl['description']) ?></span>
-            <span class="badge bg-<?= $priorityBadge[$tl['priority']] ?? 'secondary' ?>-lt ms-1"
+            <?php $pc = $priorityBadge[$tl['priority']] ?? 'secondary'; ?>
+            <span class="badge bg-<?= $pc ?>-lt text-<?= $pc ?> ms-1"
                   style="font-size:9px;"><?= ucfirst($tl['priority']) ?></span>
           </div>
           <div class="text-muted" style="font-size:11px;">
