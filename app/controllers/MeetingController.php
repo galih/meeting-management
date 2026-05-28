@@ -1,6 +1,26 @@
 <?php
 class MeetingController
 {
+    /**
+     * Kembalikan kondisi SQL + params untuk membatasi meeting berdasarkan role.
+     * Admin/sekretaris: semua meeting.
+     * Peserta: hanya meeting di mana user adalah creator atau peserta.
+     */
+    private static function accessScope(): array
+    {
+        if (Auth::hasRole('admin', 'sekretaris')) {
+            return ['where' => '1=1', 'params' => []];
+        }
+        $uid = Auth::id();
+        return [
+            'where'  => '(m.created_by = ? OR EXISTS (
+                            SELECT 1 FROM meeting_participants mp
+                            WHERE mp.meeting_id = m.id AND mp.user_id = ?
+                         ))',
+            'params' => [$uid, $uid],
+        ];
+    }
+
     public static function index(): void
     {
         Auth::requireAuth();
@@ -10,16 +30,17 @@ class MeetingController
         $dateFrom = $_GET['date_from']    ?? '';
         $dateTo   = $_GET['date_to']      ?? '';
 
-        $where  = ['1=1'];
-        $params = [];
+        $scope  = self::accessScope();
+        $where  = [$scope['where']];
+        $params = $scope['params'];
 
         if ($search) {
             $where[]  = '(m.title LIKE ? OR m.location LIKE ?)';
             $params[] = "%{$search}%";
             $params[] = "%{$search}%";
         }
-        if ($status)   { $where[] = 'm.status = ?';               $params[] = $status; }
-        if ($dept)     { $where[] = 'm.department_id = ?';        $params[] = (int)$dept; }
+        if ($status)   { $where[] = 'm.status = ?';                $params[] = $status; }
+        if ($dept)     { $where[] = 'm.department_id = ?';         $params[] = (int)$dept; }
         if ($dateFrom) { $where[] = 'DATE(m.start_datetime) >= ?'; $params[] = $dateFrom; }
         if ($dateTo)   { $where[] = 'DATE(m.start_datetime) <= ?'; $params[] = $dateTo; }
 
@@ -78,7 +99,6 @@ class MeetingController
             )->execute([$meetingId, (int)$uid]);
         }
 
-        // Kirim notifikasi ke setiap peserta
         Notification::sendBulk(
             $participants,
             'meeting_invite',
@@ -102,6 +122,21 @@ class MeetingController
             [$id]
         );
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
+
+        // Non-admin/sekretaris hanya boleh lihat jika terlibat
+        if (!Auth::hasRole('admin', 'sekretaris')) {
+            $uid      = Auth::id();
+            $terlibat = $meeting['created_by'] == $uid
+                || Database::queryOne(
+                    "SELECT 1 FROM meeting_participants WHERE meeting_id=? AND user_id=?",
+                    [$id, $uid]
+                );
+            if (!$terlibat) {
+                http_response_code(403);
+                include APP_PATH . '/views/errors/403.php';
+                exit;
+            }
+        }
 
         $participants = Database::query(
             "SELECT u.id, u.name, u.email, u.avatar,
@@ -162,12 +197,17 @@ class MeetingController
         $start = $_GET['start'] ?? date('Y-m-01');
         $end   = $_GET['end']   ?? date('Y-m-t');
 
+        $scope  = self::accessScope();
+        $params = array_merge($scope['params'], [$start, $end]);
+
         $meetings = Database::query(
-            "SELECT id, title, start_datetime AS start, end_datetime AS `end`, color, status
-             FROM meetings
-             WHERE start_datetime BETWEEN ? AND ?
-             ORDER BY start_datetime",
-            [$start, $end]
+            "SELECT m.id, m.title, m.start_datetime AS start, m.end_datetime AS `end`,
+                    m.color, m.status
+             FROM meetings m
+             WHERE {$scope['where']}
+               AND m.start_datetime BETWEEN ? AND ?
+             ORDER BY m.start_datetime",
+            $params
         );
 
         $events = array_map(fn($m) => [
