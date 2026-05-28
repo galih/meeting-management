@@ -2,32 +2,87 @@
 class CommentController
 {
     /**
+     * Pastikan tabel notulen_comments dan kolom yang dibutuhkan ada.
+     * Dipanggil sekali saat index/store agar tidak error di fresh install.
+     */
+    private static function ensureTable(): void
+    {
+        $db = Database::getInstance();
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS notulen_comments (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                meeting_id  INT NOT NULL,
+                parent_id   INT DEFAULT NULL,
+                block_id    VARCHAR(100) DEFAULT NULL,
+                user_id     INT NOT NULL,
+                content     TEXT NOT NULL,
+                is_resolved TINYINT(1) NOT NULL DEFAULT 0,
+                created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_id)    REFERENCES users(id)    ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        // Tambahkan kolom is_resolved jika belum ada (untuk migrasi tabel lama)
+        try {
+            $db->exec("ALTER TABLE notulen_comments ADD COLUMN is_resolved TINYINT(1) NOT NULL DEFAULT 0");
+        } catch (\Throwable $e) {
+            // Kolom sudah ada, abaikan
+        }
+        // Pastikan tabel comment_mentions ada
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS comment_mentions (
+                comment_id INT NOT NULL,
+                user_id    INT NOT NULL,
+                PRIMARY KEY (comment_id, user_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    }
+
+    /**
      * GET /api/notulen/{meetingId}/comments
      */
     public static function index(int $meetingId): void
     {
-        Auth::requireAuth();
-        $comments = Database::query(
-            "SELECT nc.*, u.name AS user_name, u.role,
-                    (SELECT COUNT(*) FROM notulen_comments r WHERE r.parent_id = nc.id) AS reply_count
-             FROM notulen_comments nc
-             JOIN users u ON u.id = nc.user_id
-             WHERE nc.meeting_id = ? AND nc.parent_id IS NULL
-             ORDER BY nc.created_at ASC",
-            [$meetingId]
-        );
-        foreach ($comments as &$c) {
-            $c['replies'] = Database::query(
-                "SELECT nc.*, u.name AS user_name
+        while (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/json; charset=utf-8');
+
+        try {
+            Auth::requireAuth();
+            self::ensureTable();
+
+            $comments = Database::query(
+                "SELECT nc.*, u.name AS user_name, u.role
                  FROM notulen_comments nc
                  JOIN users u ON u.id = nc.user_id
-                 WHERE nc.parent_id = ?
+                 WHERE nc.meeting_id = ? AND nc.parent_id IS NULL
                  ORDER BY nc.created_at ASC",
-                [$c['id']]
+                [$meetingId]
             );
+
+            foreach ($comments as &$c) {
+                $c['is_resolved'] = (bool)$c['is_resolved'];
+                $c['replies'] = Database::query(
+                    "SELECT nc.*, u.name AS user_name
+                     FROM notulen_comments nc
+                     JOIN users u ON u.id = nc.user_id
+                     WHERE nc.parent_id = ?
+                     ORDER BY nc.created_at ASC",
+                    [$c['id']]
+                );
+                foreach ($c['replies'] as &$r) {
+                    $r['is_resolved'] = (bool)($r['is_resolved'] ?? false);
+                }
+                unset($r);
+            }
+            unset($c);
+
+            echo json_encode(['success' => true, 'comments' => $comments]);
+        } catch (\Throwable $e) {
+            error_log('CommentController::index error: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'comments' => $comments]); exit;
+        exit;
     }
 
     /**
@@ -35,63 +90,69 @@ class CommentController
      */
     public static function store(int $meetingId): void
     {
-        Auth::requireAuth();
-        $body     = json_decode(file_get_contents('php://input'), true) ?? [];
-        $content  = trim($body['content']  ?? '');
-        $blockId  = $body['block_id']      ?? null;
-        $parentId = !empty($body['parent_id']) ? (int)$body['parent_id'] : null;
-        $mentions = (array)($body['mentions'] ?? []);
+        while (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/json; charset=utf-8');
 
-        if (empty($content)) {
-            self::json(false, 'Komentar tidak boleh kosong'); return;
-        }
+        try {
+            Auth::requireAuth();
+            self::ensureTable();
 
-        $db = Database::getInstance();
-        $db->prepare(
-            "INSERT INTO notulen_comments (meeting_id, block_id, parent_id, user_id, content)
-             VALUES (?, ?, ?, ?, ?)"
-        )->execute([$meetingId, $blockId, $parentId, Auth::id(), $content]);
-        $commentId = (int)$db->lastInsertId();
+            $body     = json_decode(file_get_contents('php://input'), true) ?? [];
+            $content  = trim($body['content']  ?? '');
+            $blockId  = $body['block_id']      ?? null;
+            $parentId = !empty($body['parent_id']) ? (int)$body['parent_id'] : null;
+            $mentions = (array)($body['mentions'] ?? []);
 
-        $baseUrl  = rtrim(BASE_URL, '/') . '/notulen/' . $meetingId;
-        $userName = Auth::user()['name'] ?? 'Seseorang';
-
-        // Simpan mentions & kirim notifikasi
-        foreach ($mentions as $uid) {
-            $uid = (int)$uid;
-            $db->prepare(
-                "INSERT IGNORE INTO comment_mentions (comment_id, user_id) VALUES (?,?)"
-            )->execute([$commentId, $uid]);
-            Notification::send(
-                $uid,
-                'comment_mention',
-                "{$userName} menyebut Anda di notulen.",
-                $baseUrl
-            );
-        }
-
-        // Notifikasi ke peserta meeting jika komentar baru (bukan reply)
-        if (!$parentId) {
-            $participants = Database::query(
-                "SELECT user_id FROM meeting_participants WHERE meeting_id=? AND user_id != ?",
-                [$meetingId, Auth::id()]
-            );
-            foreach ($participants as $p) {
-                Notification::send(
-                    (int)$p['user_id'],
-                    'notulen_comment',
-                    "{$userName} menambahkan komentar di notulen.",
-                    $baseUrl
-                );
+            if (empty($content)) {
+                echo json_encode(['success' => false, 'message' => 'Komentar tidak boleh kosong']);
+                exit;
             }
-        }
 
-        $comment = Database::queryOne(
-            "SELECT nc.*, u.name AS user_name FROM notulen_comments nc
-             JOIN users u ON u.id = nc.user_id WHERE nc.id = ?",
-            [$commentId]
-        );
-        self::json(true, 'Komentar ditambahkan', ['comment' => $comment]);
+            $db = Database::getInstance();
+            $db->prepare(
+                "INSERT INTO notulen_comments (meeting_id, block_id, parent_id, user_id, content)
+                 VALUES (?, ?, ?, ?, ?)"
+            )->execute([$meetingId, $blockId, $parentId, Auth::id(), $content]);
+            $commentId = (int)$db->lastInsertId();
+
+            $baseUrl  = rtrim(BASE_URL, '/') . '/notulen/' . $meetingId;
+            $userName = Auth::user()['name'] ?? 'Seseorang';
+
+            foreach ($mentions as $uid) {
+                $uid = (int)$uid;
+                $db->prepare(
+                    "INSERT IGNORE INTO comment_mentions (comment_id, user_id) VALUES (?,?)"
+                )->execute([$commentId, $uid]);
+                try {
+                    Notification::send($uid, 'comment_mention', "{$userName} menyebut Anda di notulen.", $baseUrl);
+                } catch (\Throwable $e) { /* notifikasi gagal tidak batalkan simpan */ }
+            }
+
+            if (!$parentId) {
+                $participants = Database::query(
+                    "SELECT user_id FROM meeting_participants WHERE meeting_id=? AND user_id != ?",
+                    [$meetingId, Auth::id()]
+                );
+                foreach ($participants as $p) {
+                    try {
+                        Notification::send((int)$p['user_id'], 'notulen_comment', "{$userName} menambahkan komentar di notulen.", $baseUrl);
+                    } catch (\Throwable $e) { /* abaikan */ }
+                }
+            }
+
+            $comment = Database::queryOne(
+                "SELECT nc.*, u.name AS user_name FROM notulen_comments nc
+                 JOIN users u ON u.id = nc.user_id WHERE nc.id = ?",
+                [$commentId]
+            );
+
+            echo json_encode(['success' => true, 'message' => 'Komentar ditambahkan', 'comment' => $comment]);
+        } catch (\Throwable $e) {
+            error_log('CommentController::store error: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
     }
 
     /**
@@ -99,14 +160,23 @@ class CommentController
      */
     public static function resolve(int $id): void
     {
-        Auth::requireRole('admin', 'sekretaris');
-        $c = Database::queryOne("SELECT * FROM notulen_comments WHERE id=?", [$id]);
-        if (!$c) { self::json(false, 'Tidak ditemukan'); return; }
-        $new = $c['is_resolved'] ? 0 : 1;
-        Database::getInstance()->prepare(
-            "UPDATE notulen_comments SET is_resolved=? WHERE id=?"
-        )->execute([$new, $id]);
-        self::json(true, $new ? 'Thread diselesaikan' : 'Thread dibuka kembali', ['is_resolved' => $new]);
+        while (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            Auth::requireRole('admin', 'sekretaris');
+            $c = Database::queryOne("SELECT * FROM notulen_comments WHERE id=?", [$id]);
+            if (!$c) { echo json_encode(['success' => false, 'message' => 'Tidak ditemukan']); exit; }
+            $new = $c['is_resolved'] ? 0 : 1;
+            Database::getInstance()->prepare(
+                "UPDATE notulen_comments SET is_resolved=? WHERE id=?"
+            )->execute([$new, $id]);
+            echo json_encode(['success' => true, 'message' => $new ? 'Thread diselesaikan' : 'Thread dibuka kembali', 'is_resolved' => (bool)$new]);
+        } catch (\Throwable $e) {
+            error_log('CommentController::resolve error: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
+        exit;
     }
 
     /**
@@ -114,19 +184,22 @@ class CommentController
      */
     public static function delete(int $id): void
     {
-        Auth::requireAuth();
-        $c = Database::queryOne("SELECT * FROM notulen_comments WHERE id=?", [$id]);
-        if (!$c) { self::json(false, 'Tidak ditemukan'); return; }
-        if ((int)$c['user_id'] !== Auth::id() && !Auth::hasRole('admin')) {
-            self::json(false, 'Akses ditolak'); return;
+        while (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            Auth::requireAuth();
+            $c = Database::queryOne("SELECT * FROM notulen_comments WHERE id=?", [$id]);
+            if (!$c) { echo json_encode(['success' => false, 'message' => 'Tidak ditemukan']); exit; }
+            if ((int)$c['user_id'] !== Auth::id() && !Auth::hasRole('admin')) {
+                echo json_encode(['success' => false, 'message' => 'Akses ditolak']); exit;
+            }
+            Database::getInstance()->prepare("DELETE FROM notulen_comments WHERE id=?")->execute([$id]);
+            echo json_encode(['success' => true, 'message' => 'Komentar dihapus']);
+        } catch (\Throwable $e) {
+            error_log('CommentController::delete error: ' . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
         }
-        Database::getInstance()->prepare("DELETE FROM notulen_comments WHERE id=?")->execute([$id]);
-        self::json(true, 'Komentar dihapus');
-    }
-
-    private static function json(bool $success, string $message, array $extra = []): void
-    {
-        header('Content-Type: application/json');
-        echo json_encode(array_merge(compact('success', 'message'), $extra)); exit;
+        exit;
     }
 }
