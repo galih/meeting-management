@@ -45,9 +45,11 @@
       <div class="card-body">
         <form method="POST" action="<?= $baseUrl ?>/profile/update">
           <div class="mb-3">
-            <label class="form-label required">Nama Lengkap</label>
-            <input type="text" name="name" class="form-control"
-                   value="<?= htmlspecialchars($user['name'] ?? '') ?>" required>
+            <label class="form-label">Nama Lengkap</label>
+            <input type="text" class="form-control"
+                   value="<?= htmlspecialchars($user['name'] ?? '') ?>"
+                   disabled>
+            <div class="form-hint">Nama hanya dapat diubah oleh administrator.</div>
           </div>
           <div class="mb-3">
             <label class="form-label required">Email</label>
@@ -142,7 +144,6 @@
 </div>
 
 <script>
-// Toggle show/hide password
 document.querySelectorAll('.toggle-pw').forEach(btn => {
   btn.addEventListener('click', () => {
     const inp = document.getElementById(btn.dataset.target);
@@ -150,7 +151,6 @@ document.querySelectorAll('.toggle-pw').forEach(btn => {
   });
 });
 
-// Real-time cek konfirmasi password
 const newPw  = document.getElementById('new_pw');
 const confPw = document.getElementById('conf_pw');
 const msg    = document.getElementById('pw-match-msg');
