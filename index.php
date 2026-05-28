@@ -32,7 +32,6 @@ if (defined('APP_DEBUG') && APP_DEBUG === true) {
     ini_set('display_errors', '0');
     ini_set('display_startup_errors', '0');
     error_reporting(E_ALL);
-    // Log ke file tapi jangan tampilkan ke browser
     $logDir = ROOT_PATH . '/logs';
     if (!is_dir($logDir)) @mkdir($logDir, 0755, true);
     ini_set('error_log', $logDir . '/php_errors.log');
@@ -87,10 +86,6 @@ $router->get('/users',               [UserController::class, 'index']);
 $router->post('/users',              [UserController::class, 'store']);
 $router->post('/users/{id}/update',  [UserController::class, 'update']);
 $router->post('/users/{id}/delete',  [UserController::class, 'delete']);
-
-// === PROFILE ===
-$router->get('/profile',       [ProfileController::class, 'show']);
-$router->post('/profile',      [ProfileController::class, 'update']);
 
 // === DEPARTMENTS ===
 $router->get('/departments',               [DepartmentController::class, 'index']);
