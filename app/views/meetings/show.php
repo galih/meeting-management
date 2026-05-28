@@ -15,10 +15,10 @@ $baseUrl = rtrim(BASE_URL, '/');
   <!-- Kolom Kiri: Info + Peserta -->
   <div class="col-lg-4">
 
-    <!-- Info Meeting -->
+    <!-- Info Kegiatan -->
     <div class="card mb-3">
       <div class="card-header">
-        <h3 class="card-title">Detail Meeting</h3>
+        <h3 class="card-title">Detail Kegiatan</h3>
         <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
         <div class="card-options gap-1">
           <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
@@ -40,7 +40,7 @@ $baseUrl = rtrim(BASE_URL, '/');
           <dt class="col-5 text-muted">Lokasi</dt>
           <dd class="col-7">
             <?php if (!empty($meeting['location']) && str_starts_with($meeting['location'], 'http')): ?>
-              <a href="<?= htmlspecialchars($meeting['location']) ?>" target="_blank" rel="noopener">🔗 Link Meeting</a>
+              <a href="<?= htmlspecialchars($meeting['location']) ?>" target="_blank" rel="noopener">🔗 Link Kegiatan</a>
             <?php else: ?>
               <?= htmlspecialchars($meeting['location'] ?? '-') ?>
             <?php endif; ?>
@@ -82,9 +82,9 @@ $baseUrl = rtrim(BASE_URL, '/');
         <hr class="my-1">
         <form method="POST"
               action="<?= $baseUrl ?>/meetings/<?= $meeting['id'] ?>/delete"
-              onsubmit="return confirm('Yakin ingin menghapus meeting \"<?= htmlspecialchars(addslashes($meeting['title'])) ?>\"?\n\nSemua notulen, peserta, dan tindak lanjut terkait akan ikut terhapus.')">
+              onsubmit="return confirm('Yakin ingin menghapus kegiatan \"<?= htmlspecialchars(addslashes($meeting['title'])) ?>\"?\n\nSemua notulen, peserta, dan tindak lanjut terkait akan ikut terhapus.')">
           <button type="submit" class="btn btn-danger w-100">
-            🗑️ Hapus Meeting
+            🗑️ Hapus Kegiatan
           </button>
         </form>
         <?php endif; ?>
@@ -136,7 +136,7 @@ $baseUrl = rtrim(BASE_URL, '/');
       </div>
       <?php if (empty($tindakLanjutList)): ?>
       <div class="card-body text-center text-muted py-5">
-        <p class="mb-0">Belum ada tindak lanjut untuk meeting ini</p>
+        <p class="mb-0">Belum ada tindak lanjut untuk kegiatan ini</p>
       </div>
       <?php else: ?>
       <div class="table-responsive">
@@ -193,7 +193,7 @@ $baseUrl = rtrim(BASE_URL, '/');
     <div class="modal-content">
       <form method="POST" action="<?= $baseUrl ?>/meetings/<?= $meeting['id'] ?>/status">
         <div class="modal-header">
-          <h5 class="modal-title">Ubah Status Meeting</h5>
+          <h5 class="modal-title">Ubah Status Kegiatan</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
