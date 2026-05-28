@@ -1,8 +1,8 @@
 <?php
 $baseUrl    = rtrim(BASE_URL, '/');
 $statConfig = [
-    ['key'=>'total_meetings',  'label'=>'Total Meeting',      'color'=>'blue',   'icon'=>'📅'],
-    ['key'=>'meeting_today',   'label'=>'Meeting Hari Ini',   'color'=>'orange', 'icon'=>'🗓️'],
+    ['key'=>'total_meetings',  'label'=>'Total Kegiatan',     'color'=>'blue',   'icon'=>'📅'],
+    ['key'=>'meeting_today',   'label'=>'Kegiatan Hari Ini',  'color'=>'orange', 'icon'=>'🗓️'],
     ['key'=>'tl_pending',      'label'=>'Tugas Pending',      'color'=>'yellow', 'icon'=>'⏳'],
     ['key'=>'tl_overdue',      'label'=>'Tugas Terlambat',    'color'=>'red',    'icon'=>'⚠️'],
     ['key'=>'tl_done',         'label'=>'Tugas Selesai',      'color'=>'green',  'icon'=>'✅'],
@@ -36,7 +36,7 @@ if ($user['role'] === 'admin') {
 
 <div class="row row-cards g-3">
 
-  <!-- Meeting Mendatang -->
+  <!-- Kegiatan Mendatang -->
   <div class="col-lg-6">
     <div class="card h-100">
       <div class="card-header">
@@ -47,7 +47,7 @@ if ($user['role'] === 'admin') {
             <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>
-          Meeting Mendatang <span class="text-muted fw-normal ms-1" style="font-size:12px;">7 hari ke depan</span>
+          Kegiatan Mendatang <span class="text-muted fw-normal ms-1" style="font-size:12px;">7 hari ke depan</span>
         </h3>
         <div class="card-options">
           <a href="<?= $baseUrl ?>/meetings" class="btn btn-sm btn-outline-secondary">Lihat Semua</a>
@@ -57,7 +57,7 @@ if ($user['role'] === 'admin') {
         <?php if (empty($upcoming)): ?>
         <div class="list-group-item text-center text-muted py-5">
           <div style="font-size:32px;margin-bottom:.4rem;">📭</div>
-          Tidak ada meeting mendatang
+          Tidak ada kegiatan mendatang
         </div>
         <?php endif; ?>
         <?php foreach ($upcoming as $m):
@@ -150,3 +150,89 @@ if ($user['role'] === 'admin') {
   </div>
 
 </div>
+
+<!-- Chart Statistik Kegiatan Per Bulan -->
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="#f76707" stroke-width="2">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+            <line x1="2" y1="20" x2="22" y2="20"/>
+          </svg>
+          Statistik Kegiatan Per Bulan
+        </h3>
+        <div class="card-options">
+          <select id="chartYearSelect" class="form-select form-select-sm" style="width:auto;">
+            <?php foreach ($availableYears as $yr): ?>
+            <option value="<?= $yr ?>" <?= $yr == date('Y') ? 'selected' : '' ?>><?= $yr ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      </div>
+      <div class="card-body">
+        <canvas id="chartKegiatan" height="100"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const apiBase = <?= json_encode($baseUrl . '/api/dashboard/chart-monthly') ?>;
+  const months  = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  let chart;
+
+  function buildChart(labels, data, year) {
+    const ctx = document.getElementById('chartKegiatan').getContext('2d');
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Jumlah Kegiatan ' + year,
+          data,
+          backgroundColor: 'rgba(123, 28, 28, 0.75)',
+          borderColor:     '#7B1C1C',
+          borderWidth: 1,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ' ' + ctx.parsed.y + ' kegiatan'
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, precision: 0 },
+            grid: { color: 'rgba(0,0,0,.06)' }
+          },
+          x: { grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  async function loadChart(year) {
+    const res  = await fetch(apiBase + '?year=' + year);
+    const json = await res.json();
+    buildChart(months, json.data, json.year);
+  }
+
+  const sel = document.getElementById('chartYearSelect');
+  loadChart(sel.value);
+  sel.addEventListener('change', () => loadChart(sel.value));
+})();
+</script>

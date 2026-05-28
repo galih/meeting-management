@@ -87,6 +87,15 @@ class DashboardController {
 
         $notifications = Notification::getUnread($uid, 5);
 
+        // Ambil tahun yang tersedia untuk dropdown chart
+        $availableYears = Database::query(
+            "SELECT DISTINCT YEAR(start_datetime) AS yr FROM meetings ORDER BY yr DESC"
+        );
+        $availableYears = array_column($availableYears, 'yr');
+        if (empty($availableYears)) {
+            $availableYears = [(int)date('Y')];
+        }
+
         View::layout('dashboard/index', [
             'pageTitle'      => 'Dashboard',
             'user'           => $user,
@@ -95,6 +104,49 @@ class DashboardController {
             'tlDeadline'     => $tlDeadline,
             'recentActivity' => $recentActivity,
             'notifications'  => $notifications,
+            'availableYears' => $availableYears,
         ]);
+    }
+
+    /**
+     * GET /api/dashboard/chart-monthly?year=2026
+     * Mengembalikan JSON jumlah kegiatan per bulan untuk tahun tertentu
+     */
+    public static function chartMonthly(): void {
+        Auth::requireLogin();
+        $user = Auth::user();
+        $uid  = (int)$user['id'];
+        $year = (int)($_GET['year'] ?? date('Y'));
+
+        if ($user['role'] === 'admin') {
+            $rows = Database::query(
+                "SELECT MONTH(start_datetime) AS bulan, COUNT(*) AS total
+                 FROM meetings
+                 WHERE YEAR(start_datetime) = ?
+                 GROUP BY bulan
+                 ORDER BY bulan ASC",
+                [$year]
+            );
+        } else {
+            $rows = Database::query(
+                "SELECT MONTH(m.start_datetime) AS bulan, COUNT(*) AS total
+                 FROM meetings m
+                 JOIN meeting_participants mp ON m.id = mp.meeting_id
+                 WHERE mp.user_id = ? AND YEAR(m.start_datetime) = ?
+                 GROUP BY bulan
+                 ORDER BY bulan ASC",
+                [$uid, $year]
+            );
+        }
+
+        // Isi semua 12 bulan, default 0
+        $data = array_fill(1, 12, 0);
+        foreach ($rows as $r) {
+            $data[(int)$r['bulan']] = (int)$r['total'];
+        }
+
+        header('Content-Type: application/json');
+        echo json_encode(['year' => $year, 'data' => array_values($data)]);
+        exit;
     }
 }
