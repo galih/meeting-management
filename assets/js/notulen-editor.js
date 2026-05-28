@@ -1,7 +1,8 @@
 /* globals Quill, MEETING_ID, CURRENT_USER_ID, IS_EDITOR,
    INITIAL_CONTENT, SAVE_URL, SYNC_URL, BASE_URL */
 
-let quill          = null;
+// Expose ke window agar script eksternal (template picker, dll) bisa akses
+window.quill    = null;
 let currentVersion = 0;
 let isSyncing      = false;
 let saveTimer      = null;
@@ -26,11 +27,11 @@ function debouncedSave() {
 }
 
 async function doSave() {
-  if (!quill) return;
+  if (!window.quill) return;
   setSaveStatus('Menyimpan...');
   try {
-    const isEmpty = quill.getText().trim().length === 0;
-    const html    = isEmpty ? '' : quill.root.innerHTML;
+    const isEmpty = window.quill.getText().trim().length === 0;
+    const html    = isEmpty ? '' : window.quill.root.innerHTML;
 
     let res;
     try {
@@ -73,7 +74,7 @@ async function doSave() {
 }
 
 async function pollNotulen() {
-  if (isSyncing || !quill) return;
+  if (isSyncing || !window.quill) return;
   isSyncing = true;
   try {
     const res  = await fetch(`${SYNC_URL}?meeting_id=${MEETING_ID}&version=${currentVersion}`);
@@ -81,7 +82,7 @@ async function pollNotulen() {
     if (data.status === 'updated') {
       currentVersion = data.data.version;
       if (parseInt(data.data.last_edited_by_id) !== CURRENT_USER_ID) {
-        quill.root.innerHTML = data.data.content || '';
+        window.quill.root.innerHTML = data.data.content || '';
         showToast(`✏️ <strong>${data.data.editor_name}</strong> memperbarui notulen`);
       }
     }
@@ -114,7 +115,7 @@ function initQuill() {
     ['clean']
   ] : false;
 
-  quill = new Quill(container, {
+  window.quill = new Quill(container, {
     theme:       'snow',
     readOnly:    !IS_EDITOR,
     placeholder: IS_EDITOR ? 'Mulai tulis notulen di sini...' : 'Belum ada isi notulen.',
@@ -122,11 +123,11 @@ function initQuill() {
   });
 
   if (INITIAL_CONTENT && INITIAL_CONTENT.trim() !== '') {
-    quill.root.innerHTML = INITIAL_CONTENT;
+    window.quill.root.innerHTML = INITIAL_CONTENT;
   }
 
   if (IS_EDITOR) {
-    quill.on('text-change', debouncedSave);
+    window.quill.on('text-change', debouncedSave);
   }
 
   const btnManual = document.getElementById('btn-save-manual');

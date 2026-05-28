@@ -309,8 +309,8 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
       const loading   = document.getElementById('tpl-list-loading');
       const container = document.getElementById('tpl-list-container');
 
-      loading.style.display    = 'none';
-      container.style.display  = '';
+      loading.style.display   = 'none';
+      container.style.display = '';
 
       if (!data.templates || data.templates.length === 0) {
         container.innerHTML = '<div class="col-12 text-muted text-center py-3">Belum ada template. <a href="' + <?= json_encode(rtrim(BASE_URL, '/') . '/notulen-templates') ?> + '" target="_blank">Buat template</a></div>';
@@ -321,7 +321,7 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
         const col = document.createElement('div');
         col.className = 'col-md-6';
         col.innerHTML = `
-          <div class="card h-100 border hover-shadow" style="cursor:pointer;" data-tpl-id="${tpl.id}">
+          <div class="card h-100 border" data-tpl-id="${tpl.id}">
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-start mb-1">
                 <h5 class="card-title mb-0">${tpl.name}</h5>
@@ -340,28 +340,26 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
         container.appendChild(col);
       });
 
-      // Listener tombol Apply
       container.querySelectorAll('.btn-apply-tpl').forEach(btn => {
         btn.addEventListener('click', async function () {
-          const id = this.dataset.tplId;
-          const res  = await fetch(TPL_API_URL + '/' + id);
-          const data = await res.json();
+          const id  = this.dataset.tplId;
+          const res = await fetch(TPL_API_URL + '/' + id);
+          const d   = await res.json();
 
-          if (!data.success) { alert(data.message || 'Gagal memuat template.'); return; }
+          if (!d.success) { alert(d.message || 'Gagal memuat template.'); return; }
 
-          // Cek apakah editor Quill sudah ada di halaman ini
-          if (typeof quill === 'undefined') {
+          // Gunakan window.quill — sudah di-expose oleh notulen-editor.js
+          if (!window.quill) {
             alert('Editor belum siap, coba lagi sesaat.');
             return;
           }
 
-          quill.root.innerHTML = data.template.content;
+          window.quill.root.innerHTML = d.template.content;
 
           bootstrap.Modal.getInstance(
             document.getElementById('modalPickTemplate')
           ).hide();
 
-          // Tandai belum tersimpan
           const saveStat = document.getElementById('save-status');
           if (saveStat) {
             saveStat.textContent = '● Belum disimpan';
