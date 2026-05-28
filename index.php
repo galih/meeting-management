@@ -1,11 +1,6 @@
 <?php
 declare(strict_types=1);
 
-// DEBUG SEMENTARA — hapus setelah masalah ditemukan
-ini_set('display_errors', '1');
-ini_set('display_startup_errors', '1');
-error_reporting(E_ALL);
-
 session_start();
 define('ROOT_PATH', __DIR__);
 define('APP_PATH',  ROOT_PATH . '/app');
@@ -27,6 +22,22 @@ spl_autoload_register(function(string $class): void {
 });
 
 require_once APP_PATH . '/config/app.php';
+
+// Error reporting — hanya tampil saat debug mode aktif
+if (defined('APP_DEBUG') && APP_DEBUG === true) {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+    error_reporting(E_ALL);
+    // Log ke file tapi jangan tampilkan ke browser
+    $logDir = ROOT_PATH . '/logs';
+    if (!is_dir($logDir)) @mkdir($logDir, 0755, true);
+    ini_set('error_log', $logDir . '/php_errors.log');
+}
+
 AuthController::checkRememberToken();
 
 $router = new Router();
@@ -59,7 +70,7 @@ $router->get('/notulen/{id}/export-pdf',  [ExportController::class,  'exportPdf'
 $router->post('/api/notulen/save',        [NotulisController::class, 'save']);
 $router->get('/api/notulen/sync',         [NotulisController::class, 'sync']);
 
-// === API KOMENTAR (Sprint 3) ===
+// === API KOMENTAR ===
 $router->get('/api/notulen/{id}/comments',  [CommentController::class, 'index']);
 $router->post('/api/notulen/{id}/comments', [CommentController::class, 'store']);
 $router->post('/api/comments/{id}/resolve', [CommentController::class, 'resolve']);
@@ -77,20 +88,24 @@ $router->post('/users',              [UserController::class, 'store']);
 $router->post('/users/{id}/update',  [UserController::class, 'update']);
 $router->post('/users/{id}/delete',  [UserController::class, 'delete']);
 
-// === DEPARTMENTS (Sprint 3) ===
+// === PROFILE ===
+$router->get('/profile',       [ProfileController::class, 'show']);
+$router->post('/profile',      [ProfileController::class, 'update']);
+
+// === DEPARTMENTS ===
 $router->get('/departments',               [DepartmentController::class, 'index']);
 $router->post('/departments',              [DepartmentController::class, 'store']);
 $router->post('/departments/{id}/update',  [DepartmentController::class, 'update']);
 $router->post('/departments/{id}/delete',  [DepartmentController::class, 'delete']);
 $router->get('/api/departments',           [DepartmentController::class, 'apiList']);
 
-// === ATTACHMENTS (Sprint 4) ===
+// === ATTACHMENTS ===
 $router->get('/api/meetings/{id}/attachments',  [AttachmentController::class, 'index']);
 $router->post('/api/meetings/{id}/attachments', [AttachmentController::class, 'upload']);
 $router->get('/attachments/{id}/download',      [AttachmentController::class, 'download']);
 $router->post('/api/attachments/{id}/delete',   [AttachmentController::class, 'delete']);
 
-// === RECURRING MEETINGS (Sprint 4) ===
+// === RECURRING MEETINGS ===
 $router->get('/recurring',                    [RecurringController::class, 'index']);
 $router->post('/recurring',                   [RecurringController::class, 'store']);
 $router->post('/recurring/{id}/generate',     [RecurringController::class, 'generate']);
@@ -100,7 +115,7 @@ $router->post('/api/recurring/generate-all',  [RecurringController::class, 'gene
 // === API MEETINGS ===
 $router->get('/api/meetings/calendar', [MeetingController::class, 'calendarApi']);
 
-// === EMAIL (Sprint 1) ===
+// === EMAIL ===
 $router->post('/meetings/{id}/send-invitations', [EmailController::class, 'sendInvitations']);
 $router->post('/meetings/{id}/send-summary',     [EmailController::class, 'sendSummary']);
 $router->get('/api/email/send-reminders',        [EmailController::class, 'sendDeadlineReminders']);
@@ -110,7 +125,7 @@ $router->get('/api/notifications',        [NotifikasiController::class, 'index']
 $router->post('/api/notifications/read',  [NotifikasiController::class, 'markRead']);
 $router->get('/notifications',            [NotifikasiController::class, 'page']);
 
-// ── Dispatch ─────────────────────────────────────────────────────────────────
+// ── Dispatch ──────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
