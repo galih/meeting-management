@@ -17,115 +17,118 @@ $user = Auth::user();
   <?= $headScripts ?? '' ?>
 
   <style>
-  /* ── Lofi Player Widget ── */
-  #lofi-fab {
+  /* ── Spotify Music Widget ── */
+  #music-fab {
     position: fixed;
     bottom: 24px;
     right: 24px;
     z-index: 1080;
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
     border-radius: 50%;
-    background: #7B1C1C;
+    background: #1DB954;
     color: #fff;
     border: none;
-    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    box-shadow: 0 4px 16px rgba(0,0,0,.3);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: transform .2s;
+    transition: transform .2s, background .2s;
   }
-  #lofi-fab:hover { transform: scale(1.1); }
-  #lofi-fab svg { width:20px;height:20px; }
+  #music-fab:hover { transform: scale(1.1); background: #1ed760; }
+  #music-fab svg { width:22px;height:22px; }
 
-  #lofi-widget {
+  #music-widget {
     position: fixed;
-    bottom: 80px;
+    bottom: 82px;
     right: 24px;
     z-index: 1080;
-    width: 320px;
-    background: #1a1a2e;
+    width: 340px;
+    background: #121212;
     border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    box-shadow: 0 8px 40px rgba(0,0,0,.5);
     overflow: hidden;
     display: none;
     flex-direction: column;
     font-family: inherit;
   }
-  #lofi-widget.open { display: flex; }
+  #music-widget.open { display: flex; }
 
-  #lofi-header {
+  #music-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 14px;
-    background: #7B1C1C;
+    padding: 11px 14px;
+    background: #1DB954;
     color: #fff;
   }
-  #lofi-header span {
+  #music-header .title {
     font-size: 13px;
-    font-weight: 600;
-    letter-spacing: .03em;
+    font-weight: 700;
+    letter-spacing: .04em;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
   }
-  #lofi-header-actions { display:flex;gap:4px; }
-  #lofi-header-actions button {
-    background: rgba(255,255,255,.15);
+  #music-header-actions { display:flex;gap:4px; }
+  #music-header-actions button {
+    background: rgba(0,0,0,.2);
     border: none;
     color: #fff;
     border-radius: 6px;
-    padding: 3px 8px;
-    font-size: 11px;
+    padding: 3px 9px;
+    font-size: 12px;
     cursor: pointer;
     transition: background .15s;
   }
-  #lofi-header-actions button:hover { background: rgba(255,255,255,.3); }
+  #music-header-actions button:hover { background: rgba(0,0,0,.4); }
 
-  #lofi-iframe-wrap { position:relative;width:100%;aspect-ratio:16/9;background:#000; }
-  #lofi-iframe-wrap iframe { width:100%;height:100%;border:none;display:block; }
+  #music-iframe-wrap { width:100%; background:#000; }
+  #music-iframe-wrap iframe { width:100%;border:none;display:block; }
 
-  #lofi-input-wrap {
+  #music-input-wrap {
     padding: 10px 12px;
-    background: #16213e;
+    background: #181818;
     display: flex;
     gap: 6px;
     align-items: center;
   }
-  #lofi-input-wrap input {
+  #music-input-wrap input {
     flex: 1;
-    background: #0f3460;
+    background: #282828;
     border: 1px solid rgba(255,255,255,.1);
     color: #fff;
     border-radius: 8px;
-    padding: 5px 10px;
+    padding: 6px 10px;
     font-size: 12px;
     outline: none;
+    transition: border-color .15s;
   }
-  #lofi-input-wrap input::placeholder { color: rgba(255,255,255,.4); }
-  #lofi-input-wrap input:focus { border-color: #7B1C1C; }
-  #lofi-input-wrap button {
-    background: #7B1C1C;
+  #music-input-wrap input::placeholder { color: rgba(255,255,255,.35); }
+  #music-input-wrap input:focus { border-color: #1DB954; }
+  #music-input-wrap button {
+    background: #1DB954;
     border: none;
     color: #fff;
     border-radius: 8px;
-    padding: 5px 12px;
+    padding: 6px 13px;
     font-size: 12px;
+    font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
     transition: background .15s;
   }
-  #lofi-input-wrap button:hover { background: #9b2c2c; }
+  #music-input-wrap button:hover { background: #1ed760; }
 
-  #lofi-hint {
+  #music-hint {
     padding: 0 12px 10px;
-    background: #16213e;
-    color: rgba(255,255,255,.35);
+    background: #181818;
+    color: rgba(255,255,255,.3);
     font-size: 10.5px;
-    line-height: 1.4;
+    line-height: 1.5;
   }
+  #music-hint a { color: #1DB954; text-decoration: none; }
   </style>
 </head>
 <body class="antialiased">
@@ -169,47 +172,46 @@ $user = Auth::user();
     </footer>
   </div>
 
-  <!-- ── Lofi Music Player Widget ── -->
-  <!-- FAB Button -->
-  <button id="lofi-fab" title="Lofi Music Player" aria-label="Buka Lofi Player">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M9 18V5l12-2v13"/>
-      <circle cx="6" cy="18" r="3"/>
-      <circle cx="18" cy="16" r="3"/>
+  <!-- ── Spotify Music Widget ── -->
+  <button id="music-fab" title="Spotify Music Player" aria-label="Buka Spotify Player">
+    <!-- Spotify icon -->
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.314a.75.75 0 0 1-1.032.25c-2.826-1.727-6.38-2.117-10.566-1.16a.75.75 0 1 1-.334-1.462c4.583-1.047 8.516-.596 11.682 1.34a.75.75 0 0 1 .25 1.032zm1.47-3.27a.937.937 0 0 1-1.288.308C14.894 12.315 11.1 11.82 6.59 13.1a.937.937 0 0 1-.474-1.814c5.016-1.394 9.253-.792 12.562 1.47a.937.937 0 0 1 .308 1.288zm.126-3.404C15.533 8.387 10.64 8.227 7.25 9.27a1.125 1.125 0 0 1-.652-2.152c3.89-1.178 9.373-.95 13.072 1.47a1.125 1.125 0 0 1-1.558 1.052z"/>
     </svg>
   </button>
 
-  <!-- Widget Panel -->
-  <div id="lofi-widget" role="complementary" aria-label="Lofi Music Player">
-    <div id="lofi-header">
-      <span>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+  <div id="music-widget" role="complementary" aria-label="Spotify Music Player">
+    <div id="music-header">
+      <span class="title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.516 17.314a.75.75 0 0 1-1.032.25c-2.826-1.727-6.38-2.117-10.566-1.16a.75.75 0 1 1-.334-1.462c4.583-1.047 8.516-.596 11.682 1.34a.75.75 0 0 1 .25 1.032zm1.47-3.27a.937.937 0 0 1-1.288.308C14.894 12.315 11.1 11.82 6.59 13.1a.937.937 0 0 1-.474-1.814c5.016-1.394 9.253-.792 12.562 1.47a.937.937 0 0 1 .308 1.288zm.126-3.404C15.533 8.387 10.64 8.227 7.25 9.27a1.125 1.125 0 0 1-.652-2.152c3.89-1.178 9.373-.95 13.072 1.47a1.125 1.125 0 0 1-1.558 1.052z"/>
         </svg>
-        Lofi Music
+        Spotify Player
       </span>
-      <div id="lofi-header-actions">
-        <button id="lofi-minimize" title="Minimize">&#8211;</button>
-        <button id="lofi-close" title="Tutup &amp; matikan">&#10005;</button>
+      <div id="music-header-actions">
+        <button id="music-minimize" title="Minimize">&#8211;</button>
+        <button id="music-close" title="Tutup &amp; matikan">&#10005;</button>
       </div>
     </div>
 
-    <div id="lofi-iframe-wrap">
-      <iframe id="lofi-iframe"
-        allow="autoplay; encrypted-media"
-        allowfullscreen
-        referrerpolicy="no-referrer"
+    <div id="music-iframe-wrap">
+      <iframe id="music-iframe"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+        loading="lazy"
+        height="352"
         src=""></iframe>
     </div>
 
-    <div id="lofi-input-wrap">
-      <input type="text" id="lofi-url-input"
-             placeholder="Paste URL YouTube playlist / video">
-      <button id="lofi-load-btn">Putar</button>
+    <div id="music-input-wrap">
+      <input type="text" id="music-url-input"
+             placeholder="Paste URL Spotify playlist / album / track">
+      <button id="music-load-btn">Putar</button>
     </div>
-    <div id="lofi-hint">
-      Contoh: https://www.youtube.com/playlist?list=... atau URL video biasa.
-      Playlist &amp; preferensi disimpan otomatis.
+    <div id="music-hint">
+      Contoh URL:<br>
+      <code style="color:#1DB954">open.spotify.com/playlist/...</code><br>
+      <code style="color:#1DB954">open.spotify.com/track/...</code><br>
+      Preferensi disimpan otomatis di browser.
     </div>
   </div>
 
@@ -223,40 +225,34 @@ $user = Auth::user();
 
 <script>
 (function () {
-  const LS_URL     = 'lofi_playlist_url';
-  const LS_OPEN    = 'lofi_open';
-  const LS_ENABLED = 'lofi_enabled';
+  const LS_URL     = 'spotify_url';
+  const LS_OPEN    = 'spotify_open';
+  const LS_ENABLED = 'spotify_enabled';
 
-  const fab      = document.getElementById('lofi-fab');
-  const widget   = document.getElementById('lofi-widget');
-  const iframe   = document.getElementById('lofi-iframe');
-  const urlInput = document.getElementById('lofi-url-input');
-  const loadBtn  = document.getElementById('lofi-load-btn');
-  const minBtn   = document.getElementById('lofi-minimize');
-  const closeBtn = document.getElementById('lofi-close');
+  const fab      = document.getElementById('music-fab');
+  const widget   = document.getElementById('music-widget');
+  const iframe   = document.getElementById('music-iframe');
+  const urlInput = document.getElementById('music-url-input');
+  const loadBtn  = document.getElementById('music-load-btn');
+  const minBtn   = document.getElementById('music-minimize');
+  const closeBtn = document.getElementById('music-close');
 
-  // Konversi URL YouTube biasa → embed URL
+  /**
+   * Konversi URL Spotify biasa → Spotify Embed URL
+   * open.spotify.com/playlist/ID  →  open.spotify.com/embed/playlist/ID
+   * open.spotify.com/track/ID     →  open.spotify.com/embed/track/ID
+   * open.spotify.com/album/ID     →  open.spotify.com/embed/album/ID
+   */
   function toEmbedUrl(raw) {
     raw = raw.trim();
     if (!raw) return '';
     try {
       const u = new URL(raw);
-      const list = u.searchParams.get('list');
-      const v    = u.searchParams.get('v');
-      let embed  = 'https://www.youtube.com/embed/';
-      if (list) {
-        // playlist
-        embed += (v ? v : 'videoseries') + '?list=' + list + '&autoplay=1';
-      } else if (v) {
-        // video biasa
-        embed += v + '?autoplay=1';
-      } else if (u.hostname === 'youtu.be') {
-        // short URL
-        embed += u.pathname.replace('/', '') + '?autoplay=1';
-      } else {
-        return raw; // fallback: langsung pakai
-      }
-      return embed;
+      if (!u.hostname.includes('spotify.com')) return raw;
+      // Ganti /playlist/, /track/, /album/ → /embed/playlist/ dst
+      const path = u.pathname.replace(/^\/(intl-[a-z]+\/)?/, '/');
+      const embedPath = path.replace(/^\/(playlist|track|album|episode|show)/, '/embed/$1');
+      return 'https://open.spotify.com' + embedPath + '?utm_source=generator&theme=0';
     } catch (e) {
       return raw;
     }
@@ -282,19 +278,18 @@ $user = Auth::user();
 
   function closeWidget() {
     widget.classList.remove('open');
-    iframe.src = ''; // stop playback
+    iframe.src = '';
     localStorage.setItem(LS_OPEN, '0');
     localStorage.setItem(LS_ENABLED, '0');
   }
 
-  // Event listeners
   fab.addEventListener('click', () => {
     if (widget.classList.contains('open')) {
       minimizeWidget();
     } else {
       openWidget();
       const saved = localStorage.getItem(LS_URL);
-      if (saved && !iframe.src.includes('youtube')) {
+      if (saved && !iframe.src.includes('spotify')) {
         urlInput.value = saved;
         loadUrl(saved);
       }
@@ -315,9 +310,9 @@ $user = Auth::user();
   });
 
   // Restore state saat halaman load
-  const savedUrl     = localStorage.getItem(LS_URL);
-  const wasOpen      = localStorage.getItem(LS_OPEN) === '1';
-  const isEnabled    = localStorage.getItem(LS_ENABLED) !== '0'; // default enabled
+  const savedUrl  = localStorage.getItem(LS_URL);
+  const wasOpen   = localStorage.getItem(LS_OPEN) === '1';
+  const isEnabled = localStorage.getItem(LS_ENABLED) !== '0';
 
   if (savedUrl) urlInput.value = savedUrl;
 
