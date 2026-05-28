@@ -1,5 +1,6 @@
 <?php
 $user = Auth::user();
+$csrfToken = Auth::csrfToken(); // generate sekali per request
 ?>
 <!doctype html>
 <html lang="id" data-bs-theme="light">
@@ -161,6 +162,9 @@ $user = Auth::user();
 </head>
 <body class="antialiased">
 
+  <!-- CSRF meta tag — dipakai fetch() JS via header X-CSRF-Token -->
+  <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
+
   <!-- Top Navigation -->
   <?php include __DIR__ . '/sidebar.php'; ?>
 
@@ -241,7 +245,7 @@ $user = Auth::user();
     </div>
     <div id="yt-hint">
       Contoh URL yang bisa dipakai:<br>
-      <code>youtu.be/jfKfPfyJRdk</code> &nbsp;·&nbsp;
+      <code>youtu.be/jfKfPfyJRdk</code> &nbsp;&middot;&nbsp;
       <code>youtube.com/watch?v=...</code><br>
       <code>youtube.com/playlist?list=...</code><br>
       Preferensi disimpan otomatis di browser.
@@ -253,6 +257,20 @@ $user = Auth::user();
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
+<!-- Inject CSRF token ke semua fetch() POST secara global -->
+<script>
+  const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const _origFetch = window.fetch;
+  window.fetch = function(url, opts = {}) {
+    if (!opts.method || opts.method.toUpperCase() === 'GET') return _origFetch(url, opts);
+    opts.headers = Object.assign({ 'X-CSRF-Token': CSRF_TOKEN }, opts.headers || {});
+    // Juga inject ke FormData jika body adalah FormData
+    if (opts.body instanceof FormData && !opts.body.has('_csrf')) {
+      opts.body.append('_csrf', CSRF_TOKEN);
+    }
+    return _origFetch(url, opts);
+  };
+</script>
 <script src="<?= BASE_URL ?>/assets/js/notifications.js"></script>
 <?= $scripts ?? '' ?>
 
@@ -302,7 +320,6 @@ $user = Auth::user();
     localStorage.setItem(LS_URL, raw);
   }
 
-  // Deteksi error embed via postMessage dari YouTube iframe
   window.addEventListener('message', e => {
     if (e.origin.includes('youtube') && e.data && e.data.event === 'onError') {
       if ([100, 101, 150].includes(e.data.info)) {
@@ -311,10 +328,8 @@ $user = Auth::user();
     }
   });
 
-  // Fallback: deteksi error via load event (jika YouTube kirim halaman error)
   iframe.addEventListener('load', () => {
     try {
-      // Jika iframe kosong / about:blank → tidak perlu cek
       if (!iframe.src || iframe.src === window.location.href) return;
       errMsg.classList.remove('show');
     } catch (e) {}
@@ -363,7 +378,6 @@ $user = Auth::user();
     if (e.key === 'Enter') loadBtn.click();
   });
 
-  // Restore state
   const savedUrl  = localStorage.getItem(LS_URL);
   const wasOpen   = localStorage.getItem(LS_OPEN) === '1';
   const isEnabled = localStorage.getItem(LS_ENABLED) !== '0';

@@ -1,17 +1,38 @@
 <?php
 /**
  * Mailer — wrapper PHPMailer untuk shared hosting
- * Menggunakan SMTP atau mail() PHP native
- * Konfigurasi via app/config/mail.php
+ * Prioritas config: app_settings (DB) → app/config/mail.php → default
  */
 class Mailer
 {
     private static function config(): array
     {
+        // Prioritas 1: baca dari DB (diset via /settings)
+        try {
+            $host = SettingController::get('smtp_host');
+            if (!empty($host)) {
+                return [
+                    'driver'      => 'smtp',
+                    'smtp_host'   => $host,
+                    'smtp_port'   => (int) SettingController::get('smtp_port', '587'),
+                    'smtp_secure' => SettingController::get('smtp_encryption', 'tls'),
+                    'smtp_user'   => SettingController::get('smtp_username'),
+                    'smtp_pass'   => SettingController::get('smtp_password'),
+                    'from_email'  => SettingController::get('smtp_from_email'),
+                    'from_name'   => SettingController::get('smtp_from_name', APP_NAME),
+                ];
+            }
+        } catch (\Throwable) {
+            // DB belum siap, lanjut ke fallback
+        }
+
+        // Prioritas 2: file config
         $cfgFile = APP_PATH . '/config/mail.php';
         if (file_exists($cfgFile)) return require $cfgFile;
+
+        // Prioritas 3: default (mail() native)
         return [
-            'driver'     => 'mail',   // 'mail' atau 'smtp'
+            'driver'     => 'mail',
             'from_email' => 'noreply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost'),
             'from_name'  => defined('APP_NAME') ? APP_NAME : 'Meeting App',
         ];
@@ -24,12 +45,10 @@ class Mailer
     {
         $cfg = self::config();
 
-        // Coba gunakan PHPMailer jika tersedia
         if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
             return self::sendViaPHPMailer($cfg, $to, $toName, $subject, $htmlBody);
         }
 
-        // Fallback: mail() PHP native
         return self::sendViaMail($cfg, $to, $toName, $subject, $htmlBody);
     }
 
@@ -37,14 +56,14 @@ class Mailer
     {
         try {
             $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-            if ($cfg['driver'] === 'smtp') {
+            if (($cfg['driver'] ?? 'mail') === 'smtp') {
                 $mail->isSMTP();
-                $mail->Host       = $cfg['smtp_host']    ?? 'localhost';
+                $mail->Host       = $cfg['smtp_host']   ?? 'localhost';
                 $mail->SMTPAuth   = true;
-                $mail->Username   = $cfg['smtp_user']    ?? '';
-                $mail->Password   = $cfg['smtp_pass']    ?? '';
-                $mail->SMTPSecure = $cfg['smtp_secure']  ?? 'tls';
-                $mail->Port       = $cfg['smtp_port']    ?? 587;
+                $mail->Username   = $cfg['smtp_user']   ?? '';
+                $mail->Password   = $cfg['smtp_pass']   ?? '';
+                $mail->SMTPSecure = $cfg['smtp_secure'] ?? 'tls';
+                $mail->Port       = (int)($cfg['smtp_port'] ?? 587);
             }
             $mail->setFrom($cfg['from_email'], $cfg['from_name']);
             $mail->addAddress($to, $toName);
@@ -62,9 +81,9 @@ class Mailer
 
     private static function sendViaMail(array $cfg, string $to, string $toName, string $subject, string $body): bool
     {
-        $from    = $cfg['from_email'];
+        $from     = $cfg['from_email'];
         $fromName = $cfg['from_name'];
-        $headers = implode("\r\n", [
+        $headers  = implode("\r\n", [
             'MIME-Version: 1.0',
             'Content-type: text/html; charset=UTF-8',
             "From: {$fromName} <{$from}>",
@@ -75,7 +94,7 @@ class Mailer
     }
 
     /**
-     * Antri email ke tabel email_queue (kirim nanti via trigger manual)
+     * Antri email ke tabel email_queue
      */
     public static function queue(string $to, string $name, string $subject, string $body, string $type = 'invitation', ?string $scheduledAt = null): int
     {
@@ -89,15 +108,18 @@ class Mailer
     }
 
     /**
-     * Proses antrian email yang pending (dipanggil manual atau via cron)
+     * Proses antrian email pending
+     * Fix: gunakan (int) cast untuk LIMIT, hindari interpolasi langsung
      */
     public static function processQueue(int $limit = 20): array
     {
+        $limit = max(1, min(500, $limit)); // clamp 1–500
         $db    = Database::getInstance();
         $rows  = Database::query(
             "SELECT * FROM email_queue
              WHERE status='pending' AND attempts < 3 AND scheduled_at <= NOW()
-             ORDER BY scheduled_at ASC LIMIT {$limit}"
+             ORDER BY scheduled_at ASC
+             LIMIT " . $limit  // (int) sudah dijamin oleh type-hint + clamp
         );
         $result = ['sent' => 0, 'failed' => 0];
         foreach ($rows as $row) {

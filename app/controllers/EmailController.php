@@ -1,13 +1,26 @@
 <?php
 class EmailController
 {
+    // ── Fix #2: CSRF helper ─────────────────────────────────────────────
+    private static function verifyCsrf(): void
+    {
+        $token   = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        $session = $_SESSION['csrf_token'] ?? '';
+        if (!$session || !hash_equals($session, $token)) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => '403 CSRF token tidak valid.']);
+            exit;
+        }
+    }
+
     /**
      * POST /meetings/{id}/send-invitations
-     * Kirim undangan ke semua peserta meeting
      */
     public static function sendInvitations(int $meetingId): void
     {
         Auth::requireRole('admin', 'sekretaris');
+        self::verifyCsrf();
 
         $meeting = Database::queryOne(
             "SELECT m.*, u.name AS creator_name
@@ -34,10 +47,8 @@ class EmailController
             $queued++;
         }
 
-        // Proses langsung (tanpa cron)
         $result = Mailer::processQueue(50);
 
-        // Notifikasi in-app — Notification::send() menerima 4 argumen: userId, type, message, url
         $meetingUrl = rtrim(BASE_URL, '/') . '/meetings/' . $meetingId;
         foreach ($participants as $p) {
             Notification::send(
@@ -53,11 +64,11 @@ class EmailController
 
     /**
      * POST /meetings/{id}/send-summary
-     * Kirim ringkasan notulen ke semua peserta
      */
     public static function sendSummary(int $meetingId): void
     {
         Auth::requireRole('admin', 'sekretaris');
+        self::verifyCsrf();
 
         $meeting = Database::queryOne(
             "SELECT m.*, u.name AS creator_name
@@ -102,14 +113,11 @@ class EmailController
 
     /**
      * GET /api/email/send-reminders
-     * Kirim reminder deadline tindak lanjut H-1
-     * Dipanggil manual atau via cron: curl https://domain.com/api/email/send-reminders
      */
     public static function sendDeadlineReminders(): void
     {
         $tomorrow = date('Y-m-d', strtotime('+1 day'));
 
-        // Kolom yang benar: due_date dan description
         $tasks = Database::query(
             "SELECT tl.*, u.name AS assigned_name, u.email AS assigned_email,
                     m.title AS meeting_title

@@ -1,10 +1,6 @@
 <?php
 class MeetingController
 {
-    /**
-     * Admin: semua meeting.
-     * Sekretaris & Peserta: hanya meeting di mana user adalah creator atau peserta.
-     */
     private static function accessScope(): array
     {
         if (Auth::hasRole('admin')) {
@@ -72,7 +68,35 @@ class MeetingController
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $d  = $_POST;
+
+        // ── Fix #3: Validasi input ──────────────────────────────────────
+        $title     = trim($_POST['title']          ?? '');
+        $desc      = trim($_POST['description']    ?? '');
+        $location  = trim($_POST['location']       ?? '');
+        $startDt   = trim($_POST['start_datetime'] ?? '');
+        $endDt     = trim($_POST['end_datetime']   ?? '');
+        $color     = trim($_POST['color']          ?? '#f76707');
+        $deptId    = !empty($_POST['department_id']) ? (int)$_POST['department_id'] : null;
+
+        $errors = [];
+        if ($title === '') {
+            $errors[] = 'Judul meeting tidak boleh kosong.';
+        }
+        if ($startDt === '' || $endDt === '') {
+            $errors[] = 'Tanggal mulai dan selesai wajib diisi.';
+        } elseif (strtotime($endDt) <= strtotime($startDt)) {
+            $errors[] = 'Tanggal selesai harus lebih besar dari tanggal mulai.';
+        }
+        // Validasi warna hex
+        if (!preg_match('/^#[0-9a-fA-F]{3,6}$/', $color)) {
+            $color = '#f76707';
+        }
+
+        if (!empty($errors)) {
+            $_SESSION['flash_error'] = implode(' ', $errors);
+            header('Location: ' . BASE_URL . '/meetings'); exit;
+        }
+
         $db = Database::getInstance();
         $db->prepare(
             "INSERT INTO meetings
@@ -80,20 +104,19 @@ class MeetingController
               color, department_id, created_by)
              VALUES (?,?,?,?,?,?,?,?)"
         )->execute([
-            trim($d['title']),
-            trim($d['description'] ?? ''),
-            trim($d['location']    ?? ''),
-            $d['start_datetime'],
-            $d['end_datetime'],
-            $d['color']          ?? '#f76707',
-            !empty($d['department_id']) ? (int)$d['department_id'] : null,
+            $title,
+            $desc,
+            $location,
+            $startDt,
+            $endDt,
+            $color,
+            $deptId,
             Auth::id(),
         ]);
         $meetingId = (int)$db->lastInsertId();
 
-        // Cast semua participant ID ke int sebelum dikirim ke DB & notifikasi
-        $participants = array_map('intval', (array)($d['participants'] ?? []));
-        $participants = array_filter($participants); // hapus 0
+        $participants = array_map('intval', (array)($_POST['participants'] ?? []));
+        $participants = array_filter($participants);
 
         foreach ($participants as $uid) {
             $db->prepare(
@@ -105,7 +128,7 @@ class MeetingController
             Notification::sendBulk(
                 $participants,
                 'meeting_invite',
-                "Anda diundang ke meeting: {$d['title']}",
+                "Anda diundang ke meeting: {$title}",
                 BASE_URL . "/meetings/{$meetingId}"
             );
         }
@@ -127,7 +150,6 @@ class MeetingController
         );
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
-        // Non-admin hanya boleh lihat jika terlibat
         if (!Auth::hasRole('admin')) {
             $uid      = Auth::id();
             $terlibat = $meeting['created_by'] == $uid
@@ -174,6 +196,10 @@ class MeetingController
     public static function updateStatus(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
+
+        // ── Fix #2: CSRF check ─────────────────────────────────────────
+        self::verifyCsrf();
+
         $status  = $_POST['status'] ?? '';
         $allowed = ['scheduled', 'ongoing', 'done', 'cancelled'];
         if (!in_array($status, $allowed)) {
@@ -190,7 +216,33 @@ class MeetingController
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin');
-        Database::getInstance()->prepare("DELETE FROM meetings WHERE id=?")->execute([$id]);
+
+        // ── Fix #4: Hapus semua data relasi sebelum hapus meeting ──────
+        $db = Database::getInstance();
+
+        // Hapus attachment fisik dari disk
+        $attachments = Database::query(
+            "SELECT file_path FROM attachments WHERE meeting_id=?", [$id]
+        );
+        foreach ($attachments as $att) {
+            $path = ROOT_PATH . '/' . ltrim($att['file_path'], '/');
+            if (file_exists($path)) @unlink($path);
+        }
+
+        // Hapus semua relasi secara eksplisit (urutan penting: child dulu)
+        foreach ([
+            "DELETE FROM attachments         WHERE meeting_id=?",
+            "DELETE FROM tindak_lanjut       WHERE meeting_id=?",
+            "DELETE FROM notulen             WHERE meeting_id=?",
+            "DELETE FROM meeting_participants WHERE meeting_id=?",
+            "DELETE FROM email_queue         WHERE type IN ('invitation','summary')
+                                              AND body LIKE CONCAT('%/meetings/',?,'%')",
+        ] as $sql) {
+            $db->prepare($sql)->execute([$id]);
+        }
+
+        $db->prepare("DELETE FROM meetings WHERE id=?")->execute([$id]);
+
         $_SESSION['flash_success'] = 'Meeting berhasil dihapus.';
         header('Location: ' . BASE_URL . '/meetings'); exit;
     }
@@ -226,5 +278,18 @@ class MeetingController
 
         header('Content-Type: application/json');
         echo json_encode($events); exit;
+    }
+
+    // ── Fix #2: CSRF helper ─────────────────────────────────────────────
+    private static function verifyCsrf(): void
+    {
+        $token   = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        $session = $_SESSION['csrf_token'] ?? '';
+        if (!$session || !hash_equals($session, $token)) {
+            header('Content-Type: application/json');
+            http_response_code(403);
+            echo json_encode(['success' => false, 'message' => '403 CSRF token tidak valid.']);
+            exit;
+        }
     }
 }
