@@ -5,7 +5,6 @@ $histUrl = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
 $backUrl = $baseUrl . '/meetings/' . $meeting['id'];
 $canEdit = Auth::hasRole('admin', 'sekretaris');
 
-// Helper: badge warna status tindak lanjut
 $statusBadge   = ['pending'=>'secondary','in_progress'=>'blue','done'=>'green','cancelled'=>'red'];
 $priorityBadge = ['high'=>'red','medium'=>'yellow','low'=>'green'];
 $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cancelled'=>'red'];
@@ -94,7 +93,7 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
     </div>
   </div>
 
-  <!-- Sidebar -->
+  <!-- Sidebar Kanan -->
   <div class="col-lg-4">
 
     <!-- Info Meeting -->
@@ -122,6 +121,69 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
         </a>
       </div>
     </div>
+
+    <!-- ======================================================
+         PANEL LAMPIRAN (Attachments)
+         Menggunakan API & JS yang sama dengan show.php
+         ====================================================== -->
+    <div class="card mb-3" id="attachment-panel">
+      <div class="card-header">
+        <h4 class="card-title">
+          <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1 text-brand" width="18" height="18"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+          </svg>
+          Lampiran
+          <span class="badge bg-orange-lt text-orange ms-1" id="attach-count">0</span>
+        </h4>
+        <?php if ($canEdit): ?>
+        <div class="card-options">
+          <button class="btn btn-sm btn-primary" id="btn-show-upload-form">
+            + Upload
+          </button>
+        </div>
+        <?php endif; ?>
+      </div>
+
+      <!-- Form Upload (tersembunyi, muncul saat klik Upload) -->
+      <?php if ($canEdit): ?>
+      <div id="upload-form-wrapper" style="display:none;" class="px-3 pt-3 pb-1 border-bottom">
+        <form id="form-upload-attachment" enctype="multipart/form-data">
+          <div class="mb-2">
+            <label class="form-label required mb-1" style="font-size:12px;">Pilih File</label>
+            <input type="file" id="attach-file" class="form-control form-control-sm"
+                   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.rar" required>
+            <div class="form-text" style="font-size:11px;">PDF, Office, Gambar, ZIP — maks. 10 MB</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label mb-1" style="font-size:12px;">Kategori</label>
+            <select id="attach-category" class="form-select form-select-sm">
+              <option value="dokumen">📄 Dokumen</option>
+              <option value="presentasi">📊 Presentasi</option>
+              <option value="gambar">🖼️ Gambar</option>
+              <option value="lainnya">📎 Lainnya</option>
+            </select>
+          </div>
+          <div class="d-flex gap-2 mb-2">
+            <button type="submit" class="btn btn-sm btn-primary flex-fill" id="btn-do-upload">
+              <span id="upload-spinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+              Upload
+            </button>
+            <button type="button" class="btn btn-sm btn-link text-muted" id="btn-cancel-upload">Batal</button>
+          </div>
+          <div id="upload-alert" class="d-none"></div>
+        </form>
+      </div>
+      <?php endif; ?>
+
+      <!-- Daftar File -->
+      <div id="attachment-list" class="list-group list-group-flush" style="max-height:320px;overflow-y:auto;">
+        <div class="list-group-item text-center text-muted py-3 small">
+          <span class="spinner-border spinner-border-sm"></span>
+        </div>
+      </div>
+    </div>
+    <!-- /END PANEL LAMPIRAN -->
 
     <!-- Tindak Lanjut -->
     <div class="card">
@@ -158,8 +220,8 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
       </div>
     </div>
 
-  </div>
-</div>
+  </div><!-- /col-lg-4 -->
+</div><!-- /row -->
 
 <!-- Modal Tindak Lanjut -->
 <?php if ($canEdit): ?>
@@ -207,3 +269,16 @@ $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cance
   </div>
 </div>
 <?php endif; ?>
+
+<?php
+// Inject data meeting_id untuk JS attachments
+$scripts = ($scripts ?? '') . '
+<script>
+// Pastikan MEETING_ID tersedia untuk meeting-attachments.js
+if (typeof MEETING_ID === "undefined") {
+  window.MEETING_ID = ' . (int)$meeting['id'] . ';
+}
+</script>
+<script src="' . $baseUrl . '/assets/js/meeting-attachments.js"></script>
+';
+?>
