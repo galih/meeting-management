@@ -1,9 +1,6 @@
 <?php
 /**
  * PdfExporter — Export notulen ke PDF menggunakan mPDF atau fallback HTML print
- *
- * Untuk mengaktifkan mPDF: composer require mpdf/mpdf
- * Tanpa composer (shared hosting): gunakan fallback HTML printable
  */
 class PdfExporter
 {
@@ -15,13 +12,23 @@ class PdfExporter
         return self::exportViaHtml($meeting, $notulen, $participants, $tindakLanjutList);
     }
 
-    public static function editorJsToHtml(?string $jsonContent): string
+    /**
+     * Normalisasi konten: jika masih format EditorJS JSON, konversi ke HTML.
+     * Jika sudah HTML (Quill), kembalikan apa adanya.
+     */
+    public static function normalizeContent(?string $raw): string
     {
-        if (empty($jsonContent)) return '<p><em>Belum ada notulen.</em></p>';
-        $data   = json_decode($jsonContent, true);
-        $blocks = $data['blocks'] ?? [];
-        $html   = '';
-        foreach ($blocks as $block) {
+        if (empty($raw)) return '<p><em>Belum ada isi notulen.</em></p>';
+
+        $decoded = json_decode($raw, true);
+        // Bukan JSON atau bukan EditorJS → sudah HTML Quill
+        if ($decoded === null || !isset($decoded['blocks'])) {
+            return $raw;
+        }
+
+        // Konversi EditorJS blocks → HTML
+        $html = '';
+        foreach ($decoded['blocks'] as $block) {
             $text = htmlspecialchars_decode($block['data']['text'] ?? '');
             $html .= match($block['type']) {
                 'header'    => '<h' . ($block['data']['level'] ?? 2) . '>' . $text . '</h' . ($block['data']['level'] ?? 2) . '>',
@@ -39,7 +46,10 @@ class PdfExporter
     private static function renderList(array $data): string
     {
         $tag   = ($data['style'] ?? 'unordered') === 'ordered' ? 'ol' : 'ul';
-        $items = array_map(fn($i) => '<li>' . htmlspecialchars_decode($i) . '</li>', $data['items'] ?? []);
+        $items = array_map(function($i) {
+            $text = is_array($i) ? ($i['content'] ?? '') : $i;
+            return '<li>' . htmlspecialchars_decode($text) . '</li>';
+        }, $data['items'] ?? []);
         return "<{$tag}>" . implode('', $items) . "</{$tag}>";
     }
 
@@ -56,18 +66,18 @@ class PdfExporter
 
     private static function buildHtmlContent(array $meeting, array $notulen, array $participants, array $tindakLanjutList): string
     {
-        $appName   = defined('APP_NAME') ? APP_NAME : 'Meeting Management';
-        $title     = htmlspecialchars($meeting['title']);
-        $location  = htmlspecialchars($meeting['location'] ?? '-');
-        $start     = date('d F Y H:i', strtotime($meeting['start_datetime']));
-        $end       = date('d F Y H:i', strtotime($meeting['end_datetime']));
-        $creator   = htmlspecialchars($meeting['creator_name'] ?? '-');
-        $printDate = date('d F Y H:i');
-
+        $appName     = defined('APP_NAME') ? APP_NAME : 'Meeting Management';
+        $title       = htmlspecialchars($meeting['title']);
+        $location    = htmlspecialchars($meeting['location'] ?? '-');
+        $start       = date('d F Y H:i', strtotime($meeting['start_datetime']));
+        $end         = date('d F Y H:i', strtotime($meeting['end_datetime']));
+        $creator     = htmlspecialchars($meeting['creator_name'] ?? '-');
+        $printDate   = date('d F Y H:i');
         $pesertaList = implode(', ', array_map(fn($p) => htmlspecialchars($p['name']), $participants));
-        $notulenHtml = self::editorJsToHtml($notulen['content'] ?? null);
 
-        // Tindak lanjut rows — pakai kolom yang benar: description, due_date
+        // Gunakan normalizeContent — handle EditorJS lama & HTML Quill baru
+        $notulenHtml = self::normalizeContent($notulen['content'] ?? null);
+
         $tlRows = '';
         foreach ($tindakLanjutList as $i => $tl) {
             $no     = $i + 1;
@@ -102,6 +112,10 @@ class PdfExporter
     h2 { font-size:13pt; color:#f76707; border-bottom:1px solid #fed7aa; padding-bottom:4px; margin-top:24px; }
     h3,h4 { font-size:12pt; }
     blockquote { border-left:3px solid #f76707; padding-left:12px; color:#555; margin:8px 0; }
+    ul, ol { padding-left: 20px; }
+    .ql-align-center { text-align: center; }
+    .ql-align-right  { text-align: right; }
+    .ql-align-justify { text-align: justify; }
     .tl-table { width:100%; border-collapse:collapse; font-size:10pt; margin-top:8px; }
     .tl-table th { background:#f76707; color:#fff; padding:6px 8px; text-align:left; }
     .tl-table td { padding:5px 8px; border-bottom:1px solid #f3f4f6; }
@@ -117,19 +131,16 @@ class PdfExporter
   </style>
 </head>
 <body>
-
   <div class="no-print" style="margin-bottom:20px;">
     <button onclick="window.print()" style="background:#f76707;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:14px;cursor:pointer;">&#x1F5A8; Cetak / Simpan PDF</button>
     <button onclick="window.close()" style="margin-left:8px;padding:10px 24px;border-radius:6px;cursor:pointer;">&times; Tutup</button>
   </div>
-
   <div class="kop">
     <div class="kop-title">
       <h1>{$appName}</h1>
       <p>Notulen Rapat Resmi &mdash; Dicetak {$printDate}</p>
     </div>
   </div>
-
   <div class="meta">
     <table>
       <tr><td class="label">Judul Meeting</td><td>: <strong>{$title}</strong></td></tr>
@@ -140,22 +151,17 @@ class PdfExporter
       <tr><td class="label">Peserta</td><td>: {$pesertaList}</td></tr>
     </table>
   </div>
-
   <h2>&#x1F4DD; Isi Notulen</h2>
   {$notulenHtml}
-
   <h2>&#x2705; Tindak Lanjut</h2>
   {$tlTable}
-
   <div class="ttd">
     <div class="ttd-item"><div class="line">Notulis</div></div>
     <div class="ttd-item"><div class="line">Pimpinan Rapat</div></div>
   </div>
-
   <div class="footer">
     Dokumen ini dibuat otomatis oleh {$appName} &mdash; {$printDate}
   </div>
-
 </body>
 </html>
 HTML;

@@ -3,6 +3,49 @@ declare(strict_types=1);
 
 class NotulisController
 {
+    /**
+     * Konversi konten lama EditorJS JSON → HTML sederhana.
+     * Jika bukan JSON EditorJS, kembalikan apa adanya (sudah HTML Quill).
+     */
+    public static function normalizeContent(?string $raw): string
+    {
+        if (empty($raw)) return '';
+        $decoded = json_decode($raw, true);
+        // Bukan JSON atau bukan format EditorJS → sudah HTML Quill
+        if ($decoded === null || !isset($decoded['blocks'])) return $raw;
+        // Konversi blocks EditorJS → HTML
+        $html = '';
+        foreach ($decoded['blocks'] as $block) {
+            $text = $block['data']['text'] ?? '';
+            $html .= match($block['type']) {
+                'header'    => '<h' . ($block['data']['level'] ?? 2) . '>' . $text . '</h' . ($block['data']['level'] ?? 2) . '>',
+                'paragraph' => '<p>' . $text . '</p>',
+                'list'      => self::blocksListToHtml($block['data']),
+                'checklist' => self::blocksChecklistToHtml($block['data']),
+                'quote'     => '<blockquote>' . $text . '</blockquote>',
+                default     => '<p>' . $text . '</p>',
+            };
+        }
+        return $html;
+    }
+
+    private static function blocksListToHtml(array $data): string
+    {
+        $tag   = ($data['style'] ?? 'unordered') === 'ordered' ? 'ol' : 'ul';
+        $items = array_map(fn($i) => '<li>' . (is_array($i) ? ($i['content'] ?? '') : $i) . '</li>', $data['items'] ?? []);
+        return "<{$tag}>" . implode('', $items) . "</{$tag}>";
+    }
+
+    private static function blocksChecklistToHtml(array $data): string
+    {
+        $html = '<ul style="list-style:none;padding-left:0;">';
+        foreach ($data['items'] ?? [] as $item) {
+            $check = ($item['checked'] ?? false) ? '&#x2705;' : '&#x2B1C;';
+            $html .= '<li>' . $check . ' ' . ($item['text'] ?? '') . '</li>';
+        }
+        return $html . '</ul>';
+    }
+
     public static function editor(int $id): void
     {
         Auth::requireAuth();
@@ -34,7 +77,9 @@ class NotulisController
         $saveUrl = rtrim(BASE_URL, '/') . '/api/notulen/save';
         $syncUrl = rtrim(BASE_URL, '/') . '/api/notulen/sync';
 
-        // Quill CSS di <head>
+        // Normalisasi: konversi EditorJS lama → HTML, atau langsung pakai jika sudah HTML
+        $initialContent = self::normalizeContent($notulen['content'] ?? '');
+
         $headScripts = '
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
 ';
@@ -43,19 +88,6 @@ class NotulisController
             fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']],
             $users
         )));
-
-        // Konten Quill: jika kosong/null simpan string kosong, bukan JSON EditorJS
-        $rawContent = $notulen['content'] ?? '';
-        // Jika konten lama masih format EditorJS JSON ({"blocks":[...]}), reset ke kosong
-        $initialContent = '';
-        if (!empty($rawContent)) {
-            $decoded = json_decode($rawContent, true);
-            // Jika bukan EditorJS format (tidak punya key 'blocks'), anggap HTML biasa
-            if ($decoded === null || !isset($decoded['blocks'])) {
-                $initialContent = $rawContent;
-            }
-            // Jika EditorJS format lama → biarkan kosong (tidak bisa dikonversi)
-        }
 
         $scripts = '
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
@@ -98,13 +130,12 @@ const ALL_USERS       = ' . $allUsersJson . ';
         $raw       = file_get_contents('php://input');
         $body      = json_decode($raw, true);
         $meetingId = (int)($body['meeting_id'] ?? 0);
-        $content   = $body['content'] ?? null; // HTML string dari Quill
+        $content   = $body['content'] ?? null;
 
         if (!$meetingId || $content === null) {
             echo json_encode(['success' => false, 'message' => 'Data tidak lengkap']); exit;
         }
 
-        // Quill mengirim HTML — simpan langsung
         $contentHtml = is_string($content) ? $content : '';
         $userId      = Auth::id();
 
@@ -112,14 +143,12 @@ const ALL_USERS       = ' . $allUsersJson . ';
         if ($existing) {
             $newVersion = ($existing['version'] ?? 0) + 1;
             Database::getInstance()->prepare(
-                "UPDATE notulen SET content=?, version=?, last_edited_by=?, updated_at=NOW()
-                 WHERE meeting_id=?"
+                "UPDATE notulen SET content=?, version=?, last_edited_by=?, updated_at=NOW() WHERE meeting_id=?"
             )->execute([$contentHtml, $newVersion, $userId, $meetingId]);
         } else {
             $newVersion = 1;
             Database::getInstance()->prepare(
-                "INSERT INTO notulen (meeting_id, content, version, last_edited_by, updated_at)
-                 VALUES (?,?,?,?,NOW())"
+                "INSERT INTO notulen (meeting_id, content, version, last_edited_by, updated_at) VALUES (?,?,?,?,NOW())"
             )->execute([$meetingId, $contentHtml, $newVersion, $userId]);
         }
 
@@ -153,6 +182,8 @@ const ALL_USERS       = ' . $allUsersJson . ';
         if (!$notulen) { echo json_encode(['status' => 'no_notulen']); exit; }
 
         if ((int)$notulen['version'] > $clientVersion) {
+            // Normalisasi konten sebelum dikirim ke client
+            $notulen['content'] = self::normalizeContent($notulen['content'] ?? '');
             echo json_encode(['status' => 'updated', 'data' => $notulen]); exit;
         }
 

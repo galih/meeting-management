@@ -1,7 +1,7 @@
 /* globals Quill, MEETING_ID, CURRENT_USER_ID, IS_EDITOR,
-   INITIAL_CONTENT, SAVE_URL, SYNC_URL */
+   INITIAL_CONTENT, SAVE_URL, SYNC_URL, BASE_URL */
 
-let quill         = null;
+let quill          = null;
 let currentVersion = 0;
 let isSyncing      = false;
 let saveTimer      = null;
@@ -25,12 +25,9 @@ async function doSave() {
   const saveStatus = document.getElementById('save-status');
   if (saveStatus) saveStatus.textContent = 'Menyimpan...';
   try {
-    const content = quill.root.innerHTML;
-    // Jangan simpan jika hanya placeholder kosong Quill
     const isEmpty = quill.getText().trim().length === 0;
-    const html    = isEmpty ? '' : content;
-
-    const res  = await fetch(SAVE_URL, {
+    const html    = isEmpty ? '' : quill.root.innerHTML;
+    const res     = await fetch(SAVE_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ meeting_id: MEETING_ID, content: html })
@@ -65,6 +62,7 @@ async function pollNotulen() {
     if (data.status === 'updated') {
       currentVersion = data.data.version;
       if (parseInt(data.data.last_edited_by_id) !== CURRENT_USER_ID) {
+        // Konten dari server sudah dinormalisasi (HTML) oleh NotulisController::sync()
         quill.root.innerHTML = data.data.content || '';
         showToast(`\u270f\ufe0f <strong>${data.data.editor_name}</strong> memperbarui notulen`);
       }
@@ -102,22 +100,18 @@ function initQuill() {
     theme:       'snow',
     readOnly:    !IS_EDITOR,
     placeholder: IS_EDITOR ? 'Mulai tulis notulen di sini...' : 'Belum ada isi notulen.',
-    modules: {
-      toolbar: toolbarOptions
-    }
+    modules: { toolbar: toolbarOptions }
   });
 
-  // Set konten awal
+  // Set konten awal — INITIAL_CONTENT sudah HTML (dinormalisasi server)
   if (INITIAL_CONTENT && INITIAL_CONTENT.trim() !== '') {
     quill.root.innerHTML = INITIAL_CONTENT;
   }
 
-  // Auto-save saat mengetik (khusus editor)
   if (IS_EDITOR) {
     quill.on('text-change', debouncedSave);
   }
 
-  // Tombol simpan manual
   const btnManual = document.getElementById('btn-save-manual');
   if (btnManual) {
     btnManual.addEventListener('click', async () => {
@@ -127,7 +121,7 @@ function initQuill() {
     });
   }
 
-  // Tindak Lanjut — simpan via API
+  // Tindak Lanjut via AJAX
   const btnTl = document.getElementById('btn-tl2-save');
   if (btnTl) {
     btnTl.addEventListener('click', async () => {
@@ -136,7 +130,6 @@ function initQuill() {
       const deadline = document.getElementById('tl2-deadline').value;
       const priority = document.getElementById('tl2-priority').value;
       if (!desc) { alert('Deskripsi wajib diisi'); return; }
-
       btnTl.disabled = true;
       try {
         const res  = await fetch(`${BASE_URL}/tindak-lanjut`, {
@@ -152,7 +145,6 @@ function initQuill() {
         });
         const data = await res.json();
         if (data.success) {
-          // Tutup modal, reload halaman agar daftar TL ter-update
           const modal = bootstrap.Modal.getInstance(document.getElementById('modalTL'));
           if (modal) modal.hide();
           location.reload();
@@ -167,11 +159,9 @@ function initQuill() {
     });
   }
 
-  // Mulai polling sinkronisasi
   pollNotulen();
 }
 
-// Jalankan setelah DOM siap
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initQuill);
 } else {
