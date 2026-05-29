@@ -206,7 +206,7 @@ if ($user['role'] === 'admin') {
 
 </div>
 
-<!-- ===== ANALYTICS ROW 2: Tren TL + Top Departemen ===== -->
+<!-- ===== ANALYTICS ROW 2: Tren TL + Top Unit Kerja ===== -->
 <div class="row mt-3 g-3">
 
   <!-- Chart: Tren Selesai vs Terlambat -->
@@ -234,7 +234,7 @@ if ($user['role'] === 'admin') {
     </div>
   </div>
 
-  <!-- Chart: Top Departemen (admin only) -->
+  <!-- Chart: Top Unit Kerja (admin only) -->
   <div class="col-lg-4">
     <div class="card h-100">
       <div class="card-header">
@@ -246,13 +246,13 @@ if ($user['role'] === 'admin') {
             <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
             <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
           </svg>
-          Top Departemen
+          Top Unit Kerja
         </h3>
       </div>
       <div class="card-body">
         <canvas id="chartTopDept" height="180"></canvas>
         <div id="no-dept-data" class="text-center text-muted py-4 d-none" style="font-size:13px;">
-          📊 Data departemen tidak tersedia
+          📊 Data Unit Kerja belum tersedia
         </div>
       </div>
     </div>
@@ -399,7 +399,7 @@ if ($user['role'] === 'admin') {
   loadChartTrend(selTrend.value);
   selTrend.addEventListener('change', () => loadChartTrend(selTrend.value));
 
-  // ── 4. Chart Top Departemen (Horizontal Bar, admin only) ──
+  // ── 4. Chart Top Unit Kerja (Horizontal Bar, admin only) ──
   async function loadChartTopDept() {
     if (!isAdmin) {
       document.getElementById('chartTopDept').closest('.card').style.display = 'none';
