@@ -7,7 +7,7 @@
 ![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?style=flat-square&logo=php)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql)
 ![Tabler](https://img.shields.io/badge/Tabler-UI-0054A6?style=flat-square)
-![Version](https://img.shields.io/badge/version-1.5.0-f76707?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.6.0-f76707?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
 </div>
@@ -16,7 +16,7 @@
 
 ## 📖 Tentang Aplikasi
 
-Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun dengan **PHP 8.5 native** tanpa framework — cocok untuk di-deploy di **shared hosting** biasa. Aplikasi ini mendukung multi-role (Admin, Sekretaris, Peserta), kalender meeting interaktif, editor notulen real-time, lampiran file, recurring meeting, dan manajemen tindak lanjut terintegrasi.
+Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun dengan **PHP 8.5 native** tanpa framework — cocok untuk di-deploy di **shared hosting** biasa. Aplikasi ini mendukung multi-role (Admin, Sekretaris, Peserta), kalender meeting interaktif, editor notulen real-time, lampiran file, recurring meeting, manajemen tindak lanjut terintegrasi, dan **log aktivitas lengkap untuk admin**.
 
 ---
 
@@ -35,13 +35,13 @@ Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun den
 - Manajemen peserta per meeting
 - Ubah status: `scheduled → ongoing → done → cancelled`
 
-### 🔁 Recurring Meeting *(Sprint 4)*
+### 🔁 Recurring Meeting
 - Buat jadwal meeting berulang: **harian, mingguan, dua mingguan, bulanan**
 - Generate meeting otomatis sesuai jadwal
 - Manajemen peserta recurring terpisah
 - Link antara meeting instance dan template recurring
 
-### 📎 Lampiran File *(Sprint 4)*
+### 📎 Lampiran File
 - Upload lampiran per meeting (agenda, notulen, referensi, lainnya)
 - Validasi tipe & ukuran file
 - Download & hapus lampiran
@@ -67,15 +67,23 @@ Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun den
 - Tandai semua sudah dibaca dengan satu klik
 
 ### 👥 Manajemen User (Admin)
-- Tambah, edit, nonaktifkan user
+- Tambah, edit, nonaktifkan, dan hapus user
 - Set username unik per user
 - Pagination & search
 - Reset password user
 
-### 🏢 Departemen *(Sprint 3)*
+### 🏢 Departemen
 - Manajemen departemen/divisi
 - Assign user ke departemen
 - Filter meeting per departemen
+
+### 🗂️ Log Aktivitas *(v1.6.0 — Admin only)*
+- Mencatat semua aktivitas penting secara otomatis: **login, logout, login gagal, buat/ubah/hapus meeting, buat/ubah/hapus user**
+- Halaman khusus admin di menu **Administrasi → Log Aktivitas**
+- Filter berdasarkan **user**, **modul** (auth / meeting / user), dan **rentang tanggal**
+- Badge warna per jenis aksi (hijau = login, biru = dibuat, kuning = diubah, merah = dihapus)
+- Pagination 30 entri per halaman
+- Fitur **Bersihkan Log** — hapus log lebih dari N hari (default 90 hari)
 
 ---
 
@@ -92,7 +100,7 @@ Cara termudah — tidak perlu setup manual sama sekali.
    - **Step 4** — Konfirmasi & eksekusi instalasi
 4. **Hapus** `install.php` setelah selesai ✅
 
-> ⚠️ Installer hanya mengimpor `database/schema.sql` (schema terpadu). File `sprint*_migration.sql` hanya untuk upgrade instance lama — **tidak** dipanggil saat fresh install.
+> ⚠️ Installer hanya mengimpor `database/schema.sql` (schema terpadu). File `*_migration.sql` hanya untuk upgrade instance lama — **tidak** dipanggil saat fresh install.
 
 ---
 
@@ -106,7 +114,10 @@ Cara termudah — tidak perlu setup manual sama sekali.
 # 2. Import database via phpMyAdmin
 #    cPanel → phpMyAdmin → pilih database → Import → database/schema.sql
 
-# 3. Buat file konfigurasi
+# 3. Jika upgrade dari versi sebelumnya, jalankan juga:
+#    database/activity_log_migration.sql
+
+# 4. Buat file konfigurasi
 cp app/config/database.example.php app/config/database.php
 ```
 
@@ -170,22 +181,23 @@ open http://localhost:8000
 ## 🗄️ Skema Database
 
 ```
-users                → id, username (UNIQUE), name, email, password, role, department_id, is_active
-departments          → id, name, code, description, head_id, is_active
-meetings             → id, title, description, location, start_datetime, end_datetime, status, color, department_id, recurring_id, created_by
-meeting_participants → id, meeting_id, user_id, status
-meeting_attendances  → id, meeting_id, user_id, status, note
-meeting_attachments  → id, meeting_id, uploaded_by, filename, stored_name, mime_type, file_size, category
-notulen              → id, meeting_id, content (JSON Editor.js), version, created_by, updated_by
-notulen_history      → id, meeting_id, content, version, edited_by
-notulen_comments     → id, meeting_id, parent_id, user_id, content, is_resolved
-comment_mentions     → id, comment_id, user_id
-tindak_lanjut        → id, meeting_id, description, assigned_to, due_date, priority, status, created_by
-recurring_meetings   → id, title, frequency, day_of_week, start_time, end_time, start_date, end_date, department_id, created_by
+users                  → id, username (UNIQUE), name, email, password, role, department_id, is_active
+departments            → id, name, code, description, head_id, is_active
+meetings               → id, title, description, location, start_datetime, end_datetime, status, color, department_id, recurring_id, created_by
+meeting_participants   → id, meeting_id, user_id, status
+meeting_attendances    → id, meeting_id, user_id, status, note
+meeting_attachments    → id, meeting_id, uploaded_by, filename, stored_name, mime_type, file_size, category
+notulen                → id, meeting_id, content (JSON Editor.js), version, created_by, updated_by
+notulen_history        → id, meeting_id, content, version, edited_by
+notulen_comments       → id, meeting_id, parent_id, user_id, content, is_resolved
+comment_mentions       → id, comment_id, user_id
+tindak_lanjut          → id, meeting_id, description, assigned_to, due_date, priority, status, created_by
+recurring_meetings     → id, title, frequency, day_of_week, start_time, end_time, start_date, end_date, department_id, created_by
 recurring_participants → id, recurring_id, user_id
-email_queue          → id, to_email, subject, body, status, attempts, meeting_id
-notulen_exports      → id, meeting_id, exported_by, format, filename
-notifications        → id, user_id, type, message, url, is_read
+email_queue            → id, to_email, subject, body, status, attempts, meeting_id
+notulen_exports        → id, meeting_id, exported_by, format, filename
+notifications          → id, user_id, type, message, url, is_read
+activity_logs          → id, user_id, user_name, user_role, action, description, subject_type, subject_id, ip_address, user_agent, created_at
 ```
 
 ---
@@ -194,26 +206,28 @@ notifications        → id, user_id, type, message, url, is_read
 
 ```
 meeting-management/
-├── install.php                  # Web Installer (hapus setelah install)
-├── .htaccess                    # Redirect root → /public
+├── install.php                      # Web Installer (hapus setelah install)
+├── .htaccess                        # Redirect root → /public
 ├── database/
-│   ├── schema.sql               # Schema terpadu v1.5.0 (semua tabel & relasi)
-│   ├── sprint1_migration.sql    # Upgrade only: Email Queue & Export Log
-│   ├── sprint3_migration.sql    # Upgrade only: Departemen & Komentar
-│   └── sprint4_migration.sql    # Upgrade only: Lampiran & Recurring
+│   ├── schema.sql                   # Schema terpadu (semua tabel & relasi)
+│   ├── activity_log_migration.sql   # Upgrade only: tabel activity_logs (v1.6.0)
+│   ├── sprint1_migration.sql        # Upgrade only: Email Queue & Export Log
+│   ├── sprint3_migration.sql        # Upgrade only: Departemen & Komentar
+│   └── sprint4_migration.sql        # Upgrade only: Lampiran & Recurring
 ├── app/
 │   ├── config/
-│   │   ├── app.php              # Konfigurasi aplikasi (di-generate installer)
-│   │   ├── database.php         # Konfigurasi PDO MySQL (di-generate installer)
-│   │   └── mail.php             # Konfigurasi email (opsional)
+│   │   ├── app.php                  # Konfigurasi aplikasi
+│   │   ├── database.php             # Konfigurasi PDO MySQL
+│   │   └── mail.php                 # Konfigurasi email (opsional)
 │   ├── core/
-│   │   ├── Database.php         # PDO Singleton
-│   │   ├── Router.php           # Custom router dengan {param}
-│   │   ├── Auth.php             # Session auth + role check
-│   │   ├── View.php             # Template renderer
-│   │   └── Notification.php     # Helper notifikasi
+│   │   ├── Database.php             # PDO Singleton
+│   │   ├── Router.php               # Custom router dengan {param}
+│   │   ├── Auth.php                 # Session auth + role check
+│   │   ├── View.php                 # Template renderer
+│   │   ├── Notification.php         # Helper notifikasi
+│   │   └── ActivityLog.php          # Helper log aktivitas (v1.6.0)
 │   ├── controllers/
-│   │   ├── AuthController.php   # Login (username), logout, reset password
+│   │   ├── AuthController.php       # Login, logout, reset password
 │   │   ├── DashboardController.php
 │   │   ├── MeetingController.php
 │   │   ├── AttachmentController.php
@@ -221,27 +235,29 @@ meeting-management/
 │   │   ├── NotulisController.php
 │   │   ├── TindakLanjutController.php
 │   │   ├── UserController.php
-│   │   ├── DepartemenController.php
-│   │   └── NotifikasiController.php
+│   │   ├── DepartmentController.php
+│   │   ├── NotifikasiController.php
+│   │   └── ActivityLogController.php  # Log aktivitas (v1.6.0)
 │   └── views/
-│       ├── layouts/             # base.php, sidebar.php, auth.php
-│       ├── auth/                # login, forgot_password, reset_password
+│       ├── layouts/                 # base.php, sidebar.php
+│       ├── auth/                    # login, forgot_password, reset_password
 │       ├── dashboard/
-│       ├── meetings/            # index, show, attachments
-│       ├── recurring/           # index, create, show
-│       ├── notulen/             # editor, history, comments
+│       ├── meetings/
+│       ├── recurring/
+│       ├── notulen/
 │       ├── tindak-lanjut/
 │       ├── users/
-│       ├── departemen/
+│       ├── departments/
 │       ├── notifications/
-│       └── errors/              # 403, 404
+│       ├── activity-log/            # index.php (v1.6.0)
+│       └── errors/                  # 403, 404
 └── public/
-    ├── .htaccess                # Front controller + security headers
-    ├── index.php                # Entry point + semua routes
+    ├── .htaccess                    # Front controller + security headers
+    ├── index.php                    # Entry point + semua routes
     └── assets/
-        ├── css/custom.css       # Override Tabler (tema oranye)
-        ├── js/notifications.js  # Polling notifikasi
-        └── js/notulen-realtime.js # Editor.js + long polling
+        ├── css/custom.css           # Override Tabler (tema oranye)
+        ├── js/notifications.js      # Polling notifikasi
+        └── js/notulen-realtime.js   # Editor.js + long polling
 ```
 
 ---
@@ -250,8 +266,8 @@ meeting-management/
 
 | Method | URL | Deskripsi | Role |
 |---|---|---|---|
-| GET/POST | `/login` | Halaman login (username) | Public |
-| GET/POST | `/forgot-password` | Lupa password (cari via username) | Public |
+| GET/POST | `/login` | Halaman login | Public |
+| GET/POST | `/forgot-password` | Lupa password | Public |
 | GET/POST | `/reset-password` | Reset password via token | Public |
 | GET | `/logout` | Logout | Auth |
 | GET | `/` | Dashboard | Auth |
@@ -259,26 +275,29 @@ meeting-management/
 | POST | `/meetings` | Buat meeting baru | Admin/Sekretaris |
 | GET | `/meetings/{id}` | Detail meeting + lampiran | Auth |
 | POST | `/meetings/{id}/status` | Ubah status meeting | Admin/Sekretaris |
+| POST | `/meetings/{id}/delete` | Hapus meeting | Admin |
 | POST | `/meetings/{id}/attachments` | Upload lampiran | Admin/Sekretaris |
 | GET | `/attachments/{id}/download` | Download lampiran | Auth |
 | POST | `/attachments/{id}/delete` | Hapus lampiran | Admin/Sekretaris |
 | GET | `/recurring` | Daftar recurring meeting | Auth |
 | POST | `/recurring` | Buat recurring meeting | Admin/Sekretaris |
-| GET | `/recurring/{id}` | Detail recurring meeting | Auth |
-| GET | `/notulen/{meetingId}` | Editor notulen | Auth |
-| POST | `/notulen/{meetingId}/save` | Simpan notulen | Admin/Sekretaris |
-| GET | `/notulen/{meetingId}/sync` | Long polling sync | Auth |
-| GET | `/notulen/{meetingId}/history` | Riwayat notulen | Auth |
+| GET | `/notulen/{id}` | Editor notulen | Auth |
+| GET | `/notulen/{id}/history` | Riwayat notulen | Auth |
 | GET | `/tindak-lanjut` | Daftar tindak lanjut | Auth |
 | POST | `/tindak-lanjut` | Buat tindak lanjut | Admin/Sekretaris |
 | POST | `/tindak-lanjut/{id}/status` | Update status | Auth |
 | GET | `/users` | Daftar user | Admin |
 | POST | `/users` | Tambah user | Admin |
 | POST | `/users/{id}/update` | Update user | Admin |
-| GET | `/departemen` | Daftar departemen | Admin |
+| POST | `/users/{id}/delete` | Nonaktifkan user | Admin |
+| POST | `/users/{id}/destroy` | Hapus user permanen | Admin |
+| GET | `/departments` | Daftar departemen | Admin |
+| GET | `/settings` | Pengaturan aplikasi | Admin |
 | GET | `/notifications` | Halaman notifikasi | Auth |
 | GET | `/api/notifications` | API polling JSON | Auth |
 | GET | `/api/meetings/calendar` | API events kalender | Auth |
+| **GET** | **`/admin/activity-log`** | **Log aktivitas** | **Admin** |
+| **POST** | **`/admin/activity-log/purge`** | **Bersihkan log lama** | **Admin** |
 
 ---
 
@@ -308,6 +327,41 @@ meeting-management/
 - `display_errors` dimatikan di production
 - Security headers: X-Frame-Options, XSS-Protection, Content-Type-Options
 - `install.php` harus dihapus setelah instalasi
+- **Log aktivitas** mencatat IP address dan user agent setiap aksi
+
+---
+
+## 📦 Changelog
+
+### v1.6.0 — Log Aktivitas Admin
+- Tambah tabel `activity_logs` dengan index optimasi
+- Helper `ActivityLog` statis (`record`, `badge`, `paginate`)
+- Log otomatis untuk: login berhasil/gagal, logout, buat/ubah/hapus meeting & user
+- Halaman `/admin/activity-log` dengan filter multi-dimensi & pagination
+- Fitur purge log berdasarkan umur (default 90 hari)
+- Submenu **Log Aktivitas** di menu Administrasi (admin only)
+
+### v1.5.0
+- Recurring Meeting (harian, mingguan, dua mingguan, bulanan)
+- Lampiran file per meeting
+- Template notulen
+
+### v1.4.0
+- Editor notulen real-time (Editor.js + long polling)
+- Komentar & mention di notulen
+- Export PDF & DOCX
+
+### v1.3.0
+- Manajemen departemen
+- Filter meeting per departemen
+
+### v1.2.0
+- Tindak lanjut terintegrasi
+- Sistem notifikasi polling
+
+### v1.1.0
+- Multi-role (Admin, Sekretaris, Peserta)
+- Reset password via email
 
 ---
 
