@@ -48,7 +48,7 @@ Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun den
 - Folder penyimpanan: `public/uploads/attachments/`
 
 ### 📝 Notulen
-- Editor blok modern (Editor.js)
+- Editor rich text modern (Quill)
 - **Real-time sync** antar pengguna via long polling
 - Riwayat versi notulen lengkap
 - Hak akses: Admin & Sekretaris bisa edit, Peserta hanya lihat
@@ -187,7 +187,7 @@ meetings               → id, title, description, location, start_datetime, end
 meeting_participants   → id, meeting_id, user_id, status
 meeting_attendances    → id, meeting_id, user_id, status, note
 meeting_attachments    → id, meeting_id, uploaded_by, filename, stored_name, mime_type, file_size, category
-notulen                → id, meeting_id, content (JSON Editor.js), version, created_by, updated_by
+notulen                → id, meeting_id, content (HTML Quill), version, created_by, updated_by
 notulen_history        → id, meeting_id, content, version, edited_by
 notulen_comments       → id, meeting_id, parent_id, user_id, content, is_resolved
 comment_mentions       → id, comment_id, user_id
@@ -225,6 +225,10 @@ meeting-management/
 │   │   ├── Auth.php                 # Session auth + role check
 │   │   ├── View.php                 # Template renderer
 │   │   ├── Notification.php         # Helper notifikasi
+│   │   ├── Mailer.php               # Wrapper PHPMailer + fallback mail()
+│   │   ├── EmailTemplate.php        # Template HTML email
+│   │   ├── PdfExporter.php          # Export PDF via mPDF + fallback HTML
+│   │   ├── DocxExporter.php         # Export DOCX native PHP (Open XML)
 │   │   └── ActivityLog.php          # Helper log aktivitas (v1.6.0)
 │   ├── controllers/
 │   │   ├── AuthController.php       # Login, logout, reset password
@@ -257,7 +261,7 @@ meeting-management/
     └── assets/
         ├── css/custom.css           # Override Tabler (tema oranye)
         ├── js/notifications.js      # Polling notifikasi
-        └── js/notulen-realtime.js   # Editor.js + long polling
+        └── js/notulen-realtime.js   # Quill + long polling
 ```
 
 ---
@@ -303,16 +307,30 @@ meeting-management/
 
 ## 🎨 Tech Stack
 
-| Layer | Teknologi |
-|---|---|
-| Backend | PHP 8.5 Native (no framework) |
-| Database | MySQL 8.0 + PDO |
-| Frontend UI | [Tabler](https://tabler.io) (Bootstrap 5) |
-| Kalender | [FullCalendar v6](https://fullcalendar.io) |
-| Rich Editor | [Editor.js](https://editorjs.io) |
-| Real-time | Long Polling (PHP native) |
-| Notifikasi | AJAX Polling (20 detik interval) |
-| Hosting | Shared Hosting (Apache + mod_rewrite) |
+### Backend
+
+| Komponen | Teknologi | Keterangan |
+|---|---|---|
+| Language | PHP 8.5 | Native, tanpa framework |
+| Database | MySQL 8.0 + PDO | Query via Prepared Statements |
+| Router | Custom `Router.php` | Mendukung parameter `{id}` |
+| Auth | Custom `Auth.php` | Session-based + Remember Me |
+| Email | [PHPMailer](https://github.com/PHPMailer/PHPMailer) | SMTP / fallback ke `mail()` |
+| Export PDF | [mPDF](https://mpdf.github.io) | Fallback ke HTML print |
+| Export DOCX | Custom `DocxExporter.php` | Native Open XML (tanpa library) |
+| Log Aktivitas | Custom `ActivityLog.php` | Statis helper, disimpan ke DB |
+| Hosting | Apache 2.4+ | `mod_rewrite` + `.htaccess` |
+
+### Frontend
+
+| Komponen | Teknologi | Keterangan |
+|---|---|---|
+| UI Framework | [Tabler](https://tabler.io) | Berbasis Bootstrap 5 |
+| Kalender | [FullCalendar v6](https://fullcalendar.io) | Tampilan bulan & agenda |
+| Rich Text Editor | [Quill](https://quilljs.com) | Editor notulen WYSIWYG |
+| Real-time Notulen | Long Polling (PHP native) | Sync antar pengguna |
+| Notifikasi | AJAX Polling | Interval 20 detik |
+| Ikon | SVG Inline (Tabler Icons) | Tanpa icon font eksternal |
 
 ---
 
@@ -347,9 +365,9 @@ meeting-management/
 - Template notulen
 
 ### v1.4.0
-- Editor notulen real-time (Editor.js + long polling)
+- Editor notulen real-time (Quill + long polling)
 - Komentar & mention di notulen
-- Export PDF & DOCX
+- Export PDF (mPDF) & DOCX (native Open XML)
 
 ### v1.3.0
 - Manajemen departemen
@@ -361,7 +379,7 @@ meeting-management/
 
 ### v1.1.0
 - Multi-role (Admin, Sekretaris, Peserta)
-- Reset password via email
+- Reset password via email (PHPMailer)
 
 ---
 
