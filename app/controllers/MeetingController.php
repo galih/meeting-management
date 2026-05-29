@@ -208,24 +208,32 @@ class MeetingController
 
         $db = Database::getInstance();
 
-        // Hapus file fisik attachment dari disk
+        // Hapus file fisik attachment dari disk (kolom: stored_name)
         $attachments = Database::query(
-            "SELECT file_path FROM meeting_attachments WHERE meeting_id=?", [$id]
+            "SELECT stored_name FROM meeting_attachments WHERE meeting_id=?", [$id]
         );
+        $uploadDir = defined('UPLOAD_PATH') ? UPLOAD_PATH : (ROOT_PATH . '/uploads');
         foreach ($attachments as $att) {
-            $path = ROOT_PATH . '/' . ltrim($att['file_path'], '/');
+            $path = rtrim($uploadDir, '/') . '/' . $att['stored_name'];
             if (file_exists($path)) @unlink($path);
         }
 
-        // Hapus relasi (urutan: child dulu)
-        foreach ([
-            "DELETE FROM meeting_attachments  WHERE meeting_id=?",
-            "DELETE FROM tindak_lanjut        WHERE meeting_id=?",
-            "DELETE FROM notulen_exports      WHERE meeting_id=?",
+        // Hapus relasi child terlebih dahulu
+        // Catatan: tabel dengan ON DELETE CASCADE tidak wajib dihapus manual,
+        // tapi kita eksplisit agar aman di semua environment.
+        $relatedTables = [
+            "DELETE FROM notulen_exports     WHERE meeting_id=?",
+            "DELETE FROM notulen_history     WHERE meeting_id=?",
+            "DELETE FROM notulen_comments    WHERE meeting_id=?",
+            "DELETE FROM meeting_attachments WHERE meeting_id=?",
+            "DELETE FROM meeting_attendances WHERE meeting_id=?",
+            "DELETE FROM tindak_lanjut       WHERE meeting_id=?",
             "DELETE FROM meeting_participants WHERE meeting_id=?",
+            "DELETE FROM email_queue          WHERE meeting_id=?",
             "DELETE FROM notifications        WHERE url LIKE CONCAT('%/meetings/',?,'%')",
-            "DELETE FROM email_queue          WHERE body LIKE CONCAT('%/meetings/',?,'%')",
-        ] as $sql) {
+            "DELETE FROM notulen             WHERE meeting_id=?",
+        ];
+        foreach ($relatedTables as $sql) {
             $db->prepare($sql)->execute([$id]);
         }
 
