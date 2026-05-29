@@ -7,7 +7,7 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <meta name="description" content="Aplikasi Manajemen Meeting">
+  <meta name="description" content="Aplikasi Manajemen Kegiatan">
   <title><?= htmlspecialchars($pageTitle ?? 'Dashboard') ?> &mdash; <?= APP_NAME ?></title>
 
   <!-- Tabler Core -->
@@ -197,7 +197,7 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
       <div class="container-xl">
         <div class="row text-center align-items-center">
           <div class="col-12">
-            <p class="text-muted mb-0">&copy; <?= date('Y') ?> <?= APP_NAME ?> &mdash; PHP 8.5 &amp; Tabler</p>
+            <p class="text-muted mb-0">&copy; <?= date('Y') ?> <?= APP_NAME ?> &mdash; v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></p>
           </div>
         </div>
       </div>
