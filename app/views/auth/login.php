@@ -10,295 +10,496 @@ $appLogo = SettingController::get('app_logo');
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>Login &mdash; <?= APP_NAME ?></title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.0.0-beta20/dist/css/tabler.min.css"/>
-  <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:       #C0392B;
+      --red-dark:  #922B21;
+      --red-light: #FADBD8;
+      --gold:      #C9A84C;
+      --gold-light:#F9F0DC;
+      --navy:      #1B2A4A;
+      --navy-mid:  #2C3E6B;
+      --white:     #ffffff;
+      --gray-50:   #F8F9FA;
+      --gray-100:  #F1F3F5;
+      --gray-300:  #DEE2E6;
+      --gray-500:  #868E96;
+      --gray-700:  #495057;
+      --gray-900:  #212529;
+    }
 
     body {
       min-height: 100vh;
-      margin: 0;
-      background: #eef0f5;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--gray-100);
       display: flex;
       flex-direction: column;
     }
 
-    /* ── Top bar logo ── */
-    .login-topbar {
-      padding: 20px 32px;
+    /* ════════════════════════════════
+       HEADER STRIP — Merah Putih
+    ════════════════════════════════ */
+    .login-header {
+      display: flex;
+      align-items: stretch;
+      height: 64px;
+      background: var(--white);
+      box-shadow: 0 1px 0 var(--gray-300);
+      position: relative;
+      z-index: 10;
     }
-    .login-topbar .brand {
-      font-size: 18px;
-      font-weight: 700;
-      color: #1a1a2e;
-      text-decoration: none;
+    /* Aksen merah di kiri */
+    .login-header::before {
+      content: '';
+      display: block;
+      width: 6px;
+      background: var(--red);
+      flex-shrink: 0;
+    }
+    .header-inner {
+      flex: 1;
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: space-between;
+      padding: 0 32px;
     }
-    .login-topbar .brand img {
-      max-height: 36px;
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+    }
+    .header-brand img {
+      max-height: 40px;
       object-fit: contain;
     }
+    .header-brand-text {
+      display: flex;
+      flex-direction: column;
+    }
+    .header-brand-text .app-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1.1;
+      letter-spacing: -.02em;
+    }
+    .header-brand-text .app-tagline {
+      font-size: 10.5px;
+      color: var(--gray-500);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+    /* Bendera merah-putih kecil di kanan */
+    .header-flag {
+      display: flex;
+      flex-direction: column;
+      width: 32px;
+      height: 21px;
+      border-radius: 3px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.15);
+    }
+    .header-flag .flag-red   { flex: 1; background: #CE1126; }
+    .header-flag .flag-white { flex: 1; background: #fff; border-top: 1px solid #e5e5e5; }
 
-    /* ── Wrapper tengah ── */
+    /* ════════════════════════════════
+       MAIN WRAPPER
+    ════════════════════════════════ */
     .login-wrapper {
       flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px 16px 48px;
+      padding: 40px 16px 56px;
+      /* Motif titik halus ala batik kawung */
+      background-image: radial-gradient(circle, rgba(192,57,43,.06) 1px, transparent 1px);
+      background-size: 28px 28px;
     }
 
-    /* ── Card utama ── */
+    /* ════════════════════════════════
+       CARD
+    ════════════════════════════════ */
     .login-card {
       display: flex;
       width: 100%;
-      max-width: 900px;
-      background: #fff;
-      border-radius: 16px;
+      max-width: 920px;
+      background: var(--white);
+      border-radius: 4px;
       overflow: hidden;
-      box-shadow: 0 4px 32px rgba(0,0,0,.08);
+      box-shadow: 0 2px 24px rgba(0,0,0,.10);
+      /* Garis emas tipis di atas */
+      border-top: 3px solid var(--gold);
     }
 
-    /* ── Panel kiri: form ── */
+    /* ════════════════════════════════
+       PANEL KIRI — Form
+    ════════════════════════════════ */
     .login-form-panel {
       flex: 1;
-      padding: 52px 48px;
+      padding: 52px 52px 44px;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      border-right: 1px solid var(--gray-100);
     }
-    .login-form-panel h1 {
-      font-size: 26px;
-      font-weight: 700;
-      color: #111;
-      margin: 0 0 6px;
+
+    /* Ornamen garis dekoratif di atas judul */
+    .form-ornament {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
     }
-    .login-form-panel .subtitle {
-      font-size: 14px;
-      color: #6b7280;
-      margin: 0 0 32px;
+    .form-ornament .line-red {
+      width: 36px;
+      height: 3px;
+      background: var(--red);
+      border-radius: 2px;
+    }
+    .form-ornament .line-gold {
+      width: 12px;
+      height: 3px;
+      background: var(--gold);
+      border-radius: 2px;
+    }
+
+    .form-title {
+      font-size: 24px;
+      font-weight: 800;
+      color: var(--navy);
+      letter-spacing: -.03em;
+      margin-bottom: 6px;
+    }
+    .form-subtitle {
+      font-size: 13.5px;
+      color: var(--gray-500);
+      margin-bottom: 32px;
+      line-height: 1.5;
     }
 
     /* Form elements */
     .form-group { margin-bottom: 18px; }
     .form-group label {
       display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 6px;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--gray-700);
+      margin-bottom: 7px;
+      text-transform: uppercase;
+      letter-spacing: .05em;
     }
-    .form-group .label-row {
+    .label-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 6px;
+      margin-bottom: 7px;
     }
-    .form-group .label-row a {
+    .label-row label { margin-bottom: 0; }
+    .label-row a {
       font-size: 12px;
-      color: #f76707;
+      color: var(--red);
       text-decoration: none;
+      font-weight: 600;
     }
-    .form-group .label-row a:hover { text-decoration: underline; }
+    .label-row a:hover { text-decoration: underline; }
+
     .form-control-login {
       width: 100%;
-      height: 44px;
-      border: 1.5px solid #e5e7eb;
-      border-radius: 8px;
+      height: 46px;
+      border: 1.5px solid var(--gray-300);
+      border-radius: 4px;
       padding: 0 14px;
       font-size: 14px;
-      color: #111;
+      font-family: inherit;
+      color: var(--gray-900);
       outline: none;
       transition: border-color .2s, box-shadow .2s;
-      background: #fff;
+      background: var(--gray-50);
     }
-    .form-control-login::placeholder { color: #9ca3af; }
+    .form-control-login::placeholder { color: #ADB5BD; }
     .form-control-login:focus {
-      border-color: #f76707;
-      box-shadow: 0 0 0 3px rgba(247,103,7,.12);
+      border-color: var(--red);
+      background: var(--white);
+      box-shadow: 0 0 0 3px rgba(192,57,43,.10);
     }
-    .pwd-wrap {
-      position: relative;
-    }
-    .pwd-wrap .form-control-login { padding-right: 44px; }
+
+    .pwd-wrap { position: relative; }
+    .pwd-wrap .form-control-login { padding-right: 46px; }
     .pwd-toggle {
       position: absolute;
-      right: 12px;
+      right: 13px;
       top: 50%;
       transform: translateY(-50%);
       background: none;
       border: none;
       cursor: pointer;
-      color: #9ca3af;
+      color: #ADB5BD;
       padding: 0;
       display: flex;
       align-items: center;
     }
-    .pwd-toggle:hover { color: #374151; }
+    .pwd-toggle:hover { color: var(--gray-700); }
 
     .remember-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 24px;
+      gap: 9px;
+      margin-bottom: 26px;
     }
     .remember-row input[type=checkbox] {
       width: 16px;
       height: 16px;
-      accent-color: #f76707;
+      accent-color: var(--red);
       cursor: pointer;
+      border-radius: 3px;
     }
     .remember-row label {
       font-size: 13px;
-      color: #6b7280;
+      color: var(--gray-500);
       cursor: pointer;
-      margin: 0;
+      font-weight: 500;
     }
 
     .btn-login {
       width: 100%;
-      height: 46px;
-      background: #f76707;
-      color: #fff;
+      height: 48px;
+      background: var(--red);
+      color: var(--white);
       border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
       cursor: pointer;
-      transition: background .2s, transform .1s;
-      letter-spacing: .01em;
+      transition: background .2s, box-shadow .2s;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      position: relative;
+      overflow: hidden;
     }
-    .btn-login:hover { background: #e05e00; }
-    .btn-login:active { transform: scale(.99); }
+    .btn-login::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.08) 50%, transparent 100%);
+    }
+    .btn-login:hover { background: var(--red-dark); box-shadow: 0 4px 16px rgba(192,57,43,.3); }
+    .btn-login:active { transform: translateY(1px); }
+
+    /* Alert */
+    .alert-login {
+      padding: 11px 14px;
+      border-radius: 4px;
+      font-size: 13px;
+      margin-bottom: 22px;
+      font-weight: 500;
+    }
+    .alert-danger  { background: var(--red-light); color: var(--red-dark); border-left: 3px solid var(--red); }
+    .alert-success { background: #D5F5E3; color: #1D6A3A; border-left: 3px solid #27AE60; }
 
     .form-footer {
-      margin-top: 20px;
-      font-size: 12px;
-      color: #9ca3af;
+      margin-top: 24px;
+      font-size: 11.5px;
+      color: var(--gray-500);
       text-align: center;
       line-height: 1.6;
     }
 
-    /* Alert */
-    .alert-login {
-      padding: 10px 14px;
-      border-radius: 8px;
-      font-size: 13px;
-      margin-bottom: 20px;
-    }
-    .alert-danger  { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .alert-success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-
-    /* ── Panel kanan: branding ── */
+    /* ════════════════════════════════
+       PANEL KANAN — Branding
+    ════════════════════════════════ */
     .login-brand-panel {
-      width: 340px;
+      width: 360px;
       flex-shrink: 0;
-      background: linear-gradient(145deg, #1a2744 0%, #0f1b38 60%, #0a1628 100%);
-      padding: 52px 40px;
+      background: var(--navy);
+      padding: 52px 40px 44px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      color: #fff;
+      color: var(--white);
+      position: relative;
+      overflow: hidden;
     }
-    .brand-content .brand-title {
-      font-size: 22px;
-      font-weight: 700;
-      line-height: 1.3;
-      margin: 0 0 14px;
-      color: #fff;
+
+    /* Ornamen bulat besar transparan — motif batik kawung */
+    .login-brand-panel::before {
+      content: '';
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      border: 40px solid rgba(201,168,76,.07);
+      bottom: -80px;
+      right: -80px;
+      pointer-events: none;
     }
-    .brand-content .brand-desc {
-      font-size: 14px;
-      color: rgba(255,255,255,.65);
-      line-height: 1.6;
-      margin: 0 0 28px;
+    .login-brand-panel::after {
+      content: '';
+      position: absolute;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      border: 28px solid rgba(192,57,43,.10);
+      top: -40px;
+      left: -40px;
+      pointer-events: none;
     }
+
+    /* Aksen garis emas */
+    .brand-accent {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .brand-accent span {
+      display: block;
+      height: 3px;
+      border-radius: 2px;
+    }
+    .brand-accent .a1 { width: 32px; background: var(--gold); }
+    .brand-accent .a2 { width: 12px; background: rgba(201,168,76,.4); }
+    .brand-accent .a3 { width: 6px;  background: rgba(201,168,76,.2); }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.35;
+      margin-bottom: 12px;
+      color: var(--white);
+      letter-spacing: -.02em;
+    }
+    .brand-desc {
+      font-size: 13.5px;
+      color: rgba(255,255,255,.55);
+      line-height: 1.65;
+      margin-bottom: 28px;
+    }
+
     .brand-features {
       list-style: none;
       padding: 0;
-      margin: 0 0 40px;
+      margin: 0 0 36px;
     }
     .brand-features li {
-      font-size: 14px;
-      color: rgba(255,255,255,.85);
-      padding: 6px 0;
-      padding-left: 20px;
+      font-size: 13.5px;
+      color: rgba(255,255,255,.8);
+      padding: 7px 0 7px 22px;
       position: relative;
       line-height: 1.5;
+      border-bottom: 1px solid rgba(255,255,255,.05);
     }
+    .brand-features li:last-child { border-bottom: none; }
     .brand-features li::before {
       content: '';
       position: absolute;
       left: 0;
-      top: 13px;
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: #f76707;
+      top: 14px;
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--gold);
     }
 
-    /* Testimoni */
+    /* Kotak testimoni */
     .brand-testimonial {
-      background: rgba(255,255,255,.07);
-      border-radius: 12px;
-      padding: 20px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-left: 3px solid var(--gold);
+      border-radius: 4px;
+      padding: 18px 20px;
+      position: relative;
+      z-index: 1;
     }
     .brand-stars {
       display: flex;
       gap: 3px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
-    .brand-stars svg { color: #fbbf24; }
+    .brand-stars svg { fill: var(--gold); }
     .brand-testimonial blockquote {
-      margin: 0 0 12px;
-      font-size: 13px;
-      color: rgba(255,255,255,.8);
-      line-height: 1.6;
+      font-size: 12.5px;
+      color: rgba(255,255,255,.75);
+      line-height: 1.65;
       font-style: italic;
+      margin: 0 0 10px;
     }
     .brand-testimonial cite {
-      font-size: 12px;
-      color: rgba(255,255,255,.5);
+      font-size: 11.5px;
+      color: rgba(255,255,255,.4);
       font-style: normal;
+      font-weight: 600;
     }
 
-    /* ── Responsive ── */
-    @media (max-width: 720px) {
+    /* ════════════════════════════════
+       FOOTER
+    ════════════════════════════════ */
+    .login-footer {
+      text-align: center;
+      padding: 14px;
+      font-size: 11px;
+      color: var(--gray-500);
+    }
+
+    /* ════════════════════════════════
+       RESPONSIVE
+    ════════════════════════════════ */
+    @media (max-width: 768px) {
       .login-brand-panel { display: none; }
-      .login-form-panel { padding: 40px 28px; }
-      .login-topbar { padding: 16px 20px; }
+      .login-form-panel {
+        padding: 40px 28px 36px;
+        border-right: none;
+      }
+      .header-inner { padding: 0 20px; }
     }
   </style>
 </head>
 <body>
 
-  <!-- Top bar logo -->
-  <div class="login-topbar">
-    <a href="<?= BASE_URL ?>" class="brand">
-      <?php if ($appLogo): ?>
-        <img src="<?= htmlspecialchars($appLogo) ?>" alt="<?= APP_NAME ?>">
-      <?php else: ?>
-        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
-             fill="none" stroke="#f76707" stroke-width="2.2">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-        </svg>
-        <span><?= APP_NAME ?></span>
-      <?php endif; ?>
-    </a>
-  </div>
+  <!-- Header -->
+  <header class="login-header">
+    <div class="header-inner">
+      <a href="<?= BASE_URL ?>" class="header-brand">
+        <?php if ($appLogo): ?>
+          <img src="<?= htmlspecialchars($appLogo) ?>" alt="<?= APP_NAME ?>">
+        <?php else: ?>
+          <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24"
+               fill="none" stroke="#C0392B" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+          </svg>
+          <div class="header-brand-text">
+            <span class="app-name"><?= APP_NAME ?></span>
+            <span class="app-tagline">Manajemen Kegiatan</span>
+          </div>
+        <?php endif; ?>
+      </a>
+      <div class="header-flag">
+        <div class="flag-red"></div>
+        <div class="flag-white"></div>
+      </div>
+    </div>
+  </header>
 
-  <!-- Main wrapper -->
+  <!-- Main -->
   <div class="login-wrapper">
     <div class="login-card">
 
       <!-- Kiri: Form -->
       <div class="login-form-panel">
-        <h1>Masuk ke akun Anda</h1>
-        <p class="subtitle">Selamat datang kembali di <?= APP_NAME ?></p>
+        <div class="form-ornament">
+          <span class="line-red"></span>
+          <span class="line-gold"></span>
+        </div>
+        <h1 class="form-title">Masuk ke Akun Anda</h1>
+        <p class="form-subtitle">Silakan masukkan kredensial Anda untuk mengakses sistem <?= APP_NAME ?></p>
 
         <?php if ($error): ?>
         <div class="alert-login alert-danger"><?= htmlspecialchars($error) ?></div>
@@ -313,7 +514,7 @@ $appLogo = SettingController::get('app_logo');
             <label for="username">Username</label>
             <input type="text" id="username" name="username"
                    class="form-control-login"
-                   placeholder="Masukkan username"
+                   placeholder="Masukkan username Anda"
                    value="<?= htmlspecialchars($_POST['username'] ?? '') ?>"
                    required autofocus>
           </div>
@@ -326,7 +527,7 @@ $appLogo = SettingController::get('app_logo');
             <div class="pwd-wrap">
               <input type="password" id="pwd" name="password"
                      class="form-control-login"
-                     placeholder="Masukkan password"
+                     placeholder="Masukkan password Anda"
                      required>
               <button type="button" class="pwd-toggle" onclick="togglePwd()" aria-label="Tampilkan password">
                 <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
@@ -343,7 +544,7 @@ $appLogo = SettingController::get('app_logo');
             <label for="remember">Ingat saya selama 30 hari</label>
           </div>
 
-          <button type="submit" class="btn-login">Masuk</button>
+          <button type="submit" class="btn-login">Masuk ke Sistem</button>
 
           <div class="form-footer">
             &copy; <?= date('Y') ?> <?= APP_NAME ?> &mdash; v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?>
@@ -353,22 +554,27 @@ $appLogo = SettingController::get('app_logo');
 
       <!-- Kanan: Branding -->
       <div class="login-brand-panel">
-        <div class="brand-content">
-          <h2 class="brand-title">Kelola kegiatan tim Anda dengan mudah dan terstruktur</h2>
-          <p class="brand-desc">Platform manajemen kegiatan terpadu untuk mencatat, mendokumentasikan, dan menindaklanjuti setiap rapat.</p>
+        <div>
+          <div class="brand-accent">
+            <span class="a1"></span>
+            <span class="a2"></span>
+            <span class="a3"></span>
+          </div>
+          <h2 class="brand-title">Kelola Kegiatan Tim Anda Secara Terstruktur</h2>
+          <p class="brand-desc">Platform digital manajemen kegiatan terpadu — dari penjadwalan, notulen, hingga tindak lanjut.</p>
           <ul class="brand-features">
-            <li>Notulen real-time yang tersinkron otomatis</li>
-            <li>Tindak lanjut dengan deadline & prioritas</li>
+            <li>Notulen real-time tersinkron antar pengguna</li>
+            <li>Tindak lanjut dengan deadline &amp; prioritas</li>
             <li>Kalender kegiatan interaktif terintegrasi</li>
             <li>Log aktivitas lengkap untuk audit trail</li>
-            <li>Export notulen ke PDF & DOCX</li>
+            <li>Export notulen ke PDF &amp; DOCX</li>
           </ul>
         </div>
 
         <div class="brand-testimonial">
           <div class="brand-stars">
             <?php for ($i = 0; $i < 5; $i++): ?>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <svg width="14" height="14" viewBox="0 0 24 24">
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
             <?php endfor; ?>
