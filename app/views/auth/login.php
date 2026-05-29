@@ -23,8 +23,6 @@ $appLogo = SettingController::get('app_logo');
       --gold:      #C9A84C;
       --navy:      #1B2A4A;
       --white:     #ffffff;
-      --gray-50:   #F8F4EE;
-      --gray-100:  #f8f4ee;
       --gray-300:  #DEE2E6;
       --gray-500:  #868E96;
       --gray-700:  #495057;
@@ -35,65 +33,12 @@ $appLogo = SettingController::get('app_logo');
       min-height: 100vh;
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       background: #f8f4ee;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* HEADER */
-    .login-header {
-      display: flex;
-      align-items: stretch;
-      height: 64px;
-      background: #3D0A0A;
-      box-shadow: 0 2px 8px rgba(61,10,10,.3);
-      position: relative;
-      z-index: 10;
-    }
-    .login-header::before {
-      content: '';
-      display: block;
-      width: 6px;
-      background: var(--red);
-      flex-shrink: 0;
-    }
-    .header-inner {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      padding: 0 32px;
-    }
-    .header-brand {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      text-decoration: none;
-    }
-    .header-brand img { max-height: 40px; object-fit: contain; }
-    .header-brand-text { display: flex; flex-direction: column; }
-    .header-brand-text .app-name {
-      font-size: 16px;
-      font-weight: 800;
-      color: #fff;
-      line-height: 1.1;
-      letter-spacing: -.02em;
-    }
-    .header-brand-text .app-tagline {
-      font-size: 10.5px;
-      color: rgba(255,255,255,.5);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-    }
-
-    /* WRAPPER */
-    .login-wrapper {
-      flex: 1;
+      background-image: radial-gradient(circle, rgba(192,57,43,.06) 1px, transparent 1px);
+      background-size: 28px 28px;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 40px 16px 56px;
-      background-image: radial-gradient(circle, rgba(192,57,43,.06) 1px, transparent 1px);
-      background-size: 28px 28px;
+      padding: 40px 16px;
     }
 
     /* CARD */
@@ -117,6 +62,34 @@ $appLogo = SettingController::get('app_logo');
       justify-content: center;
       border-right: 1px solid #f0ebe3;
     }
+
+    /* Logo di atas ornament */
+    .form-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      text-decoration: none;
+    }
+    .form-logo img {
+      max-height: 48px;
+      object-fit: contain;
+    }
+    .form-logo-text .app-name {
+      font-size: 20px;
+      font-weight: 800;
+      color: #3D0A0A;
+      letter-spacing: -.03em;
+      line-height: 1.1;
+    }
+    .form-logo-text .app-tagline {
+      font-size: 10.5px;
+      color: var(--gray-500);
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
     .form-ornament {
       display: flex;
       align-items: center;
@@ -125,6 +98,7 @@ $appLogo = SettingController::get('app_logo');
     }
     .form-ornament .line-red  { width: 36px; height: 3px; background: var(--red); border-radius: 2px; }
     .form-ornament .line-gold { width: 12px; height: 3px; background: var(--gold); border-radius: 2px; }
+
     .form-title {
       font-size: 24px;
       font-weight: 800;
@@ -266,109 +240,111 @@ $appLogo = SettingController::get('app_logo');
     @media (max-width: 768px) {
       .login-brand-panel { display: none; }
       .login-form-panel { padding: 40px 28px 36px; border-right: none; }
-      .header-inner { padding: 0 20px; }
+      body { padding: 24px 16px; }
     }
   </style>
 </head>
 <body>
-  <header class="login-header">
-    <div class="header-inner">
-      <a href="<?= BASE_URL ?>" class="header-brand">
+  <div class="login-card">
+
+    <!-- Kiri: Form -->
+    <div class="login-form-panel">
+
+      <!-- Logo di atas ornament -->
+      <a href="<?= BASE_URL ?>" class="form-logo">
         <?php if ($appLogo): ?>
           <img src="<?= htmlspecialchars($appLogo) ?>" alt="<?= APP_NAME ?>">
         <?php else: ?>
-          <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24"
-               fill="none" stroke="#C9A84C" stroke-width="2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24"
+               fill="none" stroke="#C0392B" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round"
                   d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
           </svg>
-          <div class="header-brand-text">
-            <span class="app-name"><?= APP_NAME ?></span>
-            <span class="app-tagline">Manajemen Kegiatan</span>
+          <div class="form-logo-text">
+            <div class="app-name"><?= APP_NAME ?></div>
+            <div class="app-tagline">Manajemen Kegiatan</div>
           </div>
         <?php endif; ?>
       </a>
-    </div>
-  </header>
 
-  <div class="login-wrapper">
-    <div class="login-card">
-      <div class="login-form-panel">
-        <div class="form-ornament">
-          <span class="line-red"></span>
-          <span class="line-gold"></span>
-        </div>
-        <h1 class="form-title">Masuk ke Akun Anda</h1>
-        <p class="form-subtitle">Silakan masukkan kredensial Anda untuk mengakses sistem <?= APP_NAME ?></p>
-
-        <?php if ($error): ?>
-        <div class="alert-login alert-danger"><?= htmlspecialchars($error) ?></div>
-        <?php endif; ?>
-        <?php if ($success): ?>
-        <div class="alert-login alert-success"><?= htmlspecialchars($success) ?></div>
-        <?php endif; ?>
-
-        <form method="POST" action="<?= BASE_URL ?>/login" autocomplete="on">
-          <div class="form-group">
-            <label for="username">Username</label>
-            <input type="text" id="username" name="username" class="form-control-login"
-                   placeholder="Masukkan username Anda"
-                   value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" required autofocus>
-          </div>
-          <div class="form-group">
-            <div class="label-row">
-              <label for="pwd">Password</label>
-              <a href="<?= BASE_URL ?>/forgot-password">Lupa password?</a>
-            </div>
-            <div class="pwd-wrap">
-              <input type="password" id="pwd" name="password" class="form-control-login"
-                     placeholder="Masukkan password Anda" required>
-              <button type="button" class="pwd-toggle" onclick="togglePwd()" aria-label="Tampilkan password">
-                <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-                  <circle cx="12" cy="12" r="3"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="remember-row">
-            <input type="checkbox" id="remember" name="remember">
-            <label for="remember">Ingat saya selama 30 hari</label>
-          </div>
-          <button type="submit" class="btn-login">Masuk ke Sistem</button>
-          <div class="form-footer">
-            &copy; <?= date('Y') ?> <?= APP_NAME ?> &mdash; v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?>
-          </div>
-        </form>
+      <!-- Ornament -->
+      <div class="form-ornament">
+        <span class="line-red"></span>
+        <span class="line-gold"></span>
       </div>
 
-      <div class="login-brand-panel">
-        <div>
-          <div class="brand-accent">
-            <span class="a1"></span><span class="a2"></span><span class="a3"></span>
-          </div>
-          <h2 class="brand-title">Kelola Kegiatan Tim Anda Secara Terstruktur</h2>
-          <p class="brand-desc">Platform digital manajemen kegiatan terpadu &mdash; dari penjadwalan, notulen, hingga tindak lanjut.</p>
-          <ul class="brand-features">
-            <li>Notulen real-time tersinkron antar pengguna</li>
-            <li>Tindak lanjut dengan deadline &amp; prioritas</li>
-            <li>Kalender kegiatan interaktif terintegrasi</li>
-            <li>Log aktivitas lengkap untuk audit trail</li>
-            <li>Export notulen ke PDF &amp; DOCX</li>
-          </ul>
+      <h1 class="form-title">Masuk ke Akun Anda</h1>
+      <p class="form-subtitle">Silakan masukkan kredensial Anda untuk mengakses sistem <?= APP_NAME ?></p>
+
+      <?php if ($error): ?>
+      <div class="alert-login alert-danger"><?= htmlspecialchars($error) ?></div>
+      <?php endif; ?>
+      <?php if ($success): ?>
+      <div class="alert-login alert-success"><?= htmlspecialchars($success) ?></div>
+      <?php endif; ?>
+
+      <form method="POST" action="<?= BASE_URL ?>/login" autocomplete="on">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" class="form-control-login"
+                 placeholder="Masukkan username Anda"
+                 value="<?= htmlspecialchars($_POST['username'] ?? '') ?>" required autofocus>
         </div>
-        <div class="brand-testimonial">
-          <div class="brand-stars">
-            <?php for ($i = 0; $i < 5; $i++): ?>
-            <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-            <?php endfor; ?>
+        <div class="form-group">
+          <div class="label-row">
+            <label for="pwd">Password</label>
+            <a href="<?= BASE_URL ?>/forgot-password">Lupa password?</a>
           </div>
-          <blockquote>&ldquo;Wicara membantu tim kami mencatat dan menindaklanjuti setiap kegiatan dengan lebih terstruktur dan efisien.&rdquo;</blockquote>
-          <cite>&mdash; Tim <?= APP_NAME ?></cite>
+          <div class="pwd-wrap">
+            <input type="password" id="pwd" name="password" class="form-control-login"
+                   placeholder="Masukkan password Anda" required>
+            <button type="button" class="pwd-toggle" onclick="togglePwd()" aria-label="Tampilkan password">
+              <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                   viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+            </button>
+          </div>
         </div>
+        <div class="remember-row">
+          <input type="checkbox" id="remember" name="remember">
+          <label for="remember">Ingat saya selama 30 hari</label>
+        </div>
+        <button type="submit" class="btn-login">Masuk ke Sistem</button>
+        <div class="form-footer">
+          &copy; <?= date('Y') ?> <?= APP_NAME ?> &mdash; v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?>
+        </div>
+      </form>
+    </div>
+
+    <!-- Kanan: Branding -->
+    <div class="login-brand-panel">
+      <div>
+        <div class="brand-accent">
+          <span class="a1"></span><span class="a2"></span><span class="a3"></span>
+        </div>
+        <h2 class="brand-title">Kelola Kegiatan Tim Anda Secara Terstruktur</h2>
+        <p class="brand-desc">Platform digital manajemen kegiatan terpadu &mdash; dari penjadwalan, notulen, hingga tindak lanjut.</p>
+        <ul class="brand-features">
+          <li>Notulen real-time tersinkron antar pengguna</li>
+          <li>Tindak lanjut dengan deadline &amp; prioritas</li>
+          <li>Kalender kegiatan interaktif terintegrasi</li>
+          <li>Log aktivitas lengkap untuk audit trail</li>
+          <li>Export notulen ke PDF &amp; DOCX</li>
+        </ul>
+      </div>
+      <div class="brand-testimonial">
+        <div class="brand-stars">
+          <?php for ($i = 0; $i < 5; $i++): ?>
+          <svg width="14" height="14" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <?php endfor; ?>
+        </div>
+        <blockquote>&ldquo;Wicara membantu tim kami mencatat dan menindaklanjuti setiap kegiatan dengan lebih terstruktur dan efisien.&rdquo;</blockquote>
+        <cite>&mdash; Tim <?= APP_NAME ?></cite>
       </div>
     </div>
+
   </div>
 
   <script>
