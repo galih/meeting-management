@@ -7,7 +7,7 @@
 ![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?style=flat-square&logo=php)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql)
 ![Tabler](https://img.shields.io/badge/Tabler-UI-0054A6?style=flat-square)
-![Version](https://img.shields.io/badge/version-1.6.0-f76707?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.0.0-f76707?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
 </div>
@@ -77,7 +77,7 @@
 - Assign user ke departemen
 - Filter kegiatan per departemen
 
-### 🗂️ Log Aktivitas *(v1.6.0 — Admin only)*
+### 🗂️ Log Aktivitas *(Admin only)*
 - Mencatat semua aktivitas penting secara otomatis: **login, logout, login gagal, buat/ubah/hapus kegiatan, buat/ubah/hapus user**
 - Halaman khusus admin di menu **Administrasi → Log Aktivitas**
 - Filter berdasarkan **user**, **modul** (auth / meeting / user), dan **rentang tanggal**
@@ -114,10 +114,7 @@ Cara termudah — tidak perlu setup manual sama sekali.
 # 2. Import database via phpMyAdmin
 #    cPanel → phpMyAdmin → pilih database → Import → database/schema.sql
 
-# 3. Jika upgrade dari versi sebelumnya, jalankan juga:
-#    database/activity_log_migration.sql
-
-# 4. Buat file konfigurasi
+# 3. Buat file konfigurasi
 cp app/config/database.example.php app/config/database.php
 ```
 
@@ -210,10 +207,7 @@ meeting-management/
 ├── .htaccess                        # Redirect root → /public
 ├── database/
 │   ├── schema.sql                   # Schema terpadu (semua tabel & relasi)
-│   ├── activity_log_migration.sql   # Upgrade only: tabel activity_logs (v1.6.0)
-│   ├── sprint1_migration.sql        # Upgrade only: Email Queue & Export Log
-│   ├── sprint3_migration.sql        # Upgrade only: Departemen & Komentar
-│   └── sprint4_migration.sql        # Upgrade only: Lampiran & Recurring
+│   └── *_migration.sql              # Upgrade only (tidak dipakai saat fresh install)
 ├── app/
 │   ├── config/
 │   │   ├── app.php                  # Konfigurasi aplikasi
@@ -229,9 +223,9 @@ meeting-management/
 │   │   ├── EmailTemplate.php        # Template HTML email
 │   │   ├── PdfExporter.php          # Export PDF via mPDF + fallback HTML
 │   │   ├── DocxExporter.php         # Export DOCX native PHP (Open XML)
-│   │   └── ActivityLog.php          # Helper log aktivitas (v1.6.0)
+│   │   └── ActivityLog.php          # Helper log aktivitas
 │   ├── controllers/
-│   │   ├── AuthController.php       # Login, logout, reset password
+│   │   ├── AuthController.php
 │   │   ├── DashboardController.php
 │   │   ├── MeetingController.php
 │   │   ├── AttachmentController.php
@@ -241,10 +235,10 @@ meeting-management/
 │   │   ├── UserController.php
 │   │   ├── DepartmentController.php
 │   │   ├── NotifikasiController.php
-│   │   └── ActivityLogController.php  # Log aktivitas (v1.6.0)
+│   │   └── ActivityLogController.php
 │   └── views/
-│       ├── layouts/                 # base.php, sidebar.php
-│       ├── auth/                    # login, forgot_password, reset_password
+│       ├── layouts/
+│       ├── auth/
 │       ├── dashboard/
 │       ├── meetings/
 │       ├── recurring/
@@ -253,15 +247,15 @@ meeting-management/
 │       ├── users/
 │       ├── departments/
 │       ├── notifications/
-│       ├── activity-log/            # index.php (v1.6.0)
-│       └── errors/                  # 403, 404
+│       ├── activity-log/
+│       └── errors/
 └── public/
-    ├── .htaccess                    # Front controller + security headers
+    ├── .htaccess
     ├── index.php                    # Entry point + semua routes
     └── assets/
-        ├── css/custom.css           # Override Tabler (tema oranye)
-        ├── js/notifications.js      # Polling notifikasi
-        └── js/notulen-realtime.js   # Quill + long polling
+        ├── css/custom.css
+        ├── js/notifications.js
+        └── js/notulen-realtime.js
 ```
 
 ---
@@ -300,8 +294,8 @@ meeting-management/
 | GET | `/notifications` | Halaman notifikasi | Auth |
 | GET | `/api/notifications` | API polling JSON | Auth |
 | GET | `/api/meetings/calendar` | API events kalender | Auth |
-| **GET** | **`/admin/activity-log`** | **Log aktivitas** | **Admin** |
-| **POST** | **`/admin/activity-log/purge`** | **Bersihkan log lama** | **Admin** |
+| GET | `/admin/activity-log` | Log aktivitas | Admin |
+| POST | `/admin/activity-log/purge` | Bersihkan log lama | Admin |
 
 ---
 
@@ -351,35 +345,25 @@ meeting-management/
 
 ## 📦 Changelog
 
-### v1.6.0 — Log Aktivitas Admin
-- Tambah tabel `activity_logs` dengan index optimasi
-- Helper `ActivityLog` statis (`record`, `badge`, `paginate`)
-- Log otomatis untuk: login berhasil/gagal, logout, buat/ubah/hapus kegiatan & user
-- Halaman `/admin/activity-log` dengan filter multi-dimensi & pagination
-- Fitur purge log berdasarkan umur (default 90 hari)
-- Submenu **Log Aktivitas** di menu Administrasi (admin only)
-
-### v1.5.0
-- Kegiatan berulang (harian, mingguan, dua mingguan, bulanan)
-- Lampiran file per kegiatan
-- Template notulen
-
-### v1.4.0
-- Editor notulen real-time (Quill + long polling)
-- Komentar & mention di notulen
-- Export PDF (mPDF) & DOCX (native Open XML)
-
-### v1.3.0
-- Manajemen departemen
-- Filter kegiatan per departemen
-
-### v1.2.0
-- Tindak lanjut terintegrasi
-- Sistem notifikasi polling
-
-### v1.1.0
-- Multi-role (Admin, Sekretaris, Peserta)
-- Reset password via email (PHPMailer)
+### v1.0.0 — Rilis Perdana
+- Multi-role: Admin, Sekretaris, Peserta
+- Login dengan username, Remember Me, reset password via email (PHPMailer)
+- Manajemen kegiatan: buat, edit, hapus, ubah status
+- Kalender interaktif (FullCalendar v6)
+- Manajemen peserta per kegiatan
+- Kegiatan berulang: harian, mingguan, dua mingguan, bulanan
+- Lampiran file per kegiatan dengan validasi tipe & ukuran
+- Editor notulen real-time (Quill + long polling) dengan riwayat versi
+- Komentar & mention (@user) di notulen
+- Export notulen ke PDF (mPDF) & DOCX (native Open XML)
+- Tindak lanjut terintegrasi: assign, deadline, prioritas, update status
+- Sistem notifikasi polling otomatis (interval 20 detik)
+- Manajemen user: tambah, edit, nonaktifkan, hapus, reset password
+- Manajemen departemen & filter kegiatan per departemen
+- Pengaturan aplikasi: logo, background login, konfigurasi SMTP
+- Template notulen yang dapat dikustomisasi
+- Log aktivitas admin: login, logout, kegiatan, user — dengan filter & purge
+- Web Installer 4 langkah untuk setup tanpa sentuh kode
 
 ---
 
