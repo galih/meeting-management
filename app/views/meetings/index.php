@@ -1,5 +1,6 @@
 <?php
 $baseUrl  = rtrim(BASE_URL, '/');
+$isAdmin  = Auth::hasRole('admin');
 $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 ?>
 
@@ -25,8 +26,7 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER 
           <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="24" height="24"
                viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="4" width="18" height="18" rx="2"/>
-            <line x1="16" y1="2" x2="16" y2="6"/>
-            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
             <line x1="3" y1="10" x2="21" y2="10"/>
           </svg>Kalender
         </a>
@@ -91,7 +91,25 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER 
                 } ?>"><?= ucfirst($m['status']) ?></span>
               </td>
               <td>
-                <a href="<?= $baseUrl ?>/meetings/<?= $m['id'] ?>" class="btn btn-sm btn-outline-primary">Detail</a>
+                <div class="d-flex gap-1 align-items-center">
+                  <a href="<?= $baseUrl ?>/meetings/<?= $m['id'] ?>"
+                     class="btn btn-sm btn-outline-primary">Detail</a>
+                  <?php if ($isAdmin): ?>
+                  <button type="button"
+                          class="btn btn-sm btn-outline-danger"
+                          title="Hapus Kegiatan"
+                          onclick="confirmDeleteMeeting(<?= $m['id'] ?>, <?= htmlspecialchars(json_encode($m['title'])) ?>)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"
+                         viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                      <path d="M10 11v6"/><path d="M14 11v6"/>
+                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    </svg>
+                  </button>
+                  <?php endif; ?>
+                </div>
               </td>
             </tr>
             <?php endforeach; ?>
@@ -101,6 +119,34 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER 
     </div>
   </div>
 </div>
+
+<?php if ($isAdmin): ?>
+<!-- Modal Konfirmasi Hapus Kegiatan -->
+<div class="modal modal-blur fade" id="modalDeleteMeeting" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body">
+        <div class="modal-title">Hapus Kegiatan</div>
+        <div class="mt-2">Yakin ingin menghapus kegiatan:<br>
+          <strong id="deleteMeetingTitle" class="text-danger"></strong>?
+        </div>
+        <div class="text-muted small mt-1">
+          Semua data peserta, tindak lanjut, dan notulen terkait akan ikut terhapus.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-link link-secondary me-auto"
+                data-bs-dismiss="modal">Batal</button>
+        <form id="formDeleteMeeting" method="POST" action="">
+          <?= Auth::csrfField() ?>
+          <input type="hidden" name="_method" value="DELETE">
+          <button type="submit" class="btn btn-danger">Ya, Hapus</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <!-- Modal Buat Kegiatan -->
 <div class="modal modal-blur fade" id="modalMeeting" tabindex="-1" role="dialog">
@@ -284,5 +330,14 @@ async function cascadeMtg(level) {
   } else {
     syncMtgHidden();
   }
+}
+
+// Hapus Kegiatan
+function confirmDeleteMeeting(id, title) {
+  document.getElementById('deleteMeetingTitle').textContent = title;
+  document.getElementById('formDeleteMeeting').action =
+    <?= json_encode($baseUrl) ?> + '/meetings/' + id + '/delete';
+  const modal = new bootstrap.Modal(document.getElementById('modalDeleteMeeting'));
+  modal.show();
 }
 </script>
