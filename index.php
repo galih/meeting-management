@@ -148,7 +148,11 @@ $router->post('/notulen-templates/{id}/delete',      [NotulenTemplateController:
 $router->get('/api/notulen-templates',               [NotulenTemplateController::class, 'apiList']);
 $router->get('/api/notulen-templates/{id}',          [NotulenTemplateController::class, 'apiGet']);
 
-// ── Dispatch ────────────────────────────────────────────────────────────────────────────────
+// === ACTIVITY LOG (admin only) ===
+$router->get('/admin/activity-log',        [ActivityLogController::class, 'index']);
+$router->post('/admin/activity-log/purge', [ActivityLogController::class, 'purge']);
+
+// ── Dispatch ────────────────────────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
