@@ -1,15 +1,17 @@
 <?php
 $baseUrl    = rtrim(BASE_URL, '/');
+$bulanIni   = date('F Y'); // contoh: May 2026
 $statConfig = [
-    ['key'=>'total_meetings',  'label'=>'Total Kegiatan',     'color'=>'blue',   'icon'=>'📅'],
-    ['key'=>'meeting_today',   'label'=>'Kegiatan Hari Ini',  'color'=>'orange', 'icon'=>'🗓️'],
-    ['key'=>'tl_pending',      'label'=>'Tugas Pending',      'color'=>'yellow', 'icon'=>'⏳'],
-    ['key'=>'tl_overdue',      'label'=>'Tugas Terlambat',    'color'=>'red',    'icon'=>'⚠️'],
-    ['key'=>'tl_done',         'label'=>'Tugas Selesai',      'color'=>'green',  'icon'=>'✅'],
-    ['key'=>'notif_unread',    'label'=>'Notif Belum Dibaca', 'color'=>'purple', 'icon'=>'🔔'],
+    ['key'=>'total_meetings',  'label'=>'Total Kegiatan',       'color'=>'blue',   'icon'=>'📅'],
+    ['key'=>'meeting_today',   'label'=>'Kegiatan Hari Ini',    'color'=>'orange', 'icon'=>'🗓️'],
+    ['key'=>'meeting_month',   'label'=>'Kegiatan Bulan Ini',   'color'=>'cyan',   'icon'=>'📆'],
+    ['key'=>'tl_pending',      'label'=>'Tugas Pending',        'color'=>'yellow', 'icon'=>'⏳'],
+    ['key'=>'tl_overdue',      'label'=>'Tugas Terlambat',      'color'=>'red',    'icon'=>'⚠️'],
+    ['key'=>'tl_done',         'label'=>'Tugas Selesai',        'color'=>'green',  'icon'=>'✅'],
+    ['key'=>'notif_unread',    'label'=>'Notif Belum Dibaca',   'color'=>'purple', 'icon'=>'🔔'],
 ];
 if ($user['role'] === 'admin') {
-    array_splice($statConfig, 1, 0, [
+    array_splice($statConfig, 3, 0, [
         ['key'=>'total_users','label'=>'User Aktif','color'=>'teal','icon'=>'👥'],
     ]);
 }
@@ -22,11 +24,19 @@ if ($user['role'] === 'admin') {
     <div class="card stat-card position-relative">
       <div class="card-body">
         <div class="subheader"><?= htmlspecialchars($sc['label']) ?></div>
+        <?php if ($sc['key'] === 'meeting_month'): ?>
+        <div class="h1"><?= number_format((int)($stats[$sc['key']] ?? 0)) ?></div>
+        <div class="stat-footer">
+          <span class="status-dot status-dot-animated bg-<?= $sc['color'] ?>"></span>
+          <span class="text-muted"><?= date('M Y') ?></span>
+        </div>
+        <?php else: ?>
         <div class="h1"><?= number_format((int)($stats[$sc['key']] ?? 0)) ?></div>
         <div class="stat-footer">
           <span class="status-dot status-dot-animated bg-<?= $sc['color'] ?>"></span>
           <span class="text-muted"><?= htmlspecialchars($sc['label']) ?></span>
         </div>
+        <?php endif; ?>
         <div class="stat-icon"><?= $sc['icon'] ?></div>
       </div>
     </div>
@@ -266,7 +276,6 @@ if ($user['role'] === 'admin') {
   const months   = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   const isAdmin  = <?= json_encode($user['role'] === 'admin') ?>;
 
-  // ── Helpers ──────────────────────────────────────────────
   function defaultChartOptions(opts = {}) {
     return Object.assign({
       responsive: true,
@@ -275,7 +284,7 @@ if ($user['role'] === 'admin') {
     }, opts);
   }
 
-  // ── 1. Chart Kegiatan Per Bulan (Bar) ────────────────────
+  // 1. Chart Kegiatan Per Bulan (Bar)
   let chartKegiatan;
   async function loadChartKegiatan(year) {
     const res  = await fetch(BASE + '/api/dashboard/chart-monthly?year=' + year);
@@ -311,7 +320,7 @@ if ($user['role'] === 'admin') {
   loadChartKegiatan(selYear.value);
   selYear.addEventListener('change', () => loadChartKegiatan(selYear.value));
 
-  // ── 2. Chart Status TL (Donut) ───────────────────────────
+  // 2. Chart Status TL (Donut)
   async function loadChartTlStatus() {
     const res  = await fetch(BASE + '/api/dashboard/chart-tl-status');
     const json = await res.json();
@@ -336,7 +345,6 @@ if ($user['role'] === 'admin') {
         }
       }
     });
-    // Legend manual
     const lg = document.getElementById('tl-status-legend');
     lg.innerHTML = keys.map((k, i) =>
       `<span class="d-inline-flex align-items-center gap-1 me-2 mb-1">
@@ -348,7 +356,7 @@ if ($user['role'] === 'admin') {
   }
   loadChartTlStatus();
 
-  // ── 3. Chart Tren TL Selesai vs Terlambat (Line) ─────────
+  // 3. Chart Tren TL (Line)
   let chartTrend;
   async function loadChartTrend(year) {
     const res  = await fetch(BASE + '/api/dashboard/chart-tl-trend?year=' + year);
@@ -365,20 +373,14 @@ if ($user['role'] === 'admin') {
             data: json.done,
             borderColor: '#2fb344',
             backgroundColor: 'rgba(47,179,68,.12)',
-            tension: 0.4,
-            fill: true,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6,
           },
           {
             label: 'Terlambat',
             data: json.overdue,
             borderColor: '#d63939',
             backgroundColor: 'rgba(214,57,57,.10)',
-            tension: 0.4,
-            fill: true,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            tension: 0.4, fill: true, pointRadius: 4, pointHoverRadius: 6,
           }
         ]
       },
@@ -399,7 +401,7 @@ if ($user['role'] === 'admin') {
   loadChartTrend(selTrend.value);
   selTrend.addEventListener('change', () => loadChartTrend(selTrend.value));
 
-  // ── 4. Chart Top Unit Kerja (Horizontal Bar, admin only) ──
+  // 4. Chart Top Unit Kerja (Horizontal Bar, admin only)
   async function loadChartTopDept() {
     if (!isAdmin) {
       document.getElementById('chartTopDept').closest('.card').style.display = 'none';
@@ -424,8 +426,7 @@ if ($user['role'] === 'admin') {
             'rgba(66,99,235,.75)','rgba(47,179,68,.75)',
             'rgba(245,159,0,.75)','rgba(214,57,57,.75)','rgba(123,28,28,.75)'
           ],
-          borderRadius: 4,
-          borderWidth: 0,
+          borderRadius: 4, borderWidth: 0,
         }]
       },
       options: {
