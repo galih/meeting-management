@@ -78,17 +78,13 @@ class MeetingController
         $deptId    = !empty($_POST['department_id']) ? (int)$_POST['department_id'] : null;
 
         $errors = [];
-        if ($title === '') {
-            $errors[] = 'Judul meeting tidak boleh kosong.';
-        }
+        if ($title === '') $errors[] = 'Judul meeting tidak boleh kosong.';
         if ($startDt === '' || $endDt === '') {
             $errors[] = 'Tanggal mulai dan selesai wajib diisi.';
         } elseif (strtotime($endDt) <= strtotime($startDt)) {
             $errors[] = 'Tanggal selesai harus lebih besar dari tanggal mulai.';
         }
-        if (!preg_match('/^#[0-9a-fA-F]{3,6}$/', $color)) {
-            $color = '#f76707';
-        }
+        if (!preg_match('/^#[0-9a-fA-F]{3,6}$/', $color)) $color = '#f76707';
 
         if (!empty($errors)) {
             $_SESSION['flash_error'] = implode(' ', $errors);
@@ -106,23 +102,25 @@ class MeetingController
         ]);
         $meetingId = (int)$db->lastInsertId();
 
-        $participants = array_map('intval', (array)($_POST['participants'] ?? []));
-        $participants = array_filter($participants);
-
+        $participants = array_filter(array_map('intval', (array)($_POST['participants'] ?? [])));
         foreach ($participants as $uid) {
             $db->prepare(
                 "INSERT IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?,?)"
             )->execute([$meetingId, $uid]);
         }
-
         if (!empty($participants)) {
             Notification::sendBulk(
-                $participants,
-                'meeting_invite',
+                $participants, 'meeting_invite',
                 "Anda diundang ke meeting: {$title}",
                 BASE_URL . "/meetings/{$meetingId}"
             );
         }
+
+        ActivityLog::record(
+            'meeting.create',
+            "Membuat kegiatan: {$title}",
+            'meeting', $meetingId
+        );
 
         $_SESSION['flash_success'] = 'Meeting berhasil dibuat.';
         header('Location: ' . BASE_URL . "/meetings/{$meetingId}"); exit;
@@ -198,6 +196,14 @@ class MeetingController
         Database::getInstance()->prepare(
             "UPDATE meetings SET status=? WHERE id=?"
         )->execute([$status, $id]);
+
+        $meeting = Database::queryOne("SELECT title FROM meetings WHERE id=?", [$id]);
+        ActivityLog::record(
+            'meeting.status',
+            "Ubah status kegiatan \"" . ($meeting['title'] ?? $id) . "\" menjadi: {$status}",
+            'meeting', $id
+        );
+
         header('Content-Type: application/json');
         echo json_encode(['success' => true]); exit;
     }
@@ -206,9 +212,11 @@ class MeetingController
     {
         Auth::requireRole('admin');
 
+        $meeting = Database::queryOne("SELECT title FROM meetings WHERE id=?", [$id]);
+        $title   = $meeting['title'] ?? "ID #{$id}";
+
         $db = Database::getInstance();
 
-        // Hapus file fisik attachment dari disk (kolom: stored_name)
         $attachments = Database::query(
             "SELECT stored_name FROM meeting_attachments WHERE meeting_id=?", [$id]
         );
@@ -218,26 +226,28 @@ class MeetingController
             if (file_exists($path)) @unlink($path);
         }
 
-        // Hapus relasi child terlebih dahulu
-        // Catatan: tabel dengan ON DELETE CASCADE tidak wajib dihapus manual,
-        // tapi kita eksplisit agar aman di semua environment.
         $relatedTables = [
-            "DELETE FROM notulen_exports     WHERE meeting_id=?",
-            "DELETE FROM notulen_history     WHERE meeting_id=?",
-            "DELETE FROM notulen_comments    WHERE meeting_id=?",
-            "DELETE FROM meeting_attachments WHERE meeting_id=?",
-            "DELETE FROM meeting_attendances WHERE meeting_id=?",
-            "DELETE FROM tindak_lanjut       WHERE meeting_id=?",
+            "DELETE FROM notulen_exports      WHERE meeting_id=?",
+            "DELETE FROM notulen_history      WHERE meeting_id=?",
+            "DELETE FROM notulen_comments     WHERE meeting_id=?",
+            "DELETE FROM meeting_attachments  WHERE meeting_id=?",
+            "DELETE FROM meeting_attendances  WHERE meeting_id=?",
+            "DELETE FROM tindak_lanjut        WHERE meeting_id=?",
             "DELETE FROM meeting_participants WHERE meeting_id=?",
             "DELETE FROM email_queue          WHERE meeting_id=?",
             "DELETE FROM notifications        WHERE url LIKE CONCAT('%/meetings/',?,'%')",
-            "DELETE FROM notulen             WHERE meeting_id=?",
+            "DELETE FROM notulen              WHERE meeting_id=?",
         ];
         foreach ($relatedTables as $sql) {
             $db->prepare($sql)->execute([$id]);
         }
-
         $db->prepare("DELETE FROM meetings WHERE id=?")->execute([$id]);
+
+        ActivityLog::record(
+            'meeting.delete',
+            "Menghapus kegiatan: {$title}",
+            'meeting', $id
+        );
 
         $_SESSION['flash_success'] = 'Kegiatan berhasil dihapus.';
         header('Location: ' . BASE_URL . '/meetings'); exit;

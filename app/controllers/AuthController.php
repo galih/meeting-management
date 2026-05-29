@@ -14,14 +14,12 @@ class AuthController
         }
     }
 
-    // GET /login
     public static function loginForm(): void
     {
         if (Auth::check()) { header('Location: ' . BASE_URL . '/'); exit; }
         View::standalone('auth/login', ['title' => 'Login']);
     }
 
-    // POST /login
     public static function login(): void
     {
         $username = trim($_POST['username'] ?? '');
@@ -38,6 +36,12 @@ class AuthController
         );
 
         if (!$user || !password_verify($password, $user['password'])) {
+            // Log login gagal
+            ActivityLog::record(
+                'auth.failed',
+                "Login gagal untuk username: {$username}",
+                'auth'
+            );
             $_SESSION['login_error'] = 'Username atau password salah.';
             header('Location: ' . BASE_URL . '/login'); exit;
         }
@@ -56,14 +60,33 @@ class AuthController
             "UPDATE users SET last_login=NOW() WHERE id=?"
         )->execute([$user['id']]);
 
+        // Log login berhasil
+        ActivityLog::record(
+            'auth.login',
+            "Login berhasil: {$user['name']} ({$user['username']})",
+            'auth',
+            (int)$user['id']
+        );
+
         $redirect = $_SESSION['redirect_after_login'] ?? BASE_URL . '/';
         unset($_SESSION['redirect_after_login']);
         header('Location: ' . $redirect); exit;
     }
 
-    // GET /logout
     public static function logout(): void
     {
+        $user = Auth::user();
+
+        // Log logout sebelum session di-destroy
+        if ($user) {
+            ActivityLog::record(
+                'auth.logout',
+                "Logout: {$user['name']} ({$user['username']})",
+                'auth',
+                (int)$user['id']
+            );
+        }
+
         if (isset($_COOKIE['remember_token'])) {
             Database::getInstance()->prepare(
                 "UPDATE users SET remember_token=NULL WHERE id=?"
@@ -74,7 +97,6 @@ class AuthController
         header('Location: ' . BASE_URL . '/login'); exit;
     }
 
-    // GET|POST /forgot-password
     public static function forgotPassword(): void
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -99,7 +121,6 @@ class AuthController
         View::standalone('auth/forgot-password', ['title' => 'Lupa Password']);
     }
 
-    // GET|POST /reset-password
     public static function resetPassword(): void
     {
         $token = $_GET['token'] ?? $_POST['token'] ?? '';
@@ -144,7 +165,6 @@ class AuthController
             'username' => $user['username'],
             'name'     => $user['name'],
             'email'    => $user['email'],
-            // Lowercase agar Auth::hasRole('admin','sekretaris') tidak case-sensitive
             'role'     => strtolower(trim($user['role'] ?? '')),
         ];
     }

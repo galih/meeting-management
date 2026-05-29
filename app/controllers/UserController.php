@@ -59,31 +59,33 @@ class UserController
             $_SESSION['flash_error'] = 'Username wajib diisi.';
             header('Location: ' . BASE_URL . '/users'); exit;
         }
-
-        // Cek duplikat username
         if (Database::queryOne("SELECT id FROM users WHERE username=?", [$username])) {
             $_SESSION['flash_error'] = 'Username sudah digunakan.';
             header('Location: ' . BASE_URL . '/users'); exit;
         }
-
-        // Cek duplikat email
         if (Database::queryOne("SELECT id FROM users WHERE email=?", [$email])) {
             $_SESSION['flash_error'] = 'Email sudah digunakan.';
             header('Location: ' . BASE_URL . '/users'); exit;
         }
 
         $hash = password_hash($d['password'], PASSWORD_BCRYPT, ['cost' => 12]);
-        Database::getInstance()->prepare(
+        $db   = Database::getInstance();
+        $db->prepare(
             "INSERT INTO users (username, name, email, password, role, department_id, is_active)
              VALUES (?,?,?,?,?,?,1)"
         )->execute([
-            $username,
-            trim($d['name']),
-            $email,
-            $hash,
+            $username, trim($d['name']), $email, $hash,
             $d['role'] ?? 'peserta',
             !empty($d['department_id']) ? (int)$d['department_id'] : null,
         ]);
+        $newId = (int)$db->lastInsertId();
+
+        ActivityLog::record(
+            'user.create',
+            "Menambahkan user baru: {$d['name']} ({$username}) — role: " . ($d['role'] ?? 'peserta'),
+            'user', $newId
+        );
+
         $_SESSION['flash_success'] = 'Pengguna berhasil ditambahkan.';
         header('Location: ' . BASE_URL . '/users'); exit;
     }
@@ -99,14 +101,10 @@ class UserController
             $_SESSION['flash_error'] = 'Username wajib diisi.';
             header('Location: ' . BASE_URL . '/users'); exit;
         }
-
-        // Cek duplikat username (kecuali user ini sendiri)
         if (Database::queryOne("SELECT id FROM users WHERE username=? AND id!=?", [$username, $id])) {
             $_SESSION['flash_error'] = 'Username sudah digunakan akun lain.';
             header('Location: ' . BASE_URL . '/users'); exit;
         }
-
-        // Cek duplikat email
         if (Database::queryOne("SELECT id FROM users WHERE email=? AND id!=?", [$email, $id])) {
             $_SESSION['flash_error'] = 'Email sudah digunakan akun lain.';
             header('Location: ' . BASE_URL . '/users'); exit;
@@ -131,11 +129,17 @@ class UserController
                 !empty($d['department_id']) ? (int)$d['department_id'] : null, $isActive, $id,
             ]);
         }
+
+        ActivityLog::record(
+            'user.update',
+            "Mengubah data user: {$d['name']} ({$username}) — role: {$d['role']}",
+            'user', $id
+        );
+
         $_SESSION['flash_success'] = 'Data pengguna berhasil diupdate.';
         header('Location: ' . BASE_URL . '/users'); exit;
     }
 
-    /** Nonaktifkan (soft delete) */
     public static function delete(int $id): void
     {
         Auth::requireRole('admin');
@@ -143,13 +147,22 @@ class UserController
         if ($id === Auth::id()) {
             echo json_encode(['success' => false, 'message' => 'Tidak bisa menonaktifkan akun sendiri']); exit;
         }
+        $user = Database::queryOne("SELECT name, username FROM users WHERE id=?", [$id]);
         Database::getInstance()->prepare(
             "UPDATE users SET is_active=0 WHERE id=?"
         )->execute([$id]);
+
+        if ($user) {
+            ActivityLog::record(
+                'user.update',
+                "Menonaktifkan akun: {$user['name']} ({$user['username']})",
+                'user', $id
+            );
+        }
+
         echo json_encode(['success' => true]); exit;
     }
 
-    /** Hapus permanen */
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin');
@@ -159,18 +172,23 @@ class UserController
             echo json_encode(['success' => false, 'message' => 'Tidak bisa menghapus akun sendiri']); exit;
         }
 
-        $user = Database::queryOne("SELECT id, name FROM users WHERE id=?", [$id]);
+        $user = Database::queryOne("SELECT id, name, username FROM users WHERE id=?", [$id]);
         if (!$user) {
             echo json_encode(['success' => false, 'message' => 'User tidak ditemukan']); exit;
         }
 
         try {
             Database::getInstance()->prepare("DELETE FROM users WHERE id=?")->execute([$id]);
+            ActivityLog::record(
+                'user.delete',
+                "Menghapus user permanen: {$user['name']} ({$user['username']})",
+                'user', $id
+            );
             echo json_encode(['success' => true, 'message' => 'User berhasil dihapus']);
         } catch (\PDOException $e) {
             echo json_encode([
                 'success' => false,
-                'message' => 'Tidak dapat dihapus karena user memiliki data terkait (meeting, notulen, dll). Nonaktifkan saja.'
+                'message' => 'Tidak dapat dihapus karena user memiliki data terkait. Nonaktifkan saja.'
             ]);
         }
         exit;
