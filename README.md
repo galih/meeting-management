@@ -1,8 +1,8 @@
 <div align="center">
 
-# 📅 Meeting Management App
+# 🗣️ Wicara
 
-**Aplikasi manajemen meeting profesional berbasis PHP 8.5 native**
+**Aplikasi Manajemen Kegiatan berbasis PHP 8.5 native**
 
 ![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?style=flat-square&logo=php)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql)
@@ -16,7 +16,7 @@
 
 ## 📖 Tentang Aplikasi
 
-Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun dengan **PHP 8.5 native** tanpa framework — cocok untuk di-deploy di **shared hosting** biasa. Aplikasi ini mendukung multi-role (Admin, Sekretaris, Peserta), kalender meeting interaktif, editor notulen real-time, lampiran file, recurring meeting, manajemen tindak lanjut terintegrasi, dan **log aktivitas lengkap untuk admin**.
+**Wicara** adalah aplikasi manajemen kegiatan lengkap yang dibangun dengan **PHP 8.5 native** tanpa framework — cocok untuk di-deploy di **shared hosting** biasa. Wicara mendukung multi-role (Admin, Sekretaris, Peserta), kalender kegiatan interaktif, editor notulen real-time, lampiran file, kegiatan berulang, manajemen tindak lanjut terintegrasi, dan **log aktivitas lengkap untuk admin**.
 
 ---
 
@@ -29,20 +29,20 @@ Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun den
 - Sistem role: **Admin**, **Sekretaris**, **Peserta**
 
 ### 📅 Meeting
-- Buat, edit, dan hapus meeting
+- Buat, edit, dan hapus kegiatan
 - Kalender interaktif (FullCalendar v6)
 - Tampilan daftar dengan filter status
-- Manajemen peserta per meeting
+- Manajemen peserta per kegiatan
 - Ubah status: `scheduled → ongoing → done → cancelled`
 
 ### 🔁 Recurring Meeting
-- Buat jadwal meeting berulang: **harian, mingguan, dua mingguan, bulanan**
-- Generate meeting otomatis sesuai jadwal
+- Buat jadwal kegiatan berulang: **harian, mingguan, dua mingguan, bulanan**
+- Generate kegiatan otomatis sesuai jadwal
 - Manajemen peserta recurring terpisah
-- Link antara meeting instance dan template recurring
+- Link antara kegiatan instance dan template recurring
 
 ### 📎 Lampiran File
-- Upload lampiran per meeting (agenda, notulen, referensi, lainnya)
+- Upload lampiran per kegiatan (agenda, notulen, referensi, lainnya)
 - Validasi tipe & ukuran file
 - Download & hapus lampiran
 - Folder penyimpanan: `public/uploads/attachments/`
@@ -55,8 +55,8 @@ Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun den
 - Komentar & reply per notulen dengan mention (@user)
 
 ### ✅ Tindak Lanjut
-- Buat tugas langsung dari halaman meeting / notulen
-- Assign ke peserta meeting
+- Buat tugas langsung dari halaman kegiatan / notulen
+- Assign ke peserta kegiatan
 - Set deadline & prioritas (High / Medium / Low)
 - Update status via AJAX tanpa reload
 - Highlight merah jika terlambat
@@ -75,10 +75,10 @@ Meeting Management App adalah sistem manajemen meeting lengkap yang dibangun den
 ### 🏢 Departemen
 - Manajemen departemen/divisi
 - Assign user ke departemen
-- Filter meeting per departemen
+- Filter kegiatan per departemen
 
 ### 🗂️ Log Aktivitas *(v1.6.0 — Admin only)*
-- Mencatat semua aktivitas penting secara otomatis: **login, logout, login gagal, buat/ubah/hapus meeting, buat/ubah/hapus user**
+- Mencatat semua aktivitas penting secara otomatis: **login, logout, login gagal, buat/ubah/hapus kegiatan, buat/ubah/hapus user**
 - Halaman khusus admin di menu **Administrasi → Log Aktivitas**
 - Filter berdasarkan **user**, **modul** (auth / meeting / user), dan **rentang tanggal**
 - Badge warna per jenis aksi (hijau = login, biru = dibuat, kuning = diubah, merah = dihapus)
@@ -275,16 +275,16 @@ meeting-management/
 | GET/POST | `/reset-password` | Reset password via token | Public |
 | GET | `/logout` | Logout | Auth |
 | GET | `/` | Dashboard | Auth |
-| GET | `/meetings` | Daftar & kalender meeting | Auth |
-| POST | `/meetings` | Buat meeting baru | Admin/Sekretaris |
-| GET | `/meetings/{id}` | Detail meeting + lampiran | Auth |
-| POST | `/meetings/{id}/status` | Ubah status meeting | Admin/Sekretaris |
-| POST | `/meetings/{id}/delete` | Hapus meeting | Admin |
+| GET | `/meetings` | Daftar & kalender kegiatan | Auth |
+| POST | `/meetings` | Buat kegiatan baru | Admin/Sekretaris |
+| GET | `/meetings/{id}` | Detail kegiatan + lampiran | Auth |
+| POST | `/meetings/{id}/status` | Ubah status kegiatan | Admin/Sekretaris |
+| POST | `/meetings/{id}/delete` | Hapus kegiatan | Admin |
 | POST | `/meetings/{id}/attachments` | Upload lampiran | Admin/Sekretaris |
 | GET | `/attachments/{id}/download` | Download lampiran | Auth |
 | POST | `/attachments/{id}/delete` | Hapus lampiran | Admin/Sekretaris |
-| GET | `/recurring` | Daftar recurring meeting | Auth |
-| POST | `/recurring` | Buat recurring meeting | Admin/Sekretaris |
+| GET | `/recurring` | Daftar kegiatan berulang | Auth |
+| POST | `/recurring` | Buat kegiatan berulang | Admin/Sekretaris |
 | GET | `/notulen/{id}` | Editor notulen | Auth |
 | GET | `/notulen/{id}/history` | Riwayat notulen | Auth |
 | GET | `/tindak-lanjut` | Daftar tindak lanjut | Auth |
@@ -354,14 +354,14 @@ meeting-management/
 ### v1.6.0 — Log Aktivitas Admin
 - Tambah tabel `activity_logs` dengan index optimasi
 - Helper `ActivityLog` statis (`record`, `badge`, `paginate`)
-- Log otomatis untuk: login berhasil/gagal, logout, buat/ubah/hapus meeting & user
+- Log otomatis untuk: login berhasil/gagal, logout, buat/ubah/hapus kegiatan & user
 - Halaman `/admin/activity-log` dengan filter multi-dimensi & pagination
 - Fitur purge log berdasarkan umur (default 90 hari)
 - Submenu **Log Aktivitas** di menu Administrasi (admin only)
 
 ### v1.5.0
-- Recurring Meeting (harian, mingguan, dua mingguan, bulanan)
-- Lampiran file per meeting
+- Kegiatan berulang (harian, mingguan, dua mingguan, bulanan)
+- Lampiran file per kegiatan
 - Template notulen
 
 ### v1.4.0
@@ -371,7 +371,7 @@ meeting-management/
 
 ### v1.3.0
 - Manajemen departemen
-- Filter meeting per departemen
+- Filter kegiatan per departemen
 
 ### v1.2.0
 - Tindak lanjut terintegrasi
