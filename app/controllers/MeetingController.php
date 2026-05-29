@@ -69,7 +69,6 @@ class MeetingController
     {
         Auth::requireRole('admin', 'sekretaris');
 
-        // ── Fix #3: Validasi input ──────────────────────────────────────
         $title     = trim($_POST['title']          ?? '');
         $desc      = trim($_POST['description']    ?? '');
         $location  = trim($_POST['location']       ?? '');
@@ -87,7 +86,6 @@ class MeetingController
         } elseif (strtotime($endDt) <= strtotime($startDt)) {
             $errors[] = 'Tanggal selesai harus lebih besar dari tanggal mulai.';
         }
-        // Validasi warna hex
         if (!preg_match('/^#[0-9a-fA-F]{3,6}$/', $color)) {
             $color = '#f76707';
         }
@@ -104,14 +102,7 @@ class MeetingController
               color, department_id, created_by)
              VALUES (?,?,?,?,?,?,?,?)"
         )->execute([
-            $title,
-            $desc,
-            $location,
-            $startDt,
-            $endDt,
-            $color,
-            $deptId,
-            Auth::id(),
+            $title, $desc, $location, $startDt, $endDt, $color, $deptId, Auth::id(),
         ]);
         $meetingId = (int)$db->lastInsertId();
 
@@ -196,8 +187,6 @@ class MeetingController
     public static function updateStatus(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
-
-        // ── Fix #2: CSRF check ─────────────────────────────────────────
         self::verifyCsrf();
 
         $status  = $_POST['status'] ?? '';
@@ -217,33 +206,32 @@ class MeetingController
     {
         Auth::requireRole('admin');
 
-        // ── Fix #4: Hapus semua data relasi sebelum hapus meeting ──────
         $db = Database::getInstance();
 
-        // Hapus attachment fisik dari disk
+        // Hapus file fisik attachment dari disk
         $attachments = Database::query(
-            "SELECT file_path FROM attachments WHERE meeting_id=?", [$id]
+            "SELECT file_path FROM meeting_attachments WHERE meeting_id=?", [$id]
         );
         foreach ($attachments as $att) {
             $path = ROOT_PATH . '/' . ltrim($att['file_path'], '/');
             if (file_exists($path)) @unlink($path);
         }
 
-        // Hapus semua relasi secara eksplisit (urutan penting: child dulu)
+        // Hapus relasi (urutan: child dulu)
         foreach ([
-            "DELETE FROM attachments         WHERE meeting_id=?",
-            "DELETE FROM tindak_lanjut       WHERE meeting_id=?",
-            "DELETE FROM notulen             WHERE meeting_id=?",
+            "DELETE FROM meeting_attachments  WHERE meeting_id=?",
+            "DELETE FROM tindak_lanjut        WHERE meeting_id=?",
+            "DELETE FROM notulen_exports      WHERE meeting_id=?",
             "DELETE FROM meeting_participants WHERE meeting_id=?",
-            "DELETE FROM email_queue         WHERE type IN ('invitation','summary')
-                                              AND body LIKE CONCAT('%/meetings/',?,'%')",
+            "DELETE FROM notifications        WHERE url LIKE CONCAT('%/meetings/',?,'%')",
+            "DELETE FROM email_queue          WHERE body LIKE CONCAT('%/meetings/',?,'%')",
         ] as $sql) {
             $db->prepare($sql)->execute([$id]);
         }
 
         $db->prepare("DELETE FROM meetings WHERE id=?")->execute([$id]);
 
-        $_SESSION['flash_success'] = 'Meeting berhasil dihapus.';
+        $_SESSION['flash_success'] = 'Kegiatan berhasil dihapus.';
         header('Location: ' . BASE_URL . '/meetings'); exit;
     }
 
@@ -280,7 +268,6 @@ class MeetingController
         echo json_encode($events); exit;
     }
 
-    // ── Fix #2: CSRF helper ─────────────────────────────────────────────
     private static function verifyCsrf(): void
     {
         $token   = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
