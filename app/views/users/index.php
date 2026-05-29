@@ -1,6 +1,7 @@
 <?php
 $baseUrl = rtrim(BASE_URL, '/');
 $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Peserta'];
+$deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?? 1) === 1));
 ?>
 
 <?php if (!empty($_SESSION['flash_success'])): ?>
@@ -45,7 +46,7 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
       <thead>
         <tr>
           <th style="width:40px;">#</th>
-          <th>Nama</th><th>Username</th><th>Email</th><th>Departemen</th><th>Role</th><th>Status</th>
+          <th>Nama</th><th>Username</th><th>Email</th><th>Unit Kerja</th><th>Role</th><th>Status</th>
           <th>Dibuat</th><th>Aksi</th>
         </tr>
       </thead>
@@ -88,24 +89,17 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
               $uJson = htmlspecialchars(json_encode($u, JSON_HEX_QUOT | JSON_HEX_APOS | JSON_HEX_TAG | JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
             ?>
             <div class="d-flex gap-1 flex-wrap">
-              <button class="btn btn-sm btn-outline-primary btn-edit"
-                      data-user="<?= $uJson ?>">
-                Edit
-              </button>
+              <button class="btn btn-sm btn-outline-primary btn-edit" data-user="<?= $uJson ?>">Edit</button>
               <?php if ($u['is_active'] && $u['id'] != Auth::id()): ?>
               <button class="btn btn-sm btn-outline-warning btn-nonaktif"
                       data-id="<?= $u['id'] ?>"
-                      data-url="<?= $baseUrl ?>/users/<?= $u['id'] ?>/delete">
-                Nonaktifkan
-              </button>
+                      data-url="<?= $baseUrl ?>/users/<?= $u['id'] ?>/delete">Nonaktifkan</button>
               <?php endif; ?>
               <?php if ($u['id'] != Auth::id()): ?>
               <button class="btn btn-sm btn-danger btn-hapus"
                       data-id="<?= $u['id'] ?>"
                       data-name="<?= htmlspecialchars($u['name']) ?>"
-                      data-url="<?= $baseUrl ?>/users/<?= $u['id'] ?>/destroy">
-                Hapus
-              </button>
+                      data-url="<?= $baseUrl ?>/users/<?= $u['id'] ?>/destroy">Hapus</button>
               <?php endif; ?>
             </div>
           </td>
@@ -145,8 +139,7 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
         </div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-link link-secondary me-auto"
-                data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="btn btn-link link-secondary me-auto" data-bs-dismiss="modal">Batal</button>
         <button type="button" id="btn-konfirmasi-hapus" class="btn btn-danger">Ya, Hapus</button>
       </div>
     </div>
@@ -169,12 +162,9 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
             <input type="text" name="name" class="form-control" required placeholder="Nama lengkap">
           </div>
           <div class="mb-3">
-            <label class="form-label required">Username
-              <small class="text-muted">(untuk login, tanpa spasi)</small>
-            </label>
+            <label class="form-label required">Username <small class="text-muted">(tanpa spasi)</small></label>
             <input type="text" name="username" class="form-control" required
-                   placeholder="contoh: john.doe" pattern="[a-zA-Z0-9._-]+"
-                   title="Hanya huruf, angka, titik, underscore, atau strip">
+                   placeholder="contoh: john.doe" pattern="[a-zA-Z0-9._-]+">
           </div>
           <div class="mb-3">
             <label class="form-label required">Email</label>
@@ -182,8 +172,7 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
           </div>
           <div class="mb-3">
             <label class="form-label required">Password</label>
-            <input type="password" name="password" class="form-control" required
-                   minlength="8" placeholder="Minimal 8 karakter">
+            <input type="password" name="password" class="form-control" required minlength="8" placeholder="Minimal 8 karakter">
           </div>
           <div class="mb-3">
             <label class="form-label required">Role</label>
@@ -194,13 +183,31 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
             </select>
           </div>
           <div class="mb-0">
-            <label class="form-label">Departemen</label>
-            <select name="department_id" class="form-select">
-              <option value="">-- Tidak ada --</option>
-              <?php foreach ($departments as $dept): ?>
-              <option value="<?= $dept['id'] ?>"><?= htmlspecialchars($dept['name']) ?></option>
-              <?php endforeach; ?>
-            </select>
+            <label class="form-label">Unit Kerja</label>
+            <div class="row g-2">
+              <div class="col-12">
+                <select id="add-u1" class="form-select form-select-sm" onchange="cascadeUser('add',1)">
+                  <option value="">-- Pilih Unit Kerja --</option>
+                  <?php foreach ($deptL1 as $d): ?>
+                  <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+                <div class="form-text">Unit Kerja (Level 1)</div>
+              </div>
+              <div class="col-12">
+                <select id="add-u2" class="form-select form-select-sm" disabled onchange="cascadeUser('add',2)">
+                  <option value="">-- Pilih Unit Kerja dulu --</option>
+                </select>
+                <div class="form-text">Bidang / Bagian (Level 2)</div>
+              </div>
+              <div class="col-12">
+                <select id="add-u3" class="form-select form-select-sm" disabled onchange="cascadeUser('add',3)">
+                  <option value="">-- Pilih Bidang dulu --</option>
+                </select>
+                <div class="form-text">Sub Bidang / Sub Bagian (Level 3)</div>
+              </div>
+            </div>
+            <input type="hidden" id="add-dept-id" name="department_id" value="">
           </div>
         </div>
         <div class="modal-footer">
@@ -228,21 +235,15 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
             <input type="text" name="name" id="edit-name" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label required">Username
-              <small class="text-muted">(untuk login)</small>
-            </label>
-            <input type="text" name="username" id="edit-username" class="form-control" required
-                   pattern="[a-zA-Z0-9._-]+"
-                   title="Hanya huruf, angka, titik, underscore, atau strip">
+            <label class="form-label required">Username <small class="text-muted">(untuk login)</small></label>
+            <input type="text" name="username" id="edit-username" class="form-control" required pattern="[a-zA-Z0-9._-]+">
           </div>
           <div class="mb-3">
             <label class="form-label required">Email</label>
             <input type="email" name="email" id="edit-email" class="form-control" required>
           </div>
           <div class="mb-3">
-            <label class="form-label">Password Baru
-              <small class="text-muted">(kosongkan jika tidak berubah)</small>
-            </label>
+            <label class="form-label">Password Baru <small class="text-muted">(kosongkan jika tidak berubah)</small></label>
             <input type="password" name="password" class="form-control" minlength="8">
           </div>
           <div class="mb-3">
@@ -254,13 +255,31 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Departemen</label>
-            <select name="department_id" id="edit-dept" class="form-select">
-              <option value="">-- Tidak ada --</option>
-              <?php foreach ($departments as $dept): ?>
-              <option value="<?= $dept['id'] ?>"><?= htmlspecialchars($dept['name']) ?></option>
-              <?php endforeach; ?>
-            </select>
+            <label class="form-label">Unit Kerja</label>
+            <div class="row g-2">
+              <div class="col-12">
+                <select id="edit-u1" class="form-select form-select-sm" onchange="cascadeUser('edit',1)">
+                  <option value="">-- Pilih Unit Kerja --</option>
+                  <?php foreach ($deptL1 as $d): ?>
+                  <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+                <div class="form-text">Unit Kerja (Level 1)</div>
+              </div>
+              <div class="col-12">
+                <select id="edit-u2" class="form-select form-select-sm" disabled onchange="cascadeUser('edit',2)">
+                  <option value="">-- Pilih Unit Kerja dulu --</option>
+                </select>
+                <div class="form-text">Bidang / Bagian (Level 2)</div>
+              </div>
+              <div class="col-12">
+                <select id="edit-u3" class="form-select form-select-sm" disabled onchange="cascadeUser('edit',3)">
+                  <option value="">-- Pilih Bidang dulu --</option>
+                </select>
+                <div class="form-text">Sub Bidang / Sub Bagian (Level 3)</div>
+              </div>
+            </div>
+            <input type="hidden" id="edit-dept-id" name="department_id" value="">
           </div>
           <div class="mb-0">
             <label class="form-check">
@@ -279,28 +298,111 @@ $roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Pese
 </div>
 
 <script>
-const baseUrl = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+const baseUrl         = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+const deptChildrenUrl = baseUrl + '/api/departments/children';
+const allDepts        = <?= json_encode(array_values($departments)) ?>;
 
-// Edit
+async function fetchDeptChildren(parentId) {
+  try {
+    const res = await fetch(deptChildrenUrl + '?parent_id=' + parentId);
+    return await res.json();
+  } catch(e) { return []; }
+}
+
+function syncHidden(prefix) {
+  const v3 = document.getElementById(prefix + '-u3')?.value || '';
+  const v2 = document.getElementById(prefix + '-u2')?.value || '';
+  const v1 = document.getElementById(prefix + '-u1')?.value || '';
+  document.getElementById(prefix + '-dept-id').value = v3 || v2 || v1 || '';
+}
+
+async function cascadeUser(prefix, level) {
+  const s1 = document.getElementById(prefix + '-u1');
+  const s2 = document.getElementById(prefix + '-u2');
+  const s3 = document.getElementById(prefix + '-u3');
+  if (level === 1) {
+    s2.innerHTML = '<option value="">-- Pilih Unit Kerja dulu --</option>';
+    s3.innerHTML = '<option value="">-- Pilih Bidang dulu --</option>';
+    s2.disabled = s3.disabled = true;
+    syncHidden(prefix);
+    if (!s1.value) return;
+    const kids = await fetchDeptChildren(s1.value);
+    if (kids.length) {
+      s2.innerHTML = '<option value="">-- Semua Bidang --</option>' +
+        kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      s2.disabled = false;
+    }
+    syncHidden(prefix);
+  } else if (level === 2) {
+    s3.innerHTML = '<option value="">-- Pilih Bidang dulu --</option>';
+    s3.disabled = true;
+    syncHidden(prefix);
+    if (!s2.value) return;
+    const kids = await fetchDeptChildren(s2.value);
+    if (kids.length) {
+      s3.innerHTML = '<option value="">-- Semua Sub Bidang --</option>' +
+        kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      s3.disabled = false;
+    }
+    syncHidden(prefix);
+  } else {
+    syncHidden(prefix);
+  }
+}
+
+async function setEditCascade(deptId) {
+  const s1 = document.getElementById('edit-u1');
+  const s2 = document.getElementById('edit-u2');
+  const s3 = document.getElementById('edit-u3');
+  const hid = document.getElementById('edit-dept-id');
+  s1.value = ''; s2.innerHTML = '<option value="">-- Pilih Unit Kerja dulu --</option>';
+  s3.innerHTML = '<option value="">-- Pilih Bidang dulu --</option>';
+  s2.disabled = s3.disabled = true;
+  hid.value = deptId || '';
+  if (!deptId) return;
+  const node = allDepts.find(d => d.id == deptId);
+  if (!node) return;
+  if (node.level == 1) {
+    s1.value = node.id;
+  } else if (node.level == 2) {
+    s1.value = node.parent_id;
+    const c2 = await fetchDeptChildren(node.parent_id);
+    s2.innerHTML = '<option value="">-- Semua Bidang --</option>' +
+      c2.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    s2.disabled = false; s2.value = node.id;
+  } else if (node.level == 3) {
+    const p2 = allDepts.find(d => d.id == node.parent_id);
+    if (p2) {
+      s1.value = p2.parent_id;
+      const c2 = await fetchDeptChildren(p2.parent_id);
+      s2.innerHTML = '<option value="">-- Semua Bidang --</option>' +
+        c2.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      s2.disabled = false; s2.value = p2.id;
+      const c3 = await fetchDeptChildren(p2.id);
+      s3.innerHTML = '<option value="">-- Semua Sub Bidang --</option>' +
+        c3.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      s3.disabled = false; s3.value = node.id;
+    }
+  }
+  hid.value = deptId;
+}
+
 document.querySelectorAll('.btn-edit').forEach(btn => {
   btn.addEventListener('click', function () {
-    const raw = this.getAttribute('data-user');
     let u;
-    try { u = JSON.parse(raw); } catch (e) {
-      alert('Gagal membuka form edit. Silakan refresh halaman.'); return;
-    }
+    try { u = JSON.parse(this.getAttribute('data-user')); }
+    catch(e) { alert('Gagal membuka form edit.'); return; }
     document.getElementById('edit-name').value     = u.name     ?? '';
     document.getElementById('edit-username').value = u.username ?? '';
     document.getElementById('edit-email').value    = u.email    ?? '';
     document.getElementById('edit-role').value     = u.role     ?? 'peserta';
-    document.getElementById('edit-dept').value     = u.department_id ?? '';
     document.getElementById('edit-active').checked = u.is_active == 1;
     document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
+    setEditCascade(u.department_id);
     new bootstrap.Modal(document.getElementById('modalEditUser')).show();
   });
 });
 
-// Nonaktifkan
 document.querySelectorAll('.btn-nonaktif').forEach(btn => {
   btn.addEventListener('click', async function () {
     if (!confirm('Nonaktifkan user ini?')) return;
@@ -308,44 +410,28 @@ document.querySelectorAll('.btn-nonaktif').forEach(btn => {
     const d   = await res.json();
     if (d.success) {
       const row = document.getElementById('row-' + this.dataset.id);
-      if (row) {
-        const badge = row.querySelector('.badge');
-        if (badge) badge.outerHTML = '<span class="badge bg-secondary-lt">Nonaktif</span>';
-      }
+      if (row) row.querySelector('.badge').outerHTML = '<span class="badge bg-secondary-lt">Nonaktif</span>';
       this.remove();
-    } else {
-      alert(d.message || 'Gagal menonaktifkan user');
-    }
+    } else alert(d.message || 'Gagal menonaktifkan user');
   });
 });
 
-// Hapus permanen
-let hapusUrl = '';
-let hapusId  = '';
-
+let hapusUrl = '', hapusId = '';
 document.querySelectorAll('.btn-hapus').forEach(btn => {
   btn.addEventListener('click', function () {
-    hapusUrl = this.dataset.url;
-    hapusId  = this.dataset.id;
+    hapusUrl = this.dataset.url; hapusId = this.dataset.id;
     document.getElementById('hapus-nama').textContent = this.dataset.name;
     new bootstrap.Modal(document.getElementById('modalHapusUser')).show();
   });
 });
-
 document.getElementById('btn-konfirmasi-hapus').addEventListener('click', async () => {
   const btn = document.getElementById('btn-konfirmasi-hapus');
-  btn.disabled = true;
-  btn.textContent = 'Menghapus...';
+  btn.disabled = true; btn.textContent = 'Menghapus...';
   const res = await fetch(hapusUrl, { method: 'POST' });
   const d   = await res.json();
   bootstrap.Modal.getInstance(document.getElementById('modalHapusUser')).hide();
-  btn.disabled = false;
-  btn.textContent = 'Ya, Hapus';
-  if (d.success) {
-    const row = document.getElementById('row-' + hapusId);
-    if (row) row.remove();
-  } else {
-    alert(d.message || 'Gagal menghapus user');
-  }
+  btn.disabled = false; btn.textContent = 'Ya, Hapus';
+  if (d.success) { document.getElementById('row-' + hapusId)?.remove(); }
+  else alert(d.message || 'Gagal menghapus user');
 });
 </script>

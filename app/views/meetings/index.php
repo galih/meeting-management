@@ -56,12 +56,9 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER 
   </div>
 
   <div class="card-body">
-    <!-- Kalender View -->
     <div id="view-calendar">
       <div id="calendar" style="min-height:600px;"></div>
     </div>
-
-    <!-- List View -->
     <div id="view-list" style="display:none;">
       <div class="table-responsive">
         <table class="table table-vcenter card-table table-hover">
@@ -135,15 +132,36 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER 
               <input type="text" name="location" class="form-control"
                      placeholder="Ruang Rapat A / https://meet.google.com/...">
             </div>
-            <div class="col-md-6">
-              <label class="form-label">Departemen</label>
-              <select name="department_id" class="form-select">
-                <option value="">-- Semua --</option>
-                <?php foreach ($departments as $dept): ?>
-                <option value="<?= $dept['id'] ?>"><?= htmlspecialchars($dept['name']) ?></option>
-                <?php endforeach; ?>
-              </select>
+
+            <!-- Unit Kerja Cascade -->
+            <div class="col-12">
+              <label class="form-label">Unit Kerja</label>
+              <div class="row g-2">
+                <div class="col-md-4">
+                  <select id="mtg-u1" class="form-select" onchange="cascadeMtg(1)">
+                    <option value="">-- Semua Unit Kerja --</option>
+                    <?php foreach ($departments as $d): if ((int)($d['level'] ?? 1) !== 1) continue; ?>
+                    <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                  <div class="form-text">Unit Kerja</div>
+                </div>
+                <div class="col-md-4">
+                  <select id="mtg-u2" class="form-select" disabled onchange="cascadeMtg(2)">
+                    <option value="">-- Pilih unit dulu --</option>
+                  </select>
+                  <div class="form-text">Bidang / Bagian</div>
+                </div>
+                <div class="col-md-4">
+                  <select id="mtg-u3" class="form-select" disabled onchange="cascadeMtg(3)">
+                    <option value="">-- Opsional --</option>
+                  </select>
+                  <div class="form-text">Sub Bidang / Sub Bagian</div>
+                </div>
+              </div>
+              <input type="hidden" id="mtg-dept-id" name="department_id" value="">
             </div>
+
             <div class="col-md-6">
               <label class="form-label">Warna Kalender</label>
               <input type="color" name="color" class="form-control form-control-color" value="#206bc4">
@@ -174,8 +192,9 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER 
 </div>
 
 <?php
-$calendarApiUrl = $baseUrl . '/api/meetings/calendar';
-$meetingBaseUrl = $baseUrl . '/meetings/';
+$calendarApiUrl  = $baseUrl . '/api/meetings/calendar';
+$meetingBaseUrl  = $baseUrl . '/meetings/';
+$deptChildrenUrl = $baseUrl . '/api/departments/children';
 ?>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -216,4 +235,54 @@ document.addEventListener('DOMContentLoaded', function () {
   });
   calendar.render();
 });
+
+const _deptChildrenUrl = <?= json_encode($deptChildrenUrl) ?>;
+
+async function fetchDeptChildren(parentId) {
+  try {
+    const res = await fetch(_deptChildrenUrl + '?parent_id=' + parentId);
+    return await res.json();
+  } catch(e) { return []; }
+}
+
+function syncMtgHidden() {
+  const v3 = document.getElementById('mtg-u3').value;
+  const v2 = document.getElementById('mtg-u2').value;
+  const v1 = document.getElementById('mtg-u1').value;
+  document.getElementById('mtg-dept-id').value = v3 || v2 || v1 || '';
+}
+
+async function cascadeMtg(level) {
+  const s1 = document.getElementById('mtg-u1');
+  const s2 = document.getElementById('mtg-u2');
+  const s3 = document.getElementById('mtg-u3');
+  if (level === 1) {
+    s2.innerHTML = '<option value="">-- Pilih unit dulu --</option>';
+    s3.innerHTML = '<option value="">-- Opsional --</option>';
+    s2.disabled = s3.disabled = true;
+    syncMtgHidden();
+    if (!s1.value) return;
+    const kids = await fetchDeptChildren(s1.value);
+    if (kids.length) {
+      s2.innerHTML = '<option value="">-- Semua Bidang --</option>' +
+        kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      s2.disabled = false;
+    }
+    syncMtgHidden();
+  } else if (level === 2) {
+    s3.innerHTML = '<option value="">-- Opsional --</option>';
+    s3.disabled = true;
+    syncMtgHidden();
+    if (!s2.value) return;
+    const kids = await fetchDeptChildren(s2.value);
+    if (kids.length) {
+      s3.innerHTML = '<option value="">-- Semua Sub Bidang --</option>' +
+        kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+      s3.disabled = false;
+    }
+    syncMtgHidden();
+  } else {
+    syncMtgHidden();
+  }
+}
 </script>
