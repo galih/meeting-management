@@ -7,6 +7,9 @@ $statusLabel = [
   'done'      => 'Selesai',
   'cancelled' => 'Dibatalkan',
 ];
+
+// $canEdit dikirim dari controller (admin atau pembuat)
+$canEdit = $canEdit ?? false;
 ?>
 
 <!-- Flash -->
@@ -26,12 +29,18 @@ $statusLabel = [
     <div class="card mb-3">
       <div class="card-header">
         <h3 class="card-title">Detail Kegiatan</h3>
-        <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
         <div class="card-options gap-1">
+          <?php if ($canEdit): ?>
+          <a href="<?= $baseUrl ?>/meetings/<?= $meeting['id'] ?>/edit"
+             class="btn btn-sm btn-outline-primary">
+            ✏️ Edit
+          </a>
+          <?php endif; ?>
+          <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
           <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal"
                   data-bs-target="#modalEditStatus">Ubah Status</button>
+          <?php endif; ?>
         </div>
-        <?php endif; ?>
       </div>
       <div class="card-body">
         <dl class="row mb-0">

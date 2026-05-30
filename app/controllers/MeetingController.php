@@ -16,6 +16,13 @@ class MeetingController
         ];
     }
 
+    /** Cek apakah user boleh edit detail kegiatan */
+    private static function canEdit(array $meeting): bool
+    {
+        if (Auth::hasRole('admin')) return true;
+        return (int)($meeting['created_by'] ?? 0) === (int)Auth::id();
+    }
+
     public static function index(): void
     {
         Auth::requireAuth();
@@ -51,7 +58,7 @@ class MeetingController
             $params
         );
 
-        $departments = Database::query("SELECT id, name FROM departments WHERE is_active=1 ORDER BY name");
+        $departments = Database::query("SELECT id, name, level, parent_id FROM departments WHERE is_active=1 ORDER BY name");
 
         View::layout('meetings/index', [
             'pageTitle'   => 'Daftar Meeting',
@@ -179,7 +186,105 @@ class MeetingController
             'participants'     => $participants,
             'tindakLanjutList' => $tindakLanjutList,
             'users'            => $users,
+            'canEdit'          => self::canEdit($meeting),
         ]);
+    }
+
+    public static function edit(int $id): void
+    {
+        Auth::requireAuth();
+        $meeting = Database::queryOne(
+            "SELECT m.*, d.name AS dept_name
+             FROM meetings m
+             LEFT JOIN departments d ON d.id = m.department_id
+             WHERE m.id=?",
+            [$id]
+        );
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
+
+        if (!self::canEdit($meeting)) {
+            http_response_code(403);
+            include APP_PATH . '/views/errors/403.php';
+            exit;
+        }
+
+        $departments  = Database::query("SELECT id, name, level, parent_id FROM departments WHERE is_active=1 ORDER BY name");
+        $allUsers     = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
+        $participants = Database::query(
+            "SELECT user_id FROM meeting_participants WHERE meeting_id=?", [$id]
+        );
+        $participantIds = array_column($participants, 'user_id');
+
+        View::layout('meetings/edit', [
+            'pageTitle'      => 'Edit Kegiatan: ' . $meeting['title'],
+            'meeting'        => $meeting,
+            'departments'    => $departments,
+            'allUsers'       => $allUsers,
+            'participantIds' => $participantIds,
+        ]);
+    }
+
+    public static function update(int $id): void
+    {
+        Auth::requireAuth();
+        self::verifyCsrf();
+
+        $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$id]);
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
+
+        if (!self::canEdit($meeting)) {
+            http_response_code(403);
+            include APP_PATH . '/views/errors/403.php';
+            exit;
+        }
+
+        $title    = trim($_POST['title']          ?? '');
+        $desc     = trim($_POST['description']    ?? '');
+        $location = trim($_POST['location']       ?? '');
+        $startDt  = trim($_POST['start_datetime'] ?? '');
+        $endDt    = trim($_POST['end_datetime']   ?? '');
+        $color    = trim($_POST['color']          ?? '#f76707');
+        $deptId   = !empty($_POST['department_id']) ? (int)$_POST['department_id'] : null;
+
+        $errors = [];
+        if ($title === '') $errors[] = 'Judul kegiatan tidak boleh kosong.';
+        if ($startDt === '' || $endDt === '') {
+            $errors[] = 'Tanggal mulai dan selesai wajib diisi.';
+        } elseif (strtotime($endDt) <= strtotime($startDt)) {
+            $errors[] = 'Tanggal selesai harus lebih besar dari tanggal mulai.';
+        }
+        if (!preg_match('/^#[0-9a-fA-F]{3,6}$/', $color)) $color = $meeting['color'];
+
+        if (!empty($errors)) {
+            $_SESSION['flash_error'] = implode(' ', $errors);
+            header('Location: ' . BASE_URL . "/meetings/{$id}/edit"); exit;
+        }
+
+        Database::getInstance()->prepare(
+            "UPDATE meetings
+             SET title=?, description=?, location=?, start_datetime=?, end_datetime=?,
+                 color=?, department_id=?
+             WHERE id=?"
+        )->execute([$title, $desc, $location, $startDt, $endDt, $color, $deptId, $id]);
+
+        // Sync peserta (hanya admin & pembuat yang boleh ubah peserta)
+        $newParticipants = array_filter(array_map('intval', (array)($_POST['participants'] ?? [])));
+        $db = Database::getInstance();
+        $db->prepare("DELETE FROM meeting_participants WHERE meeting_id=?")->execute([$id]);
+        foreach ($newParticipants as $uid) {
+            $db->prepare(
+                "INSERT IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?,?)"
+            )->execute([$id, $uid]);
+        }
+
+        ActivityLog::record(
+            'meeting.update',
+            "Mengubah detail kegiatan: {$title}",
+            'meeting', $id
+        );
+
+        $_SESSION['flash_success'] = 'Detail kegiatan berhasil diperbarui.';
+        header('Location: ' . BASE_URL . "/meetings/{$id}"); exit;
     }
 
     public static function updateStatus(int $id): void
