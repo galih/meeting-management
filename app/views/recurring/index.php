@@ -145,7 +145,7 @@ $storeUrl = $baseUrl . '/recurring';
               <input type="color" name="color" class="form-control form-control-color" value="#f76707">
             </div>
             <div class="col-md-3">
-              <label class="form-label">Departemen</label>
+              <label class="form-label">Unit Kerja</label>
               <select name="department_id" class="form-select">
                 <option value="">-- Semua --</option>
                 <?php foreach ($departments as $dept): ?>

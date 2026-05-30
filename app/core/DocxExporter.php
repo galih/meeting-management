@@ -23,16 +23,16 @@ class DocxExporter
         // ── Header dokumen ─────────────────────────────────────────────────────
         $headerRows = '';
         $fields = [
-            'Judul Kegiatan' => htmlspecialchars($meeting['title'] ?? '-'),
-            'Departemen'     => htmlspecialchars($meeting['dept_name'] ?? '-'),
-            'Lokasi'         => htmlspecialchars($meeting['location'] ?? '-'),
-            'Tanggal Mulai'  => !empty($meeting['start_datetime'])
-                                  ? date('d F Y H:i', strtotime($meeting['start_datetime']))
-                                  : '-',
-            'Tanggal Selesai'=> !empty($meeting['end_datetime'])
-                                  ? date('d F Y H:i', strtotime($meeting['end_datetime']))
-                                  : '-',
-            'Status'         => ucfirst($meeting['status'] ?? '-'),
+            'Judul Kegiatan'  => htmlspecialchars($meeting['title'] ?? '-'),
+            'Unit Kerja'      => htmlspecialchars($meeting['dept_name'] ?? '-'),
+            'Lokasi'          => htmlspecialchars($meeting['location'] ?? '-'),
+            'Tanggal Mulai'   => !empty($meeting['start_datetime'])
+                                   ? date('d F Y H:i', strtotime($meeting['start_datetime']))
+                                   : '-',
+            'Tanggal Selesai' => !empty($meeting['end_datetime'])
+                                   ? date('d F Y H:i', strtotime($meeting['end_datetime']))
+                                   : '-',
+            'Status'          => ucfirst($meeting['status'] ?? '-'),
         ];
         foreach ($fields as $label => $value) {
             $headerRows .= self::tableRow(
