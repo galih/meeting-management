@@ -51,7 +51,7 @@ $canEdit = $canEdit ?? false;
               'done'=>'green','cancelled'=>'red',default=>'secondary'
             } ?>"><?= $statusLabel[$meeting['status']] ?? ucfirst($meeting['status']) ?></span>
           </dd>
-          <dt class="col-5 fw-semibold small">Departemen</dt>
+          <dt class="col-5 fw-semibold small">Unit Kerja</dt>
           <dd class="col-7"><?= htmlspecialchars($meeting['dept_name'] ?? '-') ?></dd>
           <dt class="col-5 fw-semibold small">Lokasi</dt>
           <dd class="col-7">
