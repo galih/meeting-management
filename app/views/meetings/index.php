@@ -2,6 +2,13 @@
 $baseUrl  = rtrim(BASE_URL, '/');
 $isAdmin  = Auth::hasRole('admin');
 $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
+
+$statusLabel = [
+  'scheduled' => 'Terjadwal',
+  'ongoing'   => 'Sedang Berlangsung',
+  'done'      => 'Selesai',
+  'cancelled' => 'Dibatalkan',
+];
 ?>
 
 <?php if (!empty($_SESSION['flash_success'])): ?>
@@ -86,9 +93,12 @@ $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER 
               <td><span class="badge bg-blue-lt"><?= $m['total_peserta'] ?> orang</span></td>
               <td>
                 <span class="badge bg-<?= match($m['status']) {
-                  'scheduled'=>'blue','ongoing'=>'orange',
-                  'done'=>'green','cancelled'=>'red',default=>'secondary'
-                } ?>"><?= ucfirst($m['status']) ?></span>
+                  'scheduled' => 'blue',
+                  'ongoing'   => 'orange',
+                  'done'      => 'green',
+                  'cancelled' => 'red',
+                  default     => 'secondary'
+                } ?>"><?= $statusLabel[$m['status']] ?? ucfirst($m['status']) ?></span>
               </td>
               <td>
                 <div class="d-flex gap-1 align-items-center">
@@ -332,7 +342,6 @@ async function cascadeMtg(level) {
   }
 }
 
-// Hapus Kegiatan
 function confirmDeleteMeeting(id, title) {
   document.getElementById('deleteMeetingTitle').textContent = title;
   document.getElementById('formDeleteMeeting').action =

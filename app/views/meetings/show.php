@@ -1,5 +1,12 @@
 <?php
 $baseUrl = rtrim(BASE_URL, '/');
+
+$statusLabel = [
+  'scheduled' => 'Terjadwal',
+  'ongoing'   => 'Sedang Berlangsung',
+  'done'      => 'Selesai',
+  'cancelled' => 'Dibatalkan',
+];
 ?>
 
 <!-- Flash -->
@@ -33,7 +40,7 @@ $baseUrl = rtrim(BASE_URL, '/');
             <span class="badge bg-<?= match($meeting['status']) {
               'scheduled'=>'blue','ongoing'=>'orange',
               'done'=>'green','cancelled'=>'red',default=>'secondary'
-            } ?>"><?= ucfirst($meeting['status']) ?></span>
+            } ?>"><?= $statusLabel[$meeting['status']] ?? ucfirst($meeting['status']) ?></span>
           </dd>
           <dt class="col-5 fw-semibold small">Departemen</dt>
           <dd class="col-7"><?= htmlspecialchars($meeting['dept_name'] ?? '-') ?></dd>
@@ -200,7 +207,7 @@ $baseUrl = rtrim(BASE_URL, '/');
         </div>
         <div class="modal-body">
           <select name="status" class="form-select">
-            <?php foreach (['scheduled' => 'Scheduled', 'ongoing' => 'Ongoing', 'done' => 'Done', 'cancelled' => 'Cancelled'] as $val => $label): ?>
+            <?php foreach ($statusLabel as $val => $label): ?>
             <option value="<?= $val ?>" <?= $meeting['status'] === $val ? 'selected' : '' ?>>
               <?= $label ?>
             </option>

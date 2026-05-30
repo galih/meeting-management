@@ -9,8 +9,14 @@ $canEdit  = Auth::hasRole('admin', 'sekretaris');
 $statusBadge   = ['pending'=>'secondary','in_progress'=>'blue','done'=>'green','cancelled'=>'red'];
 $priorityBadge = ['high'=>'red','medium'=>'yellow','low'=>'green'];
 $meetingBadge  = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cancelled'=>'red'];
-$meetingText   = ['scheduled'=>'blue','ongoing'=>'orange','done'=>'green','cancelled'=>'red'];
 $priorityText  = ['high'=>'red','medium'=>'yellow','low'=>'green'];
+
+$meetingStatusLabel = [
+  'scheduled' => 'Terjadwal',
+  'ongoing'   => 'Sedang Berlangsung',
+  'done'      => 'Selesai',
+  'cancelled' => 'Dibatalkan',
+];
 ?>
 
 <div class="row g-3">
@@ -41,7 +47,6 @@ $priorityText  = ['high'=>'red','medium'=>'yellow','low'=>'green'];
           </button>
           <button id="btn-save-manual" class="btn btn-sm btn-primary ms-1">💾 Simpan</button>
           <?php endif; ?>
-          <!-- Dropdown Export -->
           <div class="dropdown ms-1">
             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
                     data-bs-toggle="dropdown" aria-expanded="false">
@@ -131,7 +136,7 @@ $priorityText  = ['high'=>'red','medium'=>'yellow','low'=>'green'];
           <dd class="col-7">
             <?php $ms = $meetingBadge[$meeting['status']] ?? 'secondary'; ?>
             <span class="badge bg-<?= $ms ?>-lt text-<?= $ms ?>">
-              <?= ucfirst($meeting['status']) ?>
+              <?= $meetingStatusLabel[$meeting['status']] ?? ucfirst($meeting['status']) ?>
             </span>
           </dd>
         </dl>
@@ -314,7 +319,6 @@ $priorityText  = ['high'=>'red','medium'=>'yellow','low'=>'green'];
 
 <?php if ($canEdit): ?>
 <script>
-/* ===== Template Picker ===== */
 const TPL_API_URL = <?= json_encode(rtrim(BASE_URL, '/') . '/api/notulen-templates') ?>;
 let tplListLoaded = false;
 
