@@ -87,10 +87,14 @@ $router->post('/api/comments/{id}/resolve', [CommentController::class, 'resolve'
 $router->post('/api/comments/{id}/delete',  [CommentController::class, 'delete']);
 
 // === TINDAK LANJUT ===
-$router->get('/tindak-lanjut',              [TindakLanjutController::class, 'index']);
-$router->post('/tindak-lanjut',             [TindakLanjutController::class, 'store']);
-$router->post('/tindak-lanjut/{id}/status', [TindakLanjutController::class, 'updateStatus']);
-$router->post('/tindak-lanjut/{id}/delete', [TindakLanjutController::class, 'destroy']);
+$router->get('/tindak-lanjut',                          [TindakLanjutController::class, 'index']);
+$router->post('/tindak-lanjut',                         [TindakLanjutController::class, 'store']);
+$router->post('/tindak-lanjut/{id}/status',             [TindakLanjutController::class, 'updateStatus']);
+$router->post('/tindak-lanjut/{id}/delete',             [TindakLanjutController::class, 'destroy']);
+// Progress Notes
+$router->get('/tindak-lanjut/{id}/notes',               [TindakLanjutController::class, 'getNotes']);
+$router->post('/tindak-lanjut/{id}/notes',              [TindakLanjutController::class, 'addNote']);
+$router->post('/tindak-lanjut/notes/{noteId}/delete',   [TindakLanjutController::class, 'deleteNote']);
 
 // === USERS ===
 $router->get('/users',                [UserController::class, 'index']);
