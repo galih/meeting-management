@@ -1,9 +1,14 @@
 -- ============================================================
--- Meeting Management App — Database Schema v1.6.0
+-- Meeting Management App — Database Schema v1.7.0
 -- MySQL 8+, charset utf8mb4
 --
 -- CATATAN: File ini dijalankan oleh installer SETELAH
 -- database dibuat. Jangan sertakan CREATE DATABASE / USE.
+--
+-- Changelog:
+--   v1.7.0 — Gabungkan activity_logs, app_settings,
+--             departments hierarchy (parent_id, level)
+--             dari file migrasi sprint & standalone lama.
 -- ============================================================
 
 -- ── Users ──────────────────────────────────────────────────────
@@ -31,18 +36,24 @@ INSERT IGNORE INTO users (username, name, email, password, role) VALUES
   ('admin', 'Administrator', 'admin@meetingapp.id',
    '$2y$12$TKh8H1.PfunNGBz/znOlJuuBVZ7XMM/YpW5BWl8gBuIV9hWaX4Iye', 'admin');
 
--- ── Departments ────────────────────────────────────────────
+-- ── Departments (Unit Kerja Hierarki) ──────────────────────────
+-- level: 1=Unit Kerja, 2=Bidang/Bagian, 3=Sub Bidang/Sub Bagian
 CREATE TABLE IF NOT EXISTS departments (
     id          INT PRIMARY KEY AUTO_INCREMENT,
+    parent_id   INT          DEFAULT NULL COMMENT 'NULL = level teratas',
     name        VARCHAR(100) NOT NULL,
     code        VARCHAR(20)  DEFAULT NULL,
+    level       TINYINT UNSIGNED NOT NULL DEFAULT 1
+                COMMENT '1=Unit Kerja, 2=Bidang, 3=Sub Bidang',
     description TEXT,
     head_id     INT          DEFAULT NULL COMMENT 'Kepala divisi (user_id)',
     is_active   TINYINT(1)   DEFAULT 1,
     created_at  TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (head_id) REFERENCES users(id) ON DELETE SET NULL
+    FOREIGN KEY (parent_id) REFERENCES departments(id) ON DELETE SET NULL,
+    FOREIGN KEY (head_id)   REFERENCES users(id) ON DELETE SET NULL
 );
 
+-- FK users → departments
 SET @db = DATABASE();
 SET @fk_exists = (
     SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
@@ -55,9 +66,7 @@ SET @sql = IF(@fk_exists = 0,
     'ALTER TABLE users ADD CONSTRAINT fk_users_department FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL',
     'SELECT 1'
 );
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- ── Meetings ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS meetings (
@@ -159,15 +168,15 @@ CREATE TABLE IF NOT EXISTS notifications (
 
 -- ── Email Queue & Export Log ─────────────────────────────────
 CREATE TABLE IF NOT EXISTS email_queue (
-    id         INT PRIMARY KEY AUTO_INCREMENT,
-    to_email   VARCHAR(150) NOT NULL,
-    subject    VARCHAR(255) NOT NULL,
-    body       LONGTEXT,
-    status     ENUM('pending','sent','failed') DEFAULT 'pending',
-    attempts   TINYINT DEFAULT 0,
-    meeting_id INT DEFAULT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sent_at    DATETIME  DEFAULT NULL,
+    id           INT PRIMARY KEY AUTO_INCREMENT,
+    to_email     VARCHAR(150) NOT NULL,
+    subject      VARCHAR(255) NOT NULL,
+    body         LONGTEXT,
+    status       ENUM('pending','sent','failed') DEFAULT 'pending',
+    attempts     TINYINT DEFAULT 0,
+    meeting_id   INT DEFAULT NULL,
+    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_at      DATETIME  DEFAULT NULL,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE SET NULL
 );
 
@@ -255,6 +264,7 @@ CREATE TABLE IF NOT EXISTS recurring_participants (
     FOREIGN KEY (user_id)      REFERENCES users(id)
 );
 
+-- FK meetings → recurring_meetings
 SET @db2 = DATABASE();
 SET @fk2_exists = (
     SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
@@ -267,6 +277,64 @@ SET @sql2 = IF(@fk2_exists = 0,
     'ALTER TABLE meetings ADD CONSTRAINT fk_meetings_recurring FOREIGN KEY (recurring_id) REFERENCES recurring_meetings(id) ON DELETE SET NULL',
     'SELECT 2'
 );
-PREPARE stmt2 FROM @sql2;
-EXECUTE stmt2;
-DEALLOCATE PREPARE stmt2;
+PREPARE stmt2 FROM @sql2; EXECUTE stmt2; DEALLOCATE PREPARE stmt2;
+
+-- ── Activity Log ─────────────────────────────────────────────
+-- (digabung dari activity_log_migration.sql)
+CREATE TABLE IF NOT EXISTS activity_logs (
+    id           INT PRIMARY KEY AUTO_INCREMENT,
+    user_id      INT          DEFAULT NULL,
+    user_name    VARCHAR(100) DEFAULT NULL  COMMENT 'Snapshot nama user saat aksi',
+    user_role    VARCHAR(50)  DEFAULT NULL  COMMENT 'Snapshot role saat aksi',
+    action       VARCHAR(100) NOT NULL      COMMENT 'Kode aksi, contoh: meeting.create',
+    description  TEXT         DEFAULT NULL,
+    subject_type VARCHAR(50)  DEFAULT NULL  COMMENT 'Tipe objek: meeting / user / auth',
+    subject_id   INT          DEFAULT NULL,
+    ip_address   VARCHAR(45)  DEFAULT NULL,
+    user_agent   VARCHAR(300) DEFAULT NULL,
+    created_at   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_al_user    (user_id),
+    INDEX idx_al_action  (action),
+    INDEX idx_al_created (created_at)
+);
+
+-- ── App Settings ─────────────────────────────────────────────
+-- (digabung dari migration_settings.sql)
+CREATE TABLE IF NOT EXISTS app_settings (
+    id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `key`      VARCHAR(100) NOT NULL,
+    `value`    TEXT,
+    updated_at TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_key (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO app_settings (`key`, `value`) VALUES
+  ('app_logo',        ''),
+  ('login_bg',        ''),
+  ('app_name_custom', '');
+
+-- ── Notulen Templates ─────────────────────────────────────────
+-- (sudah ada di 006_notulen_templates.sql — diduplikasi di sini
+--  agar schema.sql tetap self-contained)
+CREATE TABLE IF NOT EXISTS notulen_templates (
+    id             INT PRIMARY KEY AUTO_INCREMENT,
+    name           VARCHAR(150) NOT NULL,
+    description    TEXT,
+    letterhead_html MEDIUMTEXT  DEFAULT NULL COMMENT 'HTML kop surat khusus template ini',
+    content        LONGTEXT     NOT NULL,
+    is_default     TINYINT(1)   DEFAULT 0,
+    created_by     INT          DEFAULT NULL,
+    created_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+    updated_at     TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- ── Settings (key-value umum) ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS settings (
+    id            INT PRIMARY KEY AUTO_INCREMENT,
+    setting_key   VARCHAR(100) NOT NULL UNIQUE,
+    setting_value TEXT,
+    updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
