@@ -7,7 +7,7 @@
 ![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?style=flat-square&logo=php)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql)
 ![Tabler](https://img.shields.io/badge/Tabler-UI-0054A6?style=flat-square)
-![Version](https://img.shields.io/badge/version-1.0.0-f76707?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.1.0-f76707?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
 </div>
@@ -85,6 +85,19 @@
 - Pagination 30 entri per halaman
 - Fitur **Bersihkan Log** — hapus log lebih dari N hari (default 90 hari)
 
+### 📄 Export Notula Resmi (DOCX)
+- Template **Notula resmi** sesuai format surat dinas Kementerian Kebudayaan RI
+- **Kop surat** otomatis: logo instansi (dari pengaturan aplikasi) + nama Kementerian & Inspektorat Jenderal
+- Judul **N O T U L A** tebal bergaris bawah, rata tengah
+- Baris info rapat: Nama rapat, Hari/Tanggal, Pukul, Tempat, Pemimpin rapat
+- Daftar peserta bernomor beserta unit kerja
+- Isi pembahasan dari editor notulen (mendukung bold, italic, heading, list)
+- Seksi **Simpulan** dan tabel **Tindak Lanjut** (PIC, Deadline, Status)
+- Blok tanda tangan: Mengetahui (pejabat) & Notulis
+- Font **Times New Roman 12pt**, kertas **A4**, margin standar surat dinas
+- Logo di-embed langsung ke file DOCX (base64) — tidak butuh koneksi internet saat membuka
+- Fallback otomatis ke teks `[ LOGO ]` jika logo belum diupload
+
 ---
 
 ## 🚀 Instalasi via Web Installer
@@ -159,7 +172,9 @@ open http://localhost:8000
 | PHP | 8.1+ (disarankan 8.5) |
 | MySQL / MariaDB | 8.0+ / 10.4+ |
 | Apache | 2.4+ dengan `mod_rewrite` |
-| Ekstensi PHP | `pdo_mysql`, `mbstring`, `openssl`, `json`, `fileinfo` |
+| Ekstensi PHP | `pdo_mysql`, `mbstring`, `openssl`, `json`, `fileinfo`, `zip` |
+
+> 💡 Ekstensi `zip` diperlukan untuk fitur **Export DOCX**.
 
 ---
 
@@ -195,6 +210,7 @@ email_queue            → id, to_email, subject, body, status, attempts, meetin
 notulen_exports        → id, meeting_id, exported_by, format, filename
 notifications          → id, user_id, type, message, url, is_read
 activity_logs          → id, user_id, user_name, user_role, action, description, subject_type, subject_id, ip_address, user_agent, created_at
+app_settings           → id, key, value, updated_at
 ```
 
 ---
@@ -222,7 +238,7 @@ meeting-management/
 │   │   ├── Mailer.php               # Wrapper PHPMailer + fallback mail()
 │   │   ├── EmailTemplate.php        # Template HTML email
 │   │   ├── PdfExporter.php          # Export PDF via mPDF + fallback HTML
-│   │   ├── DocxExporter.php         # Export DOCX native PHP (Open XML)
+│   │   ├── DocxExporter.php         # Export DOCX notula resmi (Open XML, logo embed)
 │   │   └── ActivityLog.php          # Helper log aktivitas
 │   ├── controllers/
 │   │   ├── AuthController.php
@@ -235,6 +251,7 @@ meeting-management/
 │   │   ├── UserController.php
 │   │   ├── DepartmentController.php
 │   │   ├── NotifikasiController.php
+│   │   ├── SettingController.php
 │   │   └── ActivityLogController.php
 │   └── views/
 │       ├── layouts/
@@ -246,16 +263,14 @@ meeting-management/
 │       ├── tindak-lanjut/
 │       ├── users/
 │       ├── departments/
+│       ├── settings/
 │       ├── notifications/
 │       ├── activity-log/
 │       └── errors/
-└── public/
-    ├── .htaccess
-    ├── index.php                    # Entry point + semua routes
-    └── assets/
-        ├── css/custom.css
-        ├── js/notifications.js
-        └── js/notulen-realtime.js
+└── assets/
+    ├── css/
+    ├── js/
+    └── uploads/                     # Logo & background login (di-generate saat upload)
 ```
 
 ---
@@ -281,6 +296,8 @@ meeting-management/
 | POST | `/recurring` | Buat kegiatan berulang | Admin/Sekretaris |
 | GET | `/notulen/{id}` | Editor notulen | Auth |
 | GET | `/notulen/{id}/history` | Riwayat notulen | Auth |
+| GET | `/notulen/{id}/export/docx` | Export notula ke DOCX | Admin/Sekretaris |
+| GET | `/notulen/{id}/export/pdf` | Export notulen ke PDF | Admin/Sekretaris |
 | GET | `/tindak-lanjut` | Daftar tindak lanjut | Auth |
 | POST | `/tindak-lanjut` | Buat tindak lanjut | Admin/Sekretaris |
 | POST | `/tindak-lanjut/{id}/status` | Update status | Auth |
@@ -291,6 +308,10 @@ meeting-management/
 | POST | `/users/{id}/destroy` | Hapus user permanen | Admin |
 | GET | `/departments` | Daftar departemen | Admin |
 | GET | `/settings` | Pengaturan aplikasi | Admin |
+| POST | `/settings/logo` | Upload logo instansi | Admin |
+| POST | `/settings/logo/remove` | Hapus logo | Admin |
+| POST | `/settings/login-bg` | Upload background login | Admin |
+| POST | `/settings/smtp` | Simpan konfigurasi SMTP | Admin |
 | GET | `/notifications` | Halaman notifikasi | Auth |
 | GET | `/api/notifications` | API polling JSON | Auth |
 | GET | `/api/meetings/calendar` | API events kalender | Auth |
@@ -311,7 +332,7 @@ meeting-management/
 | Auth | Custom `Auth.php` | Session-based + Remember Me |
 | Email | [PHPMailer](https://github.com/PHPMailer/PHPMailer) | SMTP / fallback ke `mail()` |
 | Export PDF | [mPDF](https://mpdf.github.io) | Fallback ke HTML print |
-| Export DOCX | Custom `DocxExporter.php` | Native Open XML (tanpa library) |
+| Export DOCX | Custom `DocxExporter.php` | Notula resmi, logo embed base64, Open XML native |
 | Log Aktivitas | Custom `ActivityLog.php` | Statis helper, disimpan ke DB |
 | Hosting | Apache 2.4+ | `mod_rewrite` + `.htaccess` |
 
@@ -344,6 +365,17 @@ meeting-management/
 ---
 
 ## 📦 Changelog
+
+### v1.1.0 — Template Notula Resmi
+- **Export DOCX**: template diperbarui sesuai format notula surat dinas Kementerian Kebudayaan RI
+- Kop surat otomatis dengan logo instansi ter-embed langsung di file (base64, tidak butuh internet)
+- Judul *N O T U L A* tebal bergaris bawah, font Times New Roman 12pt, kertas A4
+- Baris info rapat: Nama rapat, Hari/Tanggal, Pukul, Tempat, Pemimpin rapat
+- Daftar peserta bernomor + unit kerja
+- Seksi Persoalan yang Dibahas, Simpulan, dan tabel Tindak Lanjut
+- Blok tanda tangan dua kolom: Mengetahui & Notulis
+- Fallback `[ LOGO ]` jika logo belum diupload di Pengaturan
+- Logo dibaca dari `app_settings[app_logo]` yang diupload via menu Pengaturan Aplikasi
 
 ### v1.0.0 — Rilis Perdana
 - Multi-role: Admin, Sekretaris, Peserta
