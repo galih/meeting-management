@@ -575,18 +575,52 @@ a:hover { color: var(--brand-dark); }
     border-bottom: none;
     border-left: 3px solid var(--gold);
   }
-  .topnav .dropdown-menu {
-    background: rgba(255,255,255,.06);
-    border: none; box-shadow: none;
-    padding-left: 1rem;
+
+  /* Submenu (dropdown) di dalam navbar-collapse mobile */
+  .topnav .navbar-collapse .dropdown-menu {
+    background: rgba(0,0,0,.20);
+    border: none;
+    border-left: 2px solid rgba(201,168,76,.40);
+    border-radius: 0 0 6px 6px;
+    box-shadow: none;
+    padding: .25rem 0 .25rem .5rem;
+    margin-left: .5rem;
   }
-  .topnav .dropdown-item {
-    color: var(--text-nav);
+  .topnav .navbar-collapse .dropdown-item,
+  .topnav .navbar-collapse .dropdown-item * {
+    color: rgba(255,255,255,.85) !important;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px;
+    padding: .45rem .85rem;
   }
-  .topnav .dropdown-item:hover {
+  .topnav .navbar-collapse .dropdown-item:hover,
+  .topnav .navbar-collapse .dropdown-item:focus {
+    background: rgba(255,255,255,.10) !important;
+    color: #fff !important;
+  }
+  .topnav .navbar-collapse .dropdown-item:hover *,
+  .topnav .navbar-collapse .dropdown-item:focus * {
+    color: #fff !important;
+  }
+  /* Icon SVG di dalam submenu */
+  .topnav .navbar-collapse .dropdown-item svg,
+  .topnav .navbar-collapse .dropdown-item .icon {
+    opacity: .75;
+    stroke: rgba(255,255,255,.85);
+  }
+  .topnav .navbar-collapse .dropdown-item:hover svg,
+  .topnav .navbar-collapse .dropdown-item:hover .icon {
+    opacity: 1;
+    stroke: #fff;
+  }
+
+  .topnav .dropdown-item.active,
+  .topnav .dropdown-item:active {
     background: rgba(255,255,255,.08);
     color: #fff;
   }
+
   .page-body { padding: 1rem 0 1.5rem; }
   .stat-card .h1 { font-size: 1.6rem; }
 }
