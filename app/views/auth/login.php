@@ -1,8 +1,9 @@
 <?php
 if (Auth::check()) { header('Location: ' . BASE_URL . '/'); exit; }
-$error   = $_SESSION['login_error']   ?? null; unset($_SESSION['login_error']);
-$success = $_SESSION['flash_success'] ?? null; unset($_SESSION['flash_success']);
-$appLogo = SettingController::get('app_logo');
+$error    = $_SESSION['login_error']   ?? null; unset($_SESSION['login_error']);
+$success  = $_SESSION['flash_success'] ?? null; unset($_SESSION['flash_success']);
+$appLogo  = SettingController::get('app_logo');
+$loginBg  = SettingController::get('login_bg');
 ?>
 <!doctype html>
 <html lang="id">
@@ -32,14 +33,38 @@ $appLogo = SettingController::get('app_logo');
     body {
       min-height: 100vh;
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f8f4ee;
-      background-image: radial-gradient(circle, rgba(192,57,43,.06) 1px, transparent 1px);
-      background-size: 28px 28px;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 40px 16px;
+
+      <?php if ($loginBg): ?>
+      /* Background dari pengaturan */
+      background-color: #1a1a2e;
+      background-image: url('<?= htmlspecialchars($loginBg, ENT_QUOTES) ?>');
+      background-size: cover;
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      <?php else: ?>
+      /* Fallback: pola dot merah */
+      background: #f8f4ee;
+      background-image: radial-gradient(circle, rgba(192,57,43,.06) 1px, transparent 1px);
+      background-size: 28px 28px;
+      <?php endif; ?>
     }
+
+    <?php if ($loginBg): ?>
+    /* Overlay gelap transparan agar card tetap terbaca */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 0;
+      pointer-events: none;
+    }
+    <?php endif; ?>
 
     /* CARD */
     .login-card {
@@ -51,6 +76,8 @@ $appLogo = SettingController::get('app_logo');
       overflow: hidden;
       box-shadow: 0 2px 24px rgba(0,0,0,.10);
       border-top: 3px solid var(--gold);
+      position: relative;
+      z-index: 1;
     }
 
     /* PANEL KIRI */
@@ -63,7 +90,7 @@ $appLogo = SettingController::get('app_logo');
       border-right: 1px solid #f0ebe3;
     }
 
-    /* Logo di atas ornament */
+    /* Logo */
     .form-logo {
       display: flex;
       align-items: center;
@@ -250,7 +277,6 @@ $appLogo = SettingController::get('app_logo');
     <!-- Kiri: Form -->
     <div class="login-form-panel">
 
-      <!-- Logo di atas ornament -->
       <a href="<?= BASE_URL ?>" class="form-logo">
         <?php if ($appLogo): ?>
           <img src="<?= htmlspecialchars($appLogo) ?>" alt="<?= APP_NAME ?>">
@@ -267,7 +293,6 @@ $appLogo = SettingController::get('app_logo');
         <?php endif; ?>
       </a>
 
-      <!-- Ornament -->
       <div class="form-ornament">
         <span class="line-red"></span>
         <span class="line-gold"></span>
