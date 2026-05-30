@@ -62,11 +62,13 @@ $router->post('/profile/update',           [ProfileController::class, 'update'])
 $router->post('/profile/change-password',  [ProfileController::class, 'changePassword']);
 
 // === MEETINGS ===
-$router->get('/meetings',               [MeetingController::class, 'index']);
-$router->post('/meetings',              [MeetingController::class, 'store']);
-$router->get('/meetings/{id}',          [MeetingController::class, 'show']);
-$router->post('/meetings/{id}/status',  [MeetingController::class, 'updateStatus']);
-$router->post('/meetings/{id}/delete',  [MeetingController::class, 'destroy']);
+$router->get('/meetings',                  [MeetingController::class, 'index']);
+$router->post('/meetings',                 [MeetingController::class, 'store']);
+$router->get('/meetings/{id}',             [MeetingController::class, 'show']);
+$router->get('/meetings/{id}/edit',        [MeetingController::class, 'edit']);
+$router->post('/meetings/{id}/update',     [MeetingController::class, 'update']);
+$router->post('/meetings/{id}/status',     [MeetingController::class, 'updateStatus']);
+$router->post('/meetings/{id}/delete',     [MeetingController::class, 'destroy']);
 
 // === NOTULEN ===
 $router->get('/notulen/{id}',              [NotulisController::class, 'editor']);
