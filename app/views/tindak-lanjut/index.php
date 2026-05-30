@@ -124,7 +124,17 @@ $user = Auth::user();
             } ?>"><?= ucfirst(str_replace('_',' ',$tl['status'])) ?></span>
             <?php endif; ?>
           </td>
-          <td>
+          <td class="text-end">
+            <!-- Tombol Progress Note -->
+            <button class="btn btn-sm btn-ghost-secondary btn-notes"
+                    data-id="<?= $tl['id'] ?>"
+                    data-desc="<?= htmlspecialchars($tl['description']) ?>"
+                    data-url-get="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
+                    data-url-post="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
+                    title="Progress Note"
+                    data-bs-toggle="modal" data-bs-target="#modalNotes">
+              💬
+            </button>
             <?php if (Auth::hasRole('admin','sekretaris')): ?>
             <button class="btn btn-sm btn-ghost-danger btn-del"
                     data-id="<?= $tl['id'] ?>"
@@ -139,7 +149,37 @@ $user = Auth::user();
   </div>
 </div>
 
+<!-- Modal Progress Notes -->
+<div class="modal modal-blur fade" id="modalNotes" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-md">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title mb-0">Progress Note</h5>
+          <div class="text-muted small" id="notes-desc"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <!-- Thread notes -->
+        <div id="notes-thread"
+             style="max-height:340px;overflow-y:auto;padding:1rem;"
+             class="d-flex flex-column gap-2">
+          <div class="text-center text-muted py-3 small" id="notes-loading">Memuat...</div>
+        </div>
+        <!-- Input note baru -->
+        <div class="border-top p-3 d-flex gap-2 align-items-end">
+          <textarea id="note-input" class="form-control form-control-sm"
+                    rows="2" placeholder="Tulis progress note..." style="resize:none;"></textarea>
+          <button id="btn-send-note" class="btn btn-primary btn-sm">Kirim</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+// ── Status select ────────────────────────────────────────────────────────────
 document.querySelectorAll('.status-select').forEach(sel => {
   sel.addEventListener('change', async function () {
     const res = await fetch(this.dataset.url, {
@@ -156,6 +196,7 @@ document.querySelectorAll('.status-select').forEach(sel => {
   });
 });
 
+// ── Hapus TL ─────────────────────────────────────────────────────────────────
 document.querySelectorAll('.btn-del').forEach(btn => {
   btn.addEventListener('click', async function () {
     if (!confirm('Hapus tindak lanjut ini?')) return;
@@ -164,5 +205,93 @@ document.querySelectorAll('.btn-del').forEach(btn => {
     if (d.success) this.closest('tr').remove();
     else alert(d.message || 'Gagal hapus');
   });
+});
+
+// ── Progress Notes ───────────────────────────────────────────────────────────
+let _currentNoteUrl  = '';
+let _currentDeleteBase = '<?= rtrim(BASE_URL, '/') ?>/tindak-lanjut/notes';
+
+function renderNote(n) {
+  const isOwn = false; // tidak bisa tahu di sisi klien; tampilkan tombol hapus via server
+  const d = new Date(n.created_at);
+  const ts = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})
+           + ' ' + d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  const div = document.createElement('div');
+  div.className = 'card card-sm mb-1';
+  div.dataset.noteid = n.id;
+  div.innerHTML = `
+    <div class="card-body py-2 px-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <span class="fw-semibold small">${escHtml(n.author_name)}</span>
+        <span class="text-muted" style="font-size:11px;">${ts}
+          <button class="btn btn-sm btn-ghost-danger btn-del-note ms-1 py-0 px-1"
+                  data-note-id="${n.id}" title="Hapus">✕</button>
+        </span>
+      </div>
+      <div class="text-muted small" style="white-space:pre-wrap;">${escHtml(n.note)}</div>
+    </div>`;
+  div.querySelector('.btn-del-note').addEventListener('click', deleteNote);
+  return div;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+async function loadNotes(url) {
+  const thread = document.getElementById('notes-thread');
+  thread.innerHTML = '<div class="text-center text-muted py-3 small">Memuat...</div>';
+  const res   = await fetch(url);
+  const notes = await res.json();
+  thread.innerHTML = '';
+  if (!notes.length) {
+    thread.innerHTML = '<div class="text-center text-muted py-3 small">Belum ada progress note.</div>';
+    return;
+  }
+  notes.forEach(n => thread.appendChild(renderNote(n)));
+  thread.scrollTop = thread.scrollHeight;
+}
+
+async function deleteNote(e) {
+  if (!confirm('Hapus note ini?')) return;
+  const noteId = e.currentTarget.dataset.noteId;
+  const res = await fetch(`${_currentDeleteBase}/${noteId}/delete`, { method: 'POST' });
+  const d   = await res.json();
+  if (d.success) e.currentTarget.closest('[data-noteid]').remove();
+  else alert(d.message || 'Gagal hapus');
+}
+
+document.querySelectorAll('.btn-notes').forEach(btn => {
+  btn.addEventListener('click', function () {
+    _currentNoteUrl = this.dataset.urlPost;
+    document.getElementById('notes-desc').textContent = this.dataset.desc;
+    document.getElementById('note-input').value = '';
+    loadNotes(this.dataset.urlGet);
+  });
+});
+
+document.getElementById('btn-send-note')?.addEventListener('click', async function () {
+  const note = document.getElementById('note-input').value.trim();
+  if (!note) return;
+  this.disabled = true;
+  const res = await fetch(_currentNoteUrl, {
+    method:  'POST',
+    headers: {'Content-Type':'application/json'},
+    body:    JSON.stringify({ note })
+  });
+  const d = await res.json();
+  this.disabled = false;
+  if (!d.success) { alert(d.message || 'Gagal kirim'); return; }
+  document.getElementById('note-input').value = '';
+  const thread = document.getElementById('notes-thread');
+  const empty  = thread.querySelector('.text-center');
+  if (empty) empty.remove();
+  thread.appendChild(renderNote(d.note));
+  thread.scrollTop = thread.scrollHeight;
+});
+
+// Kirim note dengan Ctrl+Enter
+document.getElementById('note-input')?.addEventListener('keydown', function(e) {
+  if (e.ctrlKey && e.key === 'Enter') document.getElementById('btn-send-note').click();
 });
 </script>

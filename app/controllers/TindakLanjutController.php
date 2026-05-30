@@ -13,17 +13,15 @@ class TindakLanjutController
         $params = [];
 
         if (!Auth::hasRole('admin')) {
-            // Sekretaris & peserta: hanya tindak lanjut yang ditugaskan ke dirinya
             $where[]  = 'tl.assigned_to = ?';
             $params[] = Auth::id();
         } elseif ($userId) {
-            // Admin bisa filter per user tertentu
             $where[]  = 'tl.assigned_to = ?';
             $params[] = $userId;
         }
 
-        if ($status)   { $where[] = 'tl.status = ?';        $params[] = $status; }
-        if ($priority) { $where[] = 'tl.priority = ?';      $params[] = $priority; }
+        if ($status)   { $where[] = 'tl.status = ?';         $params[] = $status; }
+        if ($priority) { $where[] = 'tl.priority = ?';       $params[] = $priority; }
         if ($search)   { $where[] = 'tl.description LIKE ?'; $params[] = "%{$search}%"; }
 
         $whereStr = implode(' AND ', $where);
@@ -38,7 +36,6 @@ class TindakLanjutController
             $params
         );
 
-        // Summary stats sesuai scope
         $baseWhere  = !Auth::hasRole('admin') ? 'assigned_to = ?' : ($userId ? 'assigned_to = ?' : '1=1');
         $baseParams = !Auth::hasRole('admin') ? [Auth::id()] : ($userId ? [$userId] : []);
 
@@ -140,6 +137,93 @@ class TindakLanjutController
         )->execute([$status, $completedAt, $id]);
         header('Content-Type: application/json');
         echo json_encode(['success' => true]); exit;
+    }
+
+    // ── Progress Notes ────────────────────────────────────────────────────────
+
+    /**
+     * GET /tindak-lanjut/{id}/notes  — ambil semua note (JSON)
+     */
+    public static function getNotes(int $id): void
+    {
+        Auth::requireAuth();
+        $tl = Database::queryOne("SELECT assigned_to FROM tindak_lanjut WHERE id=?", [$id]);
+        if (!$tl) { http_response_code(404); echo json_encode([]); exit; }
+
+        // Hanya admin/sekretaris atau PIC yang bisa lihat
+        if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
+            http_response_code(403); echo json_encode([]); exit;
+        }
+
+        $notes = Database::query(
+            "SELECT n.id, n.note, n.created_at, u.name AS author_name
+             FROM tindak_lanjut_notes n
+             JOIN users u ON u.id = n.user_id
+             WHERE n.tindak_lanjut_id = ?
+             ORDER BY n.created_at ASC",
+            [$id]
+        );
+        header('Content-Type: application/json');
+        echo json_encode($notes); exit;
+    }
+
+    /**
+     * POST /tindak-lanjut/{id}/notes  — tambah note baru
+     */
+    public static function addNote(int $id): void
+    {
+        Auth::requireAuth();
+        $tl = Database::queryOne("SELECT assigned_to FROM tindak_lanjut WHERE id=?", [$id]);
+        if (!$tl) { http_response_code(404); echo json_encode(['success'=>false]); exit; }
+
+        if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success'=>false,'message'=>'Akses ditolak']); exit;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $note  = trim($input['note'] ?? '');
+        if (!$note) {
+            header('Content-Type: application/json');
+            echo json_encode(['success'=>false,'message'=>'Note tidak boleh kosong']); exit;
+        }
+
+        Database::getInstance()->prepare(
+            "INSERT INTO tindak_lanjut_notes (tindak_lanjut_id, user_id, note) VALUES (?,?,?)"
+        )->execute([$id, Auth::id(), $note]);
+
+        $newNote = Database::queryOne(
+            "SELECT n.id, n.note, n.created_at, u.name AS author_name
+             FROM tindak_lanjut_notes n
+             JOIN users u ON u.id = n.user_id
+             WHERE n.tindak_lanjut_id = ? ORDER BY n.id DESC LIMIT 1",
+            [$id]
+        );
+
+        header('Content-Type: application/json');
+        echo json_encode(['success'=>true, 'note'=>$newNote]); exit;
+    }
+
+    /**
+     * POST /tindak-lanjut/notes/{noteId}/delete  — hapus note
+     */
+    public static function deleteNote(int $noteId): void
+    {
+        Auth::requireAuth();
+        $n = Database::queryOne("SELECT * FROM tindak_lanjut_notes WHERE id=?", [$noteId]);
+        if (!$n) { header('Content-Type: application/json'); echo json_encode(['success'=>false]); exit; }
+
+        // Hanya penulis atau admin yang boleh hapus
+        if (!Auth::hasRole('admin') && $n['user_id'] != Auth::id()) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success'=>false,'message'=>'Akses ditolak']); exit;
+        }
+
+        Database::getInstance()->prepare("DELETE FROM tindak_lanjut_notes WHERE id=?")->execute([$noteId]);
+        header('Content-Type: application/json');
+        echo json_encode(['success'=>true]); exit;
     }
 
     public static function destroy(int $id): void
