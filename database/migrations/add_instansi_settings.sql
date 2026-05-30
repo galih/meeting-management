@@ -1,2 +1,0 @@
--- DIBATALKAN: migrasi ini bagian dari Opsi A (kop surat global) yang telah digantikan Opsi B.
--- File ini tidak perlu dijalankan.
