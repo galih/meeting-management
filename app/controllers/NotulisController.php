@@ -25,7 +25,7 @@ class NotulisController
             )['cnt'] ?? 0);
         } catch (\Throwable $e) { /* tabel belum ada */ }
 
-        // Peserta rapat — hanya kolom yang benar-benar ada di tabel users
+        // Peserta rapat
         $participants = Database::query(
             "SELECT u.id, u.name, u.avatar, u.role
              FROM meeting_participants mp
@@ -35,8 +35,8 @@ class NotulisController
         ) ?: [];
 
         // Tindak lanjut terkait
-        $tindakLanjut = Database::query(
-            "SELECT tl.*, u.name AS pic_name
+        $tindakLanjutList = Database::query(
+            "SELECT tl.*, u.name AS assigned_name
              FROM tindak_lanjut tl
              LEFT JOIN users u ON u.id = tl.assigned_to
              WHERE tl.meeting_id = ?
@@ -44,13 +44,19 @@ class NotulisController
             [$meetingId]
         ) ?: [];
 
+        // Daftar user aktif untuk dropdown assignee di modal TL
+        $users = Database::query(
+            "SELECT id, name FROM users WHERE is_active=1 ORDER BY name"
+        ) ?: [];
+
         View::layout('notulen/editor', [
-            'pageTitle'    => 'Editor Notulen \u2014 ' . $meeting['title'],
-            'meeting'      => $meeting,
-            'notulen'      => $notulen,
-            'historyCount' => $historyCount,
-            'participants' => $participants,
-            'tindakLanjut' => $tindakLanjut,
+            'pageTitle'        => 'Editor Notulen \u2014 ' . $meeting['title'],
+            'meeting'          => $meeting,
+            'notulen'          => $notulen,
+            'historyCount'     => $historyCount,
+            'participants'     => $participants,
+            'tindakLanjutList' => $tindakLanjutList,
+            'users'            => $users,
         ]);
     }
 
@@ -114,7 +120,11 @@ class NotulisController
     }
 
     /* ------------------------------------------------------------------ */
-    /*  SAVE NOTULEN (POST JSON)                                            */
+    /*  SAVE NOTULEN (POST /api/notulen/save)                              */
+    /*  Payload JSON: { meeting_id, content }                             */
+    /*  Kolom DB:                                                          */
+    /*    - html_content  = HTML mentah dari Quill (untuk display/export)  */
+    /*    - content       = sama, HTML (legacy compat)                     */
     /* ------------------------------------------------------------------ */
     public static function save(): void
     {
@@ -126,29 +136,16 @@ class NotulisController
         if (!$body) { echo json_encode(['success'=>false,'message'=>'Payload tidak valid']); exit; }
 
         $meetingId = (int)($body['meeting_id'] ?? 0);
-        $blocks    = $body['blocks'] ?? [];
+        // JS mengirim key 'content' berisi HTML dari Quill
+        $htmlContent = trim($body['content'] ?? '');
 
         if (!$meetingId) { echo json_encode(['success'=>false,'message'=>'meeting_id diperlukan']); exit; }
         $meeting = Database::queryOne("SELECT id FROM meetings WHERE id=?", [$meetingId]);
         if (!$meeting) { echo json_encode(['success'=>false,'message'=>'Meeting tidak ditemukan']); exit; }
 
-        $html = '';
-        foreach ($blocks as $block) {
-            $type    = $block['type']    ?? 'paragraph';
-            $content = $block['content'] ?? '';
-            if ($type === 'heading') {
-                $html .= '<h3>' . htmlspecialchars($content) . '</h3>';
-            } elseif ($type === 'paragraph') {
-                $html .= '<p>'  . htmlspecialchars($content) . '</p>';
-            } elseif ($type === 'bullet') {
-                $html .= '<li>' . htmlspecialchars($content) . '</li>';
-            } else {
-                $html .= '<p>'  . htmlspecialchars($content) . '</p>';
-            }
-        }
-
         $db       = Database::getInstance();
-        $existing = Database::queryOne("SELECT id FROM notulen WHERE meeting_id=?", [$meetingId]);
+        $existing = Database::queryOne("SELECT id, version FROM notulen WHERE meeting_id=?", [$meetingId]);
+
         if ($existing) {
             // Snapshot ke history sebelum overwrite
             try {
@@ -161,41 +158,30 @@ class NotulisController
                 }
             } catch (\Throwable $e) { /* notulen_history belum ada */ }
 
+            $newVersion = (int)($existing['version'] ?? 1) + 1;
             $db->prepare(
-                "UPDATE notulen SET content=?, blocks=?, version=version+1, updated_by=?, updated_at=NOW()
+                "UPDATE notulen
+                 SET content=?, version=?, updated_by=?, updated_at=NOW()
                  WHERE meeting_id=?"
-            )->execute([json_encode($blocks), $html, Auth::id(), $meetingId]);
+            )->execute([$htmlContent, $newVersion, Auth::id(), $meetingId]);
         } else {
+            $newVersion = 1;
             $db->prepare(
-                "INSERT INTO notulen (meeting_id, content, blocks, created_by) VALUES (?,?,?,?)"
-            )->execute([$meetingId, json_encode($blocks), $html, Auth::id()]);
+                "INSERT INTO notulen (meeting_id, content, version, created_by) VALUES (?,?,?,?)"
+            )->execute([$meetingId, $htmlContent, $newVersion, Auth::id()]);
         }
 
         ActivityLog::record('notulen.update', 'Simpan notulen untuk meeting ID '.$meetingId, 'notulen', $meetingId);
-        echo json_encode(['success'=>true,'message'=>'Notulen berhasil disimpan.']);
+        echo json_encode(['success'=>true,'message'=>'Notulen berhasil disimpan.','version'=>$newVersion]);
         exit;
     }
 
     /* ------------------------------------------------------------------ */
     /*  RENDER HTML (untuk export)                                          */
     /* ------------------------------------------------------------------ */
-    public static function renderHtml(array $blocks): string
+    public static function renderHtml(string $htmlContent): string
     {
-        $html = '';
-        foreach ($blocks as $block) {
-            $type    = $block['type']    ?? 'paragraph';
-            $content = $block['content'] ?? '';
-            if ($type === 'heading') {
-                $html .= '<h3>' . htmlspecialchars($content) . '</h3>';
-            } elseif ($type === 'paragraph') {
-                $html .= '<p>'  . htmlspecialchars($content) . '</p>';
-            } elseif ($type === 'bullet') {
-                $html .= '<li>' . htmlspecialchars($content) . '</li>';
-            } else {
-                $html .= '<p>'  . htmlspecialchars($content) . '</p>';
-            }
-        }
-        return $html;
+        return $htmlContent;
     }
 
     /* ------------------------------------------------------------------ */
@@ -209,29 +195,4 @@ class NotulisController
         $meetingId = (int)($_GET['meeting_id'] ?? 0);
         if (!$meetingId) { echo json_encode(['success'=>false,'message'=>'meeting_id diperlukan']); exit; }
 
-        $notulen = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
-        if (!$notulen) {
-            echo json_encode(['success'=>true,'blocks'=>[],'html'=>'']);
-            exit;
-        }
-
-        $blocks = json_decode($notulen['content'] ?? '[]', true) ?: [];
-        echo json_encode(['success'=>true,'blocks'=>$blocks,'html'=>$notulen['blocks'] ?? '']);
-        exit;
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*  SYNC (API)                                                          */
-    /* ------------------------------------------------------------------ */
-    public static function sync(): void
-    {
-        Auth::requireLogin();
-        header('Content-Type: application/json');
-        $meetingId = (int)($_GET['meeting_id'] ?? 0);
-        if (!$meetingId) { echo json_encode(['success'=>false]); exit; }
-
-        $notulen = Database::queryOne("SELECT updated_at FROM notulen WHERE meeting_id=?", [$meetingId]);
-        echo json_encode(['success'=>true,'updated_at'=>$notulen['updated_at'] ?? null]);
-        exit;
-    }
-}
+        $notulen = Database::queryOne("SELECT * FROM notul
