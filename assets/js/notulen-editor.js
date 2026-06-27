@@ -163,8 +163,11 @@ function initQuill() {
         });
         const data = await res.json();
         if (data.success) {
-          const modal = bootstrap.Modal.getInstance(document.getElementById('modalTL'));
-          if (modal) modal.hide();
+          // getOrCreateInstance aman meski modal belum pernah diinit secara programatik
+          const modalEl = document.getElementById('modalTL');
+          if (modalEl) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
+          }
           location.reload();
         } else {
           alert(data.message || 'Gagal menyimpan tindak lanjut');
