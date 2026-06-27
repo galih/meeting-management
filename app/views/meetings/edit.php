@@ -1,6 +1,7 @@
 <?php
 $baseUrl = rtrim(BASE_URL, '/');
 
+// ── Status labels ───────────────────────────────────────────────────────────
 $statusLabel = [
   'scheduled' => 'Terjadwal',
   'ongoing'   => 'Sedang Berlangsung',
@@ -8,112 +9,124 @@ $statusLabel = [
   'cancelled' => 'Dibatalkan',
 ];
 
-// Hitung chain departemen yang dipilih
+// ── Resolve departemen chain yang sedang dipilih ────────────────────────────
 $selDeptId = (int)($meeting['department_id'] ?? 0);
-$selDept   = $selDeptId ? Database::queryOne(
-  'SELECT id, name, level, parent_id FROM departments WHERE id=?', [$selDeptId]
-) : null;
+$selDept   = $selDeptId
+  ? Database::queryOne('SELECT id, name, level, parent_id FROM departments WHERE id = ?', [$selDeptId])
+  : null;
+
 $sel = [1 => 0, 2 => 0, 3 => 0];
 if ($selDept) {
-  $sel[$selDept['level']] = $selDept['id'];
+  $sel[$selDept['level']] = (int)$selDept['id'];
   if ($selDept['level'] > 1) {
-    $par = Database::queryOne('SELECT id,level,parent_id FROM departments WHERE id=?', [$selDept['parent_id']]);
+    $par = Database::queryOne('SELECT id, level, parent_id FROM departments WHERE id = ?', [$selDept['parent_id']]);
     if ($par) {
-      $sel[$par['level']] = $par['id'];
+      $sel[$par['level']] = (int)$par['id'];
       if ($par['level'] > 1) {
-        $par2 = Database::queryOne('SELECT id,level FROM departments WHERE id=?', [$par['parent_id']]);
-        if ($par2) $sel[$par2['level']] = $par2['id'];
+        $par2 = Database::queryOne('SELECT id, level FROM departments WHERE id = ?', [$par['parent_id']]);
+        if ($par2) $sel[$par2['level']] = (int)$par2['id'];
       }
     }
   }
 }
+
+// ── Group departments by parent_id ─────────────────────────────────────────
 $deptByParent = [];
-foreach ($departments as $d) {
+foreach (($departments ?? []) as $d) {
   $deptByParent[(int)($d['parent_id'] ?? 0)][] = $d;
 }
 
-// Color presets
-$colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b5530a','#6b6b6b'];
+// ── Warna preset & current ─────────────────────────────────────────────────
+$colorPresets   = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b5530a','#6b6b6b'];
+$currentColor   = strtolower(trim($meeting['color'] ?? '#7B1C1C'));
+$participantIds = $participantIds ?? [];
+$allUsers       = $allUsers ?? [];
+
+// ── Avatar palette ─────────────────────────────────────────────────────────
+$avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
 ?>
 
 <?php if (!empty($_SESSION['flash_error'])): ?>
-<div class="ed-alert-err">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+<div class="ed-alert" id="edAlertErr" role="alert">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <?= htmlspecialchars($_SESSION['flash_error']) ?>
-  <button onclick="this.parentElement.remove()" class="ed-alert-close">&times;</button>
+  <button type="button" class="ed-alert-close" onclick="document.getElementById('edAlertErr').remove()" aria-label="Tutup">&times;</button>
 </div>
 <?php unset($_SESSION['flash_error']); endif; ?>
 
-<!-- ================================================================
-     HERO HEADER
-================================================================ -->
-<div class="ed-hero mb-4">
-  <div class="ed-hero-body">
-    <nav class="ed-breadcrumb">
+<?php /* ================================================================
+   HERO
+================================================================ */ ?>
+<div class="ed-hero mb-4" style="--brand:<?= htmlspecialchars($currentColor) ?>">
+  <div class="ed-hero-inner">
+    <nav class="ed-breadcrumb" aria-label="Breadcrumb">
       <a href="<?= $baseUrl ?>/meetings">Kegiatan</a>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>"><?= htmlspecialchars($meeting['title']) ?></a>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       <span>Edit</span>
     </nav>
     <div class="ed-hero-row">
       <h1 class="ed-hero-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Edit Kegiatan
       </h1>
       <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>" class="ed-back-btn">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         Kembali ke Detail
       </a>
     </div>
   </div>
 </div>
 
-<!-- ================================================================
-     FORM CARD
-================================================================ -->
+<?php /* ================================================================
+   FORM
+================================================================ */ ?>
 <div class="ed-card">
-  <form method="POST" action="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>/update"
-        id="editMeetingForm" novalidate>
+  <form method="POST"
+        action="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>/update"
+        id="editMeetingForm"
+        novalidate>
     <?= Auth::csrfField() ?>
 
-    <!-- ── Section: Informasi Dasar ── -->
+    <?php /* ── Section 1: Informasi Dasar ── */ ?>
     <div class="ed-section">
-      <div class="ed-section-title">Informasi Dasar</div>
+      <p class="ed-section-title">Informasi Dasar</p>
       <div class="row g-3">
 
         <div class="col-12">
-          <label class="ed-label required" for="edit-title">Judul Kegiatan</label>
-          <input type="text" id="edit-title" name="title" class="form-control" required
-                 maxlength="255" autocomplete="off"
+          <label class="ed-label required" for="fTitle">Judul Kegiatan</label>
+          <input type="text" id="fTitle" name="title" class="form-control"
+                 maxlength="255" autocomplete="off" required
                  value="<?= htmlspecialchars($meeting['title']) ?>">
           <div class="invalid-feedback">Judul kegiatan wajib diisi.</div>
         </div>
 
         <div class="col-md-6">
-          <label class="ed-label required" for="edit-start">Tanggal & Jam Mulai</label>
-          <input type="datetime-local" id="edit-start" name="start_datetime" class="form-control" required
+          <label class="ed-label required" for="fStart">Tanggal &amp; Jam Mulai</label>
+          <input type="datetime-local" id="fStart" name="start_datetime" class="form-control" required
                  value="<?= date('Y-m-d\TH:i', strtotime($meeting['start_datetime'])) ?>">
           <div class="invalid-feedback">Waktu mulai wajib diisi.</div>
         </div>
 
         <div class="col-md-6">
-          <label class="ed-label required" for="edit-end">Tanggal & Jam Selesai</label>
-          <input type="datetime-local" id="edit-end" name="end_datetime" class="form-control" required
+          <label class="ed-label required" for="fEnd">Tanggal &amp; Jam Selesai</label>
+          <input type="datetime-local" id="fEnd" name="end_datetime" class="form-control" required
                  value="<?= date('Y-m-d\TH:i', strtotime($meeting['end_datetime'])) ?>">
-          <div class="invalid-feedback">Waktu selesai wajib diisi & harus setelah waktu mulai.</div>
+          <div class="invalid-feedback">Waktu selesai wajib diisi &amp; harus setelah waktu mulai.</div>
         </div>
 
         <div class="col-12">
-          <label class="ed-label" for="edit-location">Lokasi / Link Video</label>
-          <input type="text" id="edit-location" name="location" class="form-control"
-                 placeholder="Ruang Rapat A, atau https://meet.google.com/..."
+          <label class="ed-label" for="fLocation">Lokasi / Link Video</label>
+          <input type="text" id="fLocation" name="location" class="form-control"
+                 placeholder="Ruang Rapat A, atau https://meet.google.com/…"
                  value="<?= htmlspecialchars($meeting['location'] ?? '') ?>">
+          <div class="ed-hint">Jika berupa URL, akan ditampilkan sebagai tautan pada halaman detail.</div>
         </div>
 
         <div class="col-12">
-          <label class="ed-label" for="edit-desc">Deskripsi / Agenda</label>
-          <textarea id="edit-desc" name="description" class="form-control" rows="4"
+          <label class="ed-label" for="fDesc">Deskripsi / Agenda</label>
+          <textarea id="fDesc" name="description" class="form-control" rows="4"
                     placeholder="Tulis agenda kegiatan…"><?= htmlspecialchars($meeting['description'] ?? '') ?></textarea>
         </div>
 
@@ -122,13 +135,13 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
 
     <div class="ed-divider"></div>
 
-    <!-- ── Section: Unit Kerja ── -->
+    <?php /* ── Section 2: Unit Kerja ── */ ?>
     <div class="ed-section">
-      <div class="ed-section-title">Unit Kerja</div>
+      <p class="ed-section-title">Unit Kerja</p>
       <div class="row g-2">
         <div class="col-md-4">
-          <label class="ed-label-sm" for="edit-u1">Unit Kerja</label>
-          <select id="edit-u1" name="_u1" class="form-select" onchange="edCascade(1)">
+          <label class="ed-label-sm" for="fU1">Unit Kerja</label>
+          <select id="fU1" name="_u1" class="form-select" onchange="edCascade(1)">
             <option value="">— Semua Unit Kerja —</option>
             <?php foreach ($deptByParent[0] ?? [] as $d): ?>
             <option value="<?= (int)$d['id'] ?>" <?= $sel[1] === (int)$d['id'] ? 'selected' : '' ?>>
@@ -138,8 +151,8 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
           </select>
         </div>
         <div class="col-md-4">
-          <label class="ed-label-sm" for="edit-u2">Bidang / Bagian</label>
-          <select id="edit-u2" name="_u2" class="form-select" onchange="edCascade(2)"
+          <label class="ed-label-sm" for="fU2">Bidang / Bagian</label>
+          <select id="fU2" name="_u2" class="form-select" onchange="edCascade(2)"
                   <?= $sel[1] ? '' : 'disabled' ?>>
             <option value="">— Semua Bidang —</option>
             <?php foreach ($deptByParent[$sel[1]] ?? [] as $d): ?>
@@ -150,8 +163,10 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
           </select>
         </div>
         <div class="col-md-4">
-          <label class="ed-label-sm" for="edit-u3">Sub Bidang <span class="ed-optional">(opsional)</span></label>
-          <select id="edit-u3" name="_u3" class="form-select" onchange="edCascade(3)"
+          <label class="ed-label-sm" for="fU3">
+            Sub Bidang <span class="ed-optional">(opsional)</span>
+          </label>
+          <select id="fU3" name="_u3" class="form-select" onchange="edCascade(3)"
                   <?= $sel[2] ? '' : 'disabled' ?>>
             <option value="">— Opsional —</option>
             <?php foreach ($deptByParent[$sel[2]] ?? [] as $d): ?>
@@ -162,57 +177,61 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
           </select>
         </div>
       </div>
-      <input type="hidden" id="edit-dept-id" name="department_id"
-             value="<?= $selDeptId ?: '' ?>">
+      <input type="hidden" id="fDeptId" name="department_id" value="<?= $selDeptId ?: '' ?>">
     </div>
 
     <div class="ed-divider"></div>
 
-    <!-- ── Section: Warna & Peserta ── -->
+    <?php /* ── Section 3: Warna & Peserta ── */ ?>
     <div class="ed-section">
-      <div class="row g-3">
+      <div class="row g-4">
 
+        <?php /* Color picker */ ?>
         <div class="col-md-4">
-          <label class="ed-label">Warna Kalender</label>
+          <p class="ed-section-title" style="margin-bottom:.75rem">Warna Kalender</p>
           <div class="ed-color-row">
-            <?php
-            $currentColor = strtolower($meeting['color'] ?? '#7B1C1C');
-            foreach ($colorPresets as $hex):
-              $active = strtolower($hex) === $currentColor ? 'active' : '';
+            <?php foreach ($colorPresets as $hex):
+              $isActive = strtolower($hex) === $currentColor;
             ?>
-            <button type="button" class="ed-color-swatch <?= $active ?>"
+            <button type="button"
+                    class="ed-swatch <?= $isActive ? 'active' : '' ?>"
                     style="background:<?= $hex ?>"
                     data-color="<?= $hex ?>"
-                    title="<?= $hex ?>"
                     onclick="edPickColor('<?= $hex ?>')"
-                    aria-label="Pilih warna <?= $hex ?>"></button>
+                    aria-label="Pilih warna <?= $hex ?>"
+                    title="<?= $hex ?>"></button>
             <?php endforeach; ?>
-            <label class="ed-color-custom" title="Pilih warna kustom">
-              <input type="color" id="edit-color-picker" value="<?= htmlspecialchars($currentColor) ?>"
-                     onchange="edPickColor(this.value)" aria-label="Pilih warna kustom">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93A10 10 0 0 0 4.93 19.07"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42"/></svg>
+            <label class="ed-swatch ed-swatch-custom" title="Warna kustom">
+              <input type="color" id="fColorPicker"
+                     value="<?= htmlspecialchars($currentColor) ?>"
+                     onchange="edPickColor(this.value)"
+                     aria-label="Pilih warna kustom">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.47-1.125"/><path d="M20 12c0-4.5-4-8-8-8"/></svg>
             </label>
           </div>
-          <input type="hidden" id="edit-color" name="color" value="<?= htmlspecialchars($currentColor) ?>">
+          <input type="hidden" id="fColor" name="color" value="<?= htmlspecialchars($currentColor) ?>">
           <div class="ed-color-preview">
             <span class="ed-color-dot" id="edColorDot" style="background:<?= htmlspecialchars($currentColor) ?>"></span>
-            <span id="edColorHex" style="font-size:12px;color:#666"><?= htmlspecialchars($currentColor) ?></span>
+            <span class="ed-color-hex" id="edColorHex"><?= htmlspecialchars($currentColor) ?></span>
           </div>
         </div>
 
+        <?php /* Participants */ ?>
         <div class="col-md-8">
-          <label class="ed-label">Peserta</label>
-          <div class="ed-participant-wrap">
-            <div class="ed-participant-search">
+          <p class="ed-section-title" style="margin-bottom:.75rem">Peserta</p>
+          <div class="ed-p-wrap">
+            <div class="ed-p-search">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input type="text" id="edParticipantSearch" placeholder="Cari peserta…" autocomplete="off">
+              <input type="text" id="fPSearch" placeholder="Cari nama peserta…" autocomplete="off" aria-label="Cari peserta">
             </div>
-            <div class="ed-participant-list" id="edParticipantList">
-              <?php foreach ($allUsers as $u): ?>
-              <label class="ed-participant-item">
+            <div class="ed-p-list" id="fPList" role="group" aria-label="Daftar peserta">
+              <?php foreach ($allUsers as $u):
+                $bg = $avPalette[abs(crc32($u['name'])) % count($avPalette)];
+              ?>
+              <label class="ed-p-item">
                 <input type="checkbox" name="participants[]" value="<?= (int)$u['id'] ?>"
-                       <?= in_array($u['id'], $participantIds) ? 'checked' : '' ?>>
-                <span class="ed-pav" style="background:<?= ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'][abs(crc32($u['name'])) % 6] ?>">
+                       <?= in_array((int)$u['id'], array_map('intval', $participantIds)) ? 'checked' : '' ?>>
+                <span class="ed-pav" style="background:<?= $bg ?>">
                   <?= strtoupper(mb_substr($u['name'], 0, 1)) ?>
                 </span>
                 <span class="ed-p-name"><?= htmlspecialchars($u['name']) ?></span>
@@ -222,8 +241,8 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
               </label>
               <?php endforeach; ?>
             </div>
-            <div class="ed-participant-count" id="edPCount">
-              <?= count($participantIds) ?> peserta dipilih
+            <div class="ed-p-count" id="fPCount" aria-live="polite">
+              <span id="fPCountNum"><?= count(array_map('intval', $participantIds)) ?></span> peserta dipilih
             </div>
           </div>
         </div>
@@ -231,11 +250,13 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
       </div>
     </div>
 
-    <!-- ── Footer ── -->
+    <?php /* ── Footer ── */ ?>
     <div class="ed-footer">
-      <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>" class="ed-btn-cancel">Batal</a>
+      <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>" class="ed-btn-cancel">
+        Batal
+      </a>
       <button type="submit" class="ed-btn-submit" id="edSubmitBtn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Simpan Perubahan
       </button>
     </div>
@@ -243,129 +264,127 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
   </form>
 </div>
 
-<!-- ================================================================
-     JAVASCRIPT
-================================================================ -->
-<?php $deptChildrenUrl = $baseUrl . '/api/departments/children'; ?>
+<?php /* ================================================================
+   JAVASCRIPT
+================================================================ */ ?>
+<?php $childrenUrl = $baseUrl . '/api/departments/children'; ?>
 <script>
 (function () {
-  var _childUrl = <?= json_encode($deptChildrenUrl) ?>;
+  'use strict';
 
-  // ── Cascade department dropdowns ────────────────────────────────
-  async function fetchChildren(parentId) {
+  var CHILD_URL = <?= json_encode($childrenUrl) ?>;
+
+  /* ── Cascade dept dropdowns ──────────────────────────────────── */
+  async function fetchKids(parentId) {
     try {
-      var r = await fetch(_childUrl + '?parent_id=' + encodeURIComponent(parentId));
+      var r = await fetch(CHILD_URL + '?parent_id=' + encodeURIComponent(parentId));
       if (!r.ok) return [];
       return await r.json();
     } catch (e) { return []; }
   }
 
-  function syncDeptHidden() {
-    var v3 = document.getElementById('edit-u3').value;
-    var v2 = document.getElementById('edit-u2').value;
-    var v1 = document.getElementById('edit-u1').value;
-    document.getElementById('edit-dept-id').value = v3 || v2 || v1 || '';
+  function syncDept() {
+    var v3 = document.getElementById('fU3').value;
+    var v2 = document.getElementById('fU2').value;
+    var v1 = document.getElementById('fU1').value;
+    document.getElementById('fDeptId').value = v3 || v2 || v1 || '';
+  }
+
+  function buildOptions(sel, items, placeholder) {
+    sel.innerHTML = '<option value="">' + placeholder + '</option>';
+    items.forEach(function (d) {
+      var o = document.createElement('option');
+      o.value = d.id;
+      o.textContent = d.name;
+      sel.appendChild(o);
+    });
   }
 
   window.edCascade = async function (level) {
-    var s1 = document.getElementById('edit-u1');
-    var s2 = document.getElementById('edit-u2');
-    var s3 = document.getElementById('edit-u3');
+    var s1 = document.getElementById('fU1');
+    var s2 = document.getElementById('fU2');
+    var s3 = document.getElementById('fU3');
 
     if (level === 1) {
-      s2.innerHTML = '<option value="">— Semua Bidang —</option>';
-      s3.innerHTML = '<option value="">— Opsional —</option>';
+      buildOptions(s2, [], '— Semua Bidang —');
+      buildOptions(s3, [], '— Opsional —');
       s2.disabled = true;
       s3.disabled = true;
-      syncDeptHidden();
+      syncDept();
       if (!s1.value) return;
-      var kids = await fetchChildren(s1.value);
-      if (kids.length) {
-        kids.forEach(function (d) {
-          var o = document.createElement('option');
-          o.value = d.id; o.textContent = d.name;
-          s2.appendChild(o);
-        });
-        s2.disabled = false;
-      }
-      syncDeptHidden();
+      var kids = await fetchKids(s1.value);
+      if (kids.length) { buildOptions(s2, kids, '— Semua Bidang —'); s2.disabled = false; }
+      syncDept();
     } else if (level === 2) {
-      s3.innerHTML = '<option value="">— Opsional —</option>';
+      buildOptions(s3, [], '— Opsional —');
       s3.disabled = true;
-      syncDeptHidden();
+      syncDept();
       if (!s2.value) return;
-      var kids = await fetchChildren(s2.value);
-      if (kids.length) {
-        kids.forEach(function (d) {
-          var o = document.createElement('option');
-          o.value = d.id; o.textContent = d.name;
-          s3.appendChild(o);
-        });
-        s3.disabled = false;
-      }
-      syncDeptHidden();
+      var kids = await fetchKids(s2.value);
+      if (kids.length) { buildOptions(s3, kids, '— Opsional —'); s3.disabled = false; }
+      syncDept();
     } else {
-      syncDeptHidden();
+      syncDept();
     }
   };
 
-  // ── Color picker ────────────────────────────────────────────────
+  /* ── Color picker ────────────────────────────────────────────── */
   window.edPickColor = function (hex) {
-    document.getElementById('edit-color').value = hex;
-    document.getElementById('edit-color-picker').value = hex;
+    document.getElementById('fColor').value = hex;
+    document.getElementById('fColorPicker').value = hex;
     document.getElementById('edColorDot').style.background = hex;
     document.getElementById('edColorHex').textContent = hex;
-    document.querySelectorAll('.ed-color-swatch').forEach(function (s) {
+    document.querySelectorAll('.ed-swatch[data-color]').forEach(function (s) {
       s.classList.toggle('active', s.dataset.color.toLowerCase() === hex.toLowerCase());
     });
+    /* live preview brand color in hero */
+    document.querySelector('.ed-hero').style.setProperty('--brand', hex);
   };
 
-  // ── Participant search ──────────────────────────────────────────
-  var searchInput = document.getElementById('edParticipantSearch');
-  var pList       = document.getElementById('edParticipantList');
-  var pCount      = document.getElementById('edPCount');
+  /* ── Participant search ───────────────────────────────────────── */
+  var pSearch = document.getElementById('fPSearch');
+  var pList   = document.getElementById('fPList');
+  var pCount  = document.getElementById('fPCountNum');
 
   function updateCount() {
-    var checked = pList.querySelectorAll('input[type=checkbox]:checked').length;
-    pCount.textContent = checked + ' peserta dipilih';
+    if (pCount) pCount.textContent = pList.querySelectorAll('input[type=checkbox]:checked').length;
   }
 
-  if (searchInput) {
-    searchInput.addEventListener('input', function () {
+  if (pSearch && pList) {
+    pSearch.addEventListener('input', function () {
       var q = this.value.trim().toLowerCase();
-      pList.querySelectorAll('.ed-participant-item').forEach(function (item) {
-        var name = item.querySelector('.ed-p-name');
-        if (name) {
-          item.style.display = (!q || name.textContent.toLowerCase().includes(q)) ? '' : 'none';
-        }
+      pList.querySelectorAll('.ed-p-item').forEach(function (item) {
+        var nm = item.querySelector('.ed-p-name');
+        item.style.display = (!q || (nm && nm.textContent.toLowerCase().includes(q))) ? '' : 'none';
       });
     });
-  }
-
-  if (pList) {
     pList.addEventListener('change', function (e) {
       if (e.target.type === 'checkbox') updateCount();
     });
   }
 
-  // ── Form validation ─────────────────────────────────────────────
+  /* ── Form validation ─────────────────────────────────────────── */
   var form = document.getElementById('editMeetingForm');
   if (form) {
     form.addEventListener('submit', function (e) {
-      var start = document.getElementById('edit-start');
-      var end   = document.getElementById('edit-end');
-
-      // Reset
-      form.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
-
+      var start = document.getElementById('fStart');
+      var end   = document.getElementById('fEnd');
       var valid = true;
 
-      if (!form.checkValidity()) {
-        form.querySelectorAll('[required]').forEach(function (el) {
-          if (!el.value.trim()) { el.classList.add('is-invalid'); valid = false; }
-        });
-      }
+      /* Reset previous invalid states */
+      form.querySelectorAll('.is-invalid').forEach(function (el) {
+        el.classList.remove('is-invalid');
+      });
 
+      /* Required fields */
+      form.querySelectorAll('[required]').forEach(function (el) {
+        if (!el.value.trim()) {
+          el.classList.add('is-invalid');
+          valid = false;
+        }
+      });
+
+      /* End must be after start */
       if (start.value && end.value && end.value <= start.value) {
         end.classList.add('is-invalid');
         valid = false;
@@ -373,42 +392,47 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
 
       if (!valid) {
         e.preventDefault();
-        var firstInvalid = form.querySelector('.is-invalid');
-        if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        var first = form.querySelector('.is-invalid');
+        if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
         return;
       }
 
       var btn = document.getElementById('edSubmitBtn');
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Menyimpan…';
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Menyimpan…';
     });
   }
 
-  // ── Auto-sync start → end (+1 jam) ─────────────────────────────
-  var startInput = document.getElementById('edit-start');
-  var endInput   = document.getElementById('edit-end');
-  if (startInput && endInput) {
-    startInput.addEventListener('change', function () {
-      if (!endInput.value || endInput.value <= startInput.value) {
-        var d = new Date(startInput.value);
-        if (!isNaN(d)) {
+  /* ── Auto-suggest end = start + 1h ──────────────────────────── */
+  var startEl = document.getElementById('fStart');
+  var endEl   = document.getElementById('fEnd');
+  if (startEl && endEl) {
+    startEl.addEventListener('change', function () {
+      if (!endEl.value || endEl.value <= startEl.value) {
+        var d = new Date(startEl.value);
+        if (!isNaN(d.getTime())) {
           d.setHours(d.getHours() + 1);
           var pad = function (n) { return String(n).padStart(2, '0'); };
-          endInput.value = d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate())
-                         + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+          endEl.value = d.getFullYear() + '-'
+            + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
+            + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+          endEl.classList.remove('is-invalid');
         }
       }
     });
   }
+
 }());
 </script>
 
-<!-- ================================================================
-     STYLES
-================================================================ -->
+<?php /* ================================================================
+   STYLES
+================================================================ */ ?>
 <style>
-/* ── Alert error ── */
-.ed-alert-err {
+.ed-hero { --brand: #7B1C1C; }
+
+/* ── Alert ── */
+.ed-alert {
   display: flex; align-items: center; gap: .5rem;
   background: #fee2e2; color: #b91c1c;
   border: 1px solid #fca5a5; border-radius: 8px;
@@ -418,37 +442,37 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
 .ed-alert-close {
   margin-left: auto; background: none; border: none;
   font-size: 18px; cursor: pointer; color: inherit; opacity: .7;
+  line-height: 1;
 }
 .ed-alert-close:hover { opacity: 1; }
 
 /* ── Hero ── */
 .ed-hero {
-  background: linear-gradient(135deg, var(--brand,#7B1C1C) 0%, #9B2020 55%, #A83218 100%);
-  border-radius: 14px; padding: 1.2rem 1.6rem;
-  box-shadow: 0 4px 24px rgba(123,28,28,.22);
+  background: linear-gradient(135deg, var(--brand) 0%, color-mix(in srgb, var(--brand) 70%, #fff 30%) 100%);
+  border-radius: 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.16);
+  transition: --brand .3s;
 }
-.ed-breadcrumb {
-  display: flex; align-items: center; gap: .3rem;
-  font-size: 12px; color: rgba(255,255,255,.65); margin-bottom: .6rem;
-}
+.ed-hero-inner   { padding: 1.2rem 1.6rem; }
+.ed-breadcrumb   { display: flex; align-items: center; gap: .3rem; font-size: 12px; color: rgba(255,255,255,.62); margin-bottom: .55rem; }
 .ed-breadcrumb a { color: rgba(255,255,255,.8); text-decoration: none; }
 .ed-breadcrumb a:hover { color: #fff; text-decoration: underline; }
-.ed-hero-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.ed-hero-row     { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
 .ed-hero-title {
   display: flex; align-items: center; gap: .5rem;
-  font-size: clamp(15px,2.2vw,21px); font-weight: 800;
-  color: #fff; margin: 0;
+  font-size: clamp(14px, 2.2vw, 20px); font-weight: 800; color: #fff; margin: 0;
 }
 .ed-back-btn {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 13px; font-weight: 600;
   background: rgba(255,255,255,.15); border: 1.5px solid rgba(255,255,255,.3);
-  color: #fff; padding: .4rem .85rem; border-radius: 8px;
+  color: #fff; padding: .38rem .85rem; border-radius: 8px;
   text-decoration: none; transition: background .18s;
+  white-space: nowrap;
 }
 .ed-back-btn:hover { background: rgba(255,255,255,.25); color: #fff; }
 
-/* ── Form card ── */
+/* ── Card ── */
 .ed-card {
   background: #fff; border: 1px solid #e8e3db;
   border-radius: 12px; overflow: hidden;
@@ -456,90 +480,87 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
 }
 
 /* ── Sections ── */
-.ed-section { padding: 1.4rem 1.6rem; }
+.ed-section       { padding: 1.4rem 1.6rem; }
 .ed-section-title {
   font-size: 11px; font-weight: 800;
   text-transform: uppercase; letter-spacing: .08em;
   color: #888; margin-bottom: 1rem;
 }
-.ed-divider { height: 1px; background: #f0ece6; margin: 0; }
+.ed-divider { height: 1px; background: #f0ece6; }
 
 /* ── Labels ── */
 .ed-label {
-  display: block; font-size: 13px; font-weight: 600; color: #333; margin-bottom: .35rem;
+  display: block; font-size: 13px; font-weight: 600;
+  color: #2c2c2c; margin-bottom: .35rem;
 }
-.ed-label.required::after {
-  content: ' *'; color: #b91c1c;
-}
+.ed-label.required::after { content: ' *'; color: #b91c1c; }
 .ed-label-sm {
-  display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: .3rem;
+  display: block; font-size: 12px; font-weight: 600;
+  color: #555; margin-bottom: .3rem;
 }
 .ed-optional { font-weight: 400; color: #aaa; font-size: 11px; }
+.ed-hint     { font-size: 12px; color: #888; margin-top: .25rem; }
 
 /* ── Color picker ── */
 .ed-color-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .5rem; }
-.ed-color-swatch {
+.ed-swatch {
   width: 26px; height: 26px; border-radius: 50%;
-  border: 2px solid transparent; cursor: pointer;
-  transition: transform .15s, box-shadow .15s;
-  flex-shrink: 0;
+  border: 2.5px solid transparent; cursor: pointer;
+  transition: transform .15s, box-shadow .15s; flex-shrink: 0;
+  padding: 0;
 }
-.ed-color-swatch:hover { transform: scale(1.15); }
-.ed-color-swatch.active {
-  box-shadow: 0 0 0 3px #fff, 0 0 0 5px currentColor;
-  transform: scale(1.1);
+.ed-swatch:hover { transform: scale(1.15); }
+.ed-swatch.active { box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor; transform: scale(1.1); }
+.ed-swatch-custom {
+  display: flex; align-items: center; justify-content: center;
+  background: #f1f0ee; border: 1.5px dashed #ccc; color: #777;
+  cursor: pointer; overflow: hidden; position: relative;
+  transition: border-color .15s, color .15s;
 }
-.ed-color-custom {
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 1.5px dashed #ccc; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; color: #888; overflow: hidden;
-  transition: border-color .15s;
-}
-.ed-color-custom:hover { border-color: #888; color: #333; }
-.ed-color-custom input[type=color] {
+.ed-swatch-custom:hover { border-color: #888; color: #333; }
+.ed-swatch-custom input[type=color] {
   position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
 }
 .ed-color-preview { display: flex; align-items: center; gap: .4rem; margin-top: .3rem; }
 .ed-color-dot {
   display: inline-block; width: 14px; height: 14px;
-  border-radius: 50%; border: 1px solid rgba(0,0,0,.12);
+  border-radius: 50%; border: 1px solid rgba(0,0,0,.12); flex-shrink: 0;
 }
+.ed-color-hex { font-size: 12px; color: #666; font-family: monospace; }
 
 /* ── Participant box ── */
-.ed-participant-wrap {
+.ed-p-wrap {
   border: 1px solid #d4cfc8; border-radius: 10px; overflow: hidden;
 }
-.ed-participant-search {
+.ed-p-search {
   display: flex; align-items: center; gap: .4rem;
-  padding: .5rem .75rem;
-  border-bottom: 1px solid #e8e3db;
+  padding: .5rem .8rem; border-bottom: 1px solid #e8e3db;
   background: #fafaf8;
 }
-.ed-participant-search input {
+.ed-p-search svg { flex-shrink: 0; color: #aaa; }
+.ed-p-search input {
   border: none; background: none; outline: none;
   font-size: 13px; width: 100%; color: #333;
 }
-.ed-participant-list {
-  max-height: 220px; overflow-y: auto;
-  padding: .4rem 0;
+.ed-p-list {
+  max-height: 230px; overflow-y: auto; padding: .3rem 0;
 }
-.ed-participant-item {
+.ed-p-item {
   display: flex; align-items: center; gap: .5rem;
-  padding: .4rem .75rem; cursor: pointer;
+  padding: .4rem .8rem; cursor: pointer;
   transition: background .12s;
 }
-.ed-participant-item:hover { background: #faf5ee; }
-.ed-participant-item input[type=checkbox] { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
+.ed-p-item:hover { background: #faf5ee; }
+.ed-p-item input[type=checkbox] { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; accent-color: #7B1C1C; }
 .ed-pav {
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; border-radius: 50%;
   font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
 }
-.ed-p-name { font-size: 13px; font-weight: 500; flex: 1; }
-.ed-p-dept { font-size: 11px; color: #999; white-space: nowrap; }
-.ed-participant-count {
-  padding: .35rem .75rem;
-  font-size: 12px; font-weight: 600; color: #777;
+.ed-p-name { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-p-dept { font-size: 11px; color: #aaa; white-space: nowrap; }
+.ed-p-count {
+  padding: .35rem .8rem; font-size: 12px; font-weight: 600; color: #777;
   background: #fafaf8; border-top: 1px solid #e8e3db;
 }
 
@@ -551,7 +572,7 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
   background: #fafaf8;
 }
 .ed-btn-cancel {
-  font-size: 13px; font-weight: 600; color: #777;
+  font-size: 13px; font-weight: 600; color: #666;
   text-decoration: none; padding: .45rem .9rem;
   border-radius: 8px; transition: color .15s, background .15s;
 }
@@ -559,18 +580,18 @@ $colorPresets = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b
 .ed-btn-submit {
   display: inline-flex; align-items: center; gap: .4rem;
   font-size: 13px; font-weight: 700;
-  background: var(--brand,#7B1C1C); color: #fff;
-  padding: .5rem 1.1rem; border: none; border-radius: 8px;
-  cursor: pointer; transition: background .18s;
+  background: var(--brand, #7B1C1C); color: #fff;
+  padding: .5rem 1.2rem; border: none; border-radius: 8px;
+  cursor: pointer; transition: filter .18s;
 }
-.ed-btn-submit:hover { background: #9B2020; }
-.ed-btn-submit:disabled { opacity: .65; cursor: not-allowed; }
+.ed-btn-submit:hover:not(:disabled) { filter: brightness(1.12); }
+.ed-btn-submit:disabled { opacity: .6; cursor: not-allowed; }
 
 /* ── Responsive ── */
 @media (max-width: 575px) {
-  .ed-hero { padding: 1rem; }
-  .ed-section { padding: 1rem; }
-  .ed-footer { padding: .75rem 1rem; }
-  .ed-participant-list { max-height: 160px; }
+  .ed-hero-inner  { padding: 1rem; }
+  .ed-section     { padding: 1rem; }
+  .ed-footer      { padding: .75rem 1rem; }
+  .ed-p-list      { max-height: 170px; }
 }
 </style>
