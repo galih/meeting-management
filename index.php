@@ -51,6 +51,7 @@ $router->post('/profile/change-password',  [ProfileController::class, 'changePas
 
 // === MEETINGS ===
 $router->get('/meetings',                  [MeetingController::class, 'index']);
+$router->get('/meetings/create',           [MeetingController::class, 'create']);  // ← WAJIB sebelum {id}
 $router->post('/meetings',                 [MeetingController::class, 'store']);
 $router->get('/meetings/{id}',             [MeetingController::class, 'show']);
 $router->get('/meetings/{id}/edit',        [MeetingController::class, 'edit']);
@@ -77,7 +78,7 @@ $router->post('/api/comments/{id}/delete',  [CommentController::class, 'delete']
 // === TINDAK LANJUT ===
 $router->get('/tindak-lanjut',                               [TindakLanjutController::class, 'index']);
 $router->post('/tindak-lanjut',                              [TindakLanjutController::class, 'store']);
-$router->get('/tindak-lanjut/{id}',                          [TindakLanjutController::class, 'show']);   // ← BARU
+$router->get('/tindak-lanjut/{id}',                          [TindakLanjutController::class, 'show']);
 $router->post('/tindak-lanjut/{id}/status',                  [TindakLanjutController::class, 'updateStatus']);
 $router->get('/tindak-lanjut/{id}/notes',                    [TindakLanjutController::class, 'getNotes']);
 $router->post('/tindak-lanjut/{id}/notes',                   [TindakLanjutController::class, 'addNote']);

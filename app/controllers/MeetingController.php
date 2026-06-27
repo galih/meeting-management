@@ -72,6 +72,30 @@ class MeetingController
         ]);
     }
 
+    /**
+     * GET /meetings/create
+     * Tampilkan form buat kegiatan baru.
+     * Route ini HARUS didaftarkan SEBELUM /meetings/{id} agar
+     * string "create" tidak ditangkap sebagai $id.
+     */
+    public static function create(): void
+    {
+        Auth::requireRole('admin', 'sekretaris');
+
+        $departments = Database::query(
+            "SELECT id, name, level, parent_id FROM departments WHERE is_active=1 ORDER BY name"
+        );
+        $allUsers = Database::query(
+            "SELECT id, name FROM users WHERE is_active=1 ORDER BY name"
+        );
+
+        View::layout('meetings/create', [
+            'pageTitle'   => 'Buat Kegiatan Baru',
+            'departments' => $departments,
+            'allUsers'    => $allUsers,
+        ]);
+    }
+
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
@@ -95,7 +119,7 @@ class MeetingController
 
         if (!empty($errors)) {
             $_SESSION['flash_error'] = implode(' ', $errors);
-            header('Location: ' . BASE_URL . '/meetings'); exit;
+            header('Location: ' . BASE_URL . '/meetings/create'); exit;
         }
 
         $db = Database::getInstance();
