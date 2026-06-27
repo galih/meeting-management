@@ -24,7 +24,6 @@ $kanbanCols = [
   'done'        => ['label'=>'Selesai',         'color'=>'green',  'icon'=>'✅', 'items'=>[]],
   'cancelled'   => ['label'=>'Dibatalkan',      'color'=>'red',    'icon'=>'🚫', 'items'=>[]],
 ];
-// Untuk kanban kita pakai semua data (tanpa filter status)
 foreach ($tindakLanjutList as $tl) {
   $s = $tl['status'] ?? 'pending';
   if (isset($kanbanCols[$s])) $kanbanCols[$s]['items'][] = $tl;
@@ -389,14 +388,14 @@ function setView(v) {
   btnTable.classList.toggle('active', !isKanban);
   btnKanban.classList.toggle('active', isKanban);
   localStorage.setItem(LS_VIEW, v);
-  // Filter status tidak relevan di kanban — sembunyikan
   const filterStatus = document.getElementById('filter-status');
-  if (filterStatus) filterStatus.closest('select').disabled = isKanban;
+  if (filterStatus) filterStatus.disabled = isKanban;
 }
 
 btnTable.addEventListener('click',  () => setView('table'));
 btnKanban.addEventListener('click', () => setView('kanban'));
-setView(localStorage.getItem(LS_VIEW) || 'table');
+// Kanban sebagai tampilan default
+setView(localStorage.getItem(LS_VIEW) || 'kanban');
 
 // ── Status select (tabel) ──────────────────────────────────────────────
 document.querySelectorAll('#view-table .status-select').forEach(sel => {
@@ -418,10 +417,8 @@ function bindDelButtons(scope) {
       const res = await fetch(this.dataset.url, { method: 'POST' });
       const d   = await res.json();
       if (!d.success) { alert(d.message || 'Gagal hapus'); return; }
-      // Hapus dari tabel
       document.querySelectorAll(`tr:has([data-url$="/${this.dataset.id}/delete"])`)
               .forEach(r => r.remove());
-      // Hapus dari kanban
       const kcard = document.getElementById('kcard-' + this.dataset.id);
       if (kcard) {
         const col = kcard.closest('.kanban-col');
@@ -440,7 +437,6 @@ function updateColCount(colEl) {
   const count  = colEl.querySelectorAll('.kanban-card').length;
   const badge  = document.getElementById('kanban-count-' + status);
   if (badge) badge.textContent = count;
-  // Tampilkan/sembunyikan placeholder
   let empty = colEl.querySelector('.kanban-empty');
   if (count === 0 && !empty) {
     empty = document.createElement('div');
@@ -456,19 +452,19 @@ function updateColCount(colEl) {
 // ── Kanban: SortableJS drag & drop ────────────────────────────────────
 document.querySelectorAll('.kanban-col').forEach(col => {
   Sortable.create(col, {
-    group:     'kanban',           // allow cross-column drag
+    group:     'kanban',
     animation: 150,
     ghostClass: 'sortable-ghost',
     dragClass:  'sortable-drag',
-    disabled:  !_isAdminLike,     // peserta tidak bisa drag
-    filter:    '.btn-notes,.btn-del', // klik tombol tidak trigger drag
+    disabled:  !_isAdminLike,
+    filter:    '.btn-notes,.btn-del',
     onEnd: async function (evt) {
       const card      = evt.item;
       const newColEl  = evt.to;
       const newStatus = newColEl.dataset.status;
       const oldStatus = evt.from.dataset.status;
 
-      if (newStatus === oldStatus) return; // sama kolom, tidak perlu update
+      if (newStatus === oldStatus) return;
 
       const url = card.dataset.url;
       card.style.opacity = '0.5';
@@ -479,10 +475,8 @@ document.querySelectorAll('.kanban-col').forEach(col => {
         updateStatCards(d.summary);
         updateColCount(evt.from);
         updateColCount(newColEl);
-        // Fade done/cancelled
         card.style.opacity = ['done','cancelled'].includes(newStatus) ? '0.7' : '';
       } else {
-        // Rollback: kembalikan card ke kolom semula
         alert(d.message || 'Gagal update status');
         evt.from.insertBefore(card, evt.from.children[evt.oldIndex] || null);
         card.style.opacity = '';
