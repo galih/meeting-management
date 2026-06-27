@@ -3,12 +3,48 @@ declare(strict_types=1);
 
 class ExportController
 {
+    // -------------------------------------------------------------------------
+    // Route handlers — dipanggil dari Router dengan {id} sebagai parameter
+    // GET /notulen/{id}/export-docx
+    // -------------------------------------------------------------------------
+    public function exportDocx(int $id): void
+    {
+        Auth::requireLogin();
+        $this->handleDocx($id);
+    }
+
+    // GET /notulen/{id}/export-pdf
+    public function exportPdf(int $id): void
+    {
+        Auth::requireLogin();
+        $this->handlePdf($id);
+    }
+
+    // -------------------------------------------------------------------------
+    // Legacy static handlers — dipanggil via ?meeting_id=
+    // Dipertahankan untuk backward compatibility
+    // -------------------------------------------------------------------------
     public static function downloadPdf(): void
     {
         Auth::requireLogin();
         $meetingId = (int)($_GET['meeting_id'] ?? 0);
         if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
+        (new self())->handlePdf($meetingId);
+    }
 
+    public static function downloadDocx(): void
+    {
+        Auth::requireLogin();
+        $meetingId = (int)($_GET['meeting_id'] ?? 0);
+        if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
+        (new self())->handleDocx($meetingId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Core logic
+    // -------------------------------------------------------------------------
+    private function handlePdf(int $meetingId): void
+    {
         $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
@@ -32,12 +68,8 @@ class ExportController
         $exporter->download($meeting, $notulen, $participants, $tindakLanjut);
     }
 
-    public static function downloadDocx(): void
+    private function handleDocx(int $meetingId): void
     {
-        Auth::requireLogin();
-        $meetingId = (int)($_GET['meeting_id'] ?? 0);
-        if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
-
         $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
@@ -61,16 +93,15 @@ class ExportController
         $exporter->download($meeting, $notulen, $participants, $tindakLanjut);
     }
 
-    /**
-     * Serve static export file yang sudah tersimpan di /exports/
-     * Diakses via route /exports/{filename}
-     */
+    // -------------------------------------------------------------------------
+    // Serve static export file yang sudah tersimpan di /exports/
+    // GET /exports/{filename}
+    // -------------------------------------------------------------------------
     public static function serveFile(): void
     {
         Auth::requireLogin();
         $html = $_GET['file'] ?? '';
 
-        // PHP 7.4 compat: ganti str_starts_with dengan strncmp
         if (strncmp($html, '/exports/', 9) !== 0) {
             http_response_code(400); echo 'Path tidak valid.'; exit;
         }
