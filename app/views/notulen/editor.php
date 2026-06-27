@@ -22,8 +22,7 @@ $saveUrl        = $baseUrl . '/api/notulen/save';
 $syncUrl        = $baseUrl . '/api/notulen/sync';
 $currentUserId  = Auth::user()['id'] ?? 0;
 
-// Quill CSS – inject ke $headScripts agar dimuat di <head>
-$headScripts = ($headScripts ?? '') . '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css">';
+// Quill CSS sudah dimuat global di base.php (quill@2.0.3) — tidak perlu inject ulang
 ?>
 
 <!-- ============================================================
@@ -484,7 +483,6 @@ $headScripts = ($headScripts ?? '') . '<link rel="stylesheet" href="https://cdn.
             </div>
             <div class="d-flex justify-content-between align-items-center mt-1">
               <small class="text-muted" id="reply-indicator" style="font-size:11px;"></small>
-              <!-- FIX #2: tag </button> sebelumnya terpotong menjadi </but -->
               <button class="btn ned-btn-send" id="btn-submit-comment">Kirim</button>
             </div>
           </div>
@@ -734,7 +732,7 @@ $headScripts = ($headScripts ?? '') . '<link rel="stylesheet" href="https://cdn.
      siap, sehingga tidak bergantung pada mekanisme $scripts
      di layout yang mungkin belum tentu di-echo dengan benar.
 ============================================================ -->
-<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
 <script>
 /* Global variables untuk notulen-editor.js & template picker */
 const BASE_URL       = <?= json_encode(rtrim(BASE_URL, '/')) ?>;

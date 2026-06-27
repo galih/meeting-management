@@ -19,7 +19,7 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
   <!-- Quill Snow CSS — dimuat global agar selalu tersedia di halaman notulen;
        tidak bisa di-inject lewat $headScripts karena view notulen di-render
        SETELAH <head> sudah dicetak (late-bind tidak bekerja). -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css"/>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css?v=<?= filemtime(ROOT_PATH . '/assets/css/custom.css') ?>">
 
