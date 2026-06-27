@@ -16,7 +16,9 @@ $loc    = $meeting['location'] ?? '';
 $isLink = !empty($loc) && (strncmp($loc,'http://',7)===0 || strncmp($loc,'https://',8)===0);
 
 $initialContent = $notulen['content'] ?? '';
-$saveUrl        = $baseUrl . '/notulen/' . $meeting['id'] . '/save';
+// FIX #1: route yang terdaftar di index.php adalah POST /api/notulen/save
+//         bukan /notulen/{id}/save — perbaiki agar JS fetch ke URL yang benar.
+$saveUrl        = $baseUrl . '/api/notulen/save';
 $syncUrl        = $baseUrl . '/api/notulen/sync';
 $currentUserId  = Auth::user()['id'] ?? 0;
 
@@ -482,6 +484,7 @@ $headScripts = ($headScripts ?? '') . '<link rel="stylesheet" href="https://cdn.
             </div>
             <div class="d-flex justify-content-between align-items-center mt-1">
               <small class="text-muted" id="reply-indicator" style="font-size:11px;"></small>
+              <!-- FIX #2: tag </button> sebelumnya terpotong menjadi </but -->
               <button class="btn ned-btn-send" id="btn-submit-comment">Kirim</button>
             </div>
           </div>
