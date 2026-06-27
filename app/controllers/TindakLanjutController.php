@@ -3,11 +3,24 @@ class TindakLanjutController
 {
     private const PER_PAGE = 20;
 
-    // ── Helper: hitung summary untuk user/filter tertentu ─────────────────────
-    private static function getSummary(bool $isAdmin, int $userId): array
+    /**
+     * Hitung summary.
+     * $isAdminLike = true  → lihat semua data (admin & sekretaris)
+     * $isAdminLike = false → filter by assigned_to = Auth::id()
+     * $userId > 0          → tambahan filter by user tertentu (admin + filter user_id)
+     */
+    private static function getSummary(bool $isAdminLike, int $userId = 0): array
     {
-        $baseWhere  = !$isAdmin ? 'assigned_to = ?' : ($userId ? 'assigned_to = ?' : '1=1');
-        $baseParams = !$isAdmin ? [Auth::id()] : ($userId ? [$userId] : []);
+        if (!$isAdminLike) {
+            $baseWhere  = 'assigned_to = ?';
+            $baseParams = [Auth::id()];
+        } elseif ($userId > 0) {
+            $baseWhere  = 'assigned_to = ?';
+            $baseParams = [$userId];
+        } else {
+            $baseWhere  = '1=1';
+            $baseParams = [];
+        }
         return [
             'total'       => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere}", $baseParams)['c'] ?? 0),
             'pending'     => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND status='pending'", $baseParams)['c'] ?? 0),
@@ -27,10 +40,13 @@ class TindakLanjutController
         $page     = max(1, (int)($_GET['page'] ?? 1));
         $offset   = ($page - 1) * self::PER_PAGE;
 
+        // Admin & sekretaris lihat semua; peserta hanya miliknya
+        $isAdminLike = Auth::hasRole('admin', 'sekretaris');
+
         $where  = ['1=1'];
         $params = [];
 
-        if (!Auth::hasRole('admin')) {
+        if (!$isAdminLike) {
             $where[]  = 'tl.assigned_to = ?';
             $params[] = Auth::id();
         } elseif ($userId) {
@@ -44,7 +60,6 @@ class TindakLanjutController
 
         $whereStr = implode(' AND ', $where);
 
-        // Total rows for pagination
         $totalRows = (int)(Database::queryOne(
             "SELECT COUNT(*) c FROM tindak_lanjut tl WHERE {$whereStr}",
             $params
@@ -63,7 +78,7 @@ class TindakLanjutController
             array_merge($params, [self::PER_PAGE, $offset])
         );
 
-        $summary = self::getSummary(Auth::hasRole('admin'), $userId);
+        $summary = self::getSummary($isAdminLike, $userId);
 
         $users = Auth::hasRole('admin')
             ? Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name")
@@ -112,12 +127,7 @@ class TindakLanjutController
              (meeting_id, description, assigned_to, due_date, priority, created_by)
              VALUES (?,?,?,?,?,?)"
         )->execute([
-            $meetingId,
-            $desc,
-            $assignedTo ?: null,
-            $dueDate,
-            $priority,
-            Auth::id(),
+            $meetingId, $desc, $assignedTo ?: null, $dueDate, $priority, Auth::id(),
         ]);
 
         if ($assignedTo) {
@@ -141,14 +151,18 @@ class TindakLanjutController
         Auth::requireAuth();
         $input   = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         $status  = $input['status'] ?? '';
+        $userId  = (int)($input['user_id'] ?? 0); // filter aktif dikirim dari JS
         $allowed = ['pending', 'in_progress', 'done', 'cancelled'];
         if (!in_array($status, $allowed)) {
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Status tidak valid']); exit;
         }
         $tl = Database::queryOne("SELECT * FROM tindak_lanjut WHERE id=?", [$id]);
-        if (!$tl) { header('Content-Type: application/json'); echo json_encode(['success' => false]); exit; }
-        if (!Auth::hasRole('admin') && $tl['assigned_to'] != Auth::id()) {
+        if (!$tl) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false]); exit;
+        }
+        if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
             http_response_code(403);
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Akses ditolak']); exit;
@@ -158,9 +172,9 @@ class TindakLanjutController
             "UPDATE tindak_lanjut SET status=?, completed_at=? WHERE id=?"
         )->execute([$status, $completedAt, $id]);
 
-        // Kembalikan summary terbaru agar stat cards bisa diupdate tanpa reload
-        $userId = Auth::hasRole('admin') ? 0 : Auth::id();
-        $summary = self::getSummary(Auth::hasRole('admin'), $userId);
+        // Kembalikan summary sesuai filter aktif agar stat cards akurat
+        $isAdminLike = Auth::hasRole('admin', 'sekretaris');
+        $summary = self::getSummary($isAdminLike, $userId);
 
         header('Content-Type: application/json');
         echo json_encode(['success' => true, 'summary' => $summary]); exit;
@@ -168,9 +182,6 @@ class TindakLanjutController
 
     // ── Progress Notes ────────────────────────────────────────────────────────
 
-    /**
-     * GET /tindak-lanjut/{id}/notes  — ambil semua note (JSON)
-     */
     public static function getNotes(int $id): void
     {
         Auth::requireAuth();
@@ -193,10 +204,9 @@ class TindakLanjutController
             [$id]
         );
 
-        // Tambah flag can_delete per note
         foreach ($notes as &$n) {
             $n['can_delete'] = $isAdmin || ((int)$n['user_id'] === $myId);
-            unset($n['user_id']); // tidak perlu dikirim ke klien
+            unset($n['user_id']);
         }
         unset($n);
 
@@ -204,9 +214,6 @@ class TindakLanjutController
         echo json_encode($notes); exit;
     }
 
-    /**
-     * POST /tindak-lanjut/{id}/notes  — tambah note baru
-     */
     public static function addNote(int $id): void
     {
         Auth::requireAuth();
@@ -237,9 +244,7 @@ class TindakLanjutController
              WHERE n.tindak_lanjut_id = ? ORDER BY n.id DESC LIMIT 1",
             [$id]
         );
-
-        // Tambah can_delete untuk note baru
-        $newNote['can_delete'] = true; // penulis selalu bisa hapus note miliknya
+        $newNote['can_delete'] = true;
         unset($newNote['user_id']);
 
         header('Content-Type: application/json');
@@ -247,15 +252,18 @@ class TindakLanjutController
     }
 
     /**
-     * POST /tindak-lanjut/notes/{noteId}/delete  — hapus note
+     * POST /tindak-lanjut/{tlId}/notes/{noteId}/delete
+     * Router mengirim 2 parameter: $tlId (tidak dipakai), $noteId
      */
-    public static function deleteNote(int $noteId): void
+    public static function deleteNote(int $tlId, int $noteId): void
     {
         Auth::requireAuth();
         $n = Database::queryOne("SELECT * FROM tindak_lanjut_notes WHERE id=?", [$noteId]);
-        if (!$n) { header('Content-Type: application/json'); echo json_encode(['success'=>false]); exit; }
+        if (!$n) {
+            header('Content-Type: application/json');
+            echo json_encode(['success'=>false]); exit;
+        }
 
-        // Hanya penulis atau admin yang boleh hapus
         if (!Auth::hasRole('admin') && $n['user_id'] != Auth::id()) {
             http_response_code(403);
             header('Content-Type: application/json');

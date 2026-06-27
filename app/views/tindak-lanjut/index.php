@@ -36,14 +36,6 @@ $qpStr = $qp ? '&' . http_build_query($qp) : '';
   <?php endforeach; ?>
 </div>
 
-<!-- Flash -->
-<?php if (!empty($_SESSION['flash_success'])): ?>
-<div class="alert alert-success alert-dismissible mb-3">
-  <?= htmlspecialchars($_SESSION['flash_success']) ?>
-  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-<?php unset($_SESSION['flash_success']); endif; ?>
-
 <!-- Filter + Tabel -->
 <div class="card">
   <div class="card-header flex-column flex-md-row gap-2">
@@ -138,6 +130,7 @@ $qpStr = $qp ? '&' . http_build_query($qp) : '';
                     data-desc="<?= htmlspecialchars($tl['description']) ?>"
                     data-url-get="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
                     data-url-post="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
+                    data-delete-base="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
                     title="Progress Note"
                     data-bs-toggle="modal" data-bs-target="#modalNotes">
               💬
@@ -208,7 +201,7 @@ $qpStr = $qp ? '&' . http_build_query($qp) : '';
         <div id="notes-thread"
              style="max-height:340px;overflow-y:auto;padding:1rem;"
              class="d-flex flex-column gap-2">
-          <div class="text-center text-muted py-3 small" id="notes-loading">Memuat...</div>
+          <div class="text-center text-muted py-3 small">Memuat...</div>
         </div>
         <div class="border-top p-3 d-flex gap-2 align-items-end">
           <textarea id="note-input" class="form-control form-control-sm"
@@ -221,12 +214,11 @@ $qpStr = $qp ? '&' . http_build_query($qp) : '';
 </div>
 
 <script>
-// ── Helpers ──────────────────────────────────────────────────────────────────
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ── Stat cards live update ────────────────────────────────────────────────────
+// ── Stat cards live update ─────────────────────────────────────────────
 function updateStatCards(summary) {
   if (!summary) return;
   ['total','pending','in_progress','done','overdue'].forEach(key => {
@@ -235,30 +227,29 @@ function updateStatCards(summary) {
   });
 }
 
-// ── Status select ─────────────────────────────────────────────────────────────
+// Filter aktif yang dikirim ke updateStatus agar summary konsisten
+const _activeUserId = <?= (int)($user_id ?? 0) ?>;
+
+// ── Status select ─────────────────────────────────────────────────────
 document.querySelectorAll('.status-select').forEach(sel => {
   sel.addEventListener('change', async function () {
     const res = await fetch(this.dataset.url, {
       method:  'POST',
       headers: {'Content-Type':'application/json'},
-      body:    JSON.stringify({ status: this.value })
+      body:    JSON.stringify({ status: this.value, user_id: _activeUserId })
     });
     const d = await res.json();
     if (!d.success) {
       alert(d.message || 'Gagal update status');
     } else {
-      // Update stat cards tanpa reload
       updateStatCards(d.summary);
-      if (this.value === 'done' || this.value === 'cancelled') {
-        this.closest('tr').style.opacity = '0.5';
-      } else {
-        this.closest('tr').style.opacity = '';
-      }
+      const opacity = ['done','cancelled'].includes(this.value) ? '0.5' : '';
+      this.closest('tr').style.opacity = opacity;
     }
   });
 });
 
-// ── Hapus TL ──────────────────────────────────────────────────────────────────
+// ── Hapus TL ──────────────────────────────────────────────────────────────
 document.querySelectorAll('.btn-del').forEach(btn => {
   btn.addEventListener('click', async function () {
     if (!confirm('Hapus tindak lanjut ini?')) return;
@@ -269,9 +260,9 @@ document.querySelectorAll('.btn-del').forEach(btn => {
   });
 });
 
-// ── Progress Notes ────────────────────────────────────────────────────────────
-let _currentNoteUrl      = '';
-let _currentDeleteBase   = '<?= rtrim(BASE_URL, '/') ?>/tindak-lanjut/notes';
+// ── Progress Notes ──────────────────────────────────────────────────────────
+let _currentNoteUrl    = '';
+let _currentDeleteBase = '';
 
 function renderNote(n) {
   const d  = new Date(n.created_at);
@@ -318,6 +309,7 @@ async function loadNotes(url) {
 async function deleteNote(e) {
   if (!confirm('Hapus note ini?')) return;
   const noteId = e.currentTarget.dataset.noteId;
+  // URL: /tindak-lanjut/{tlId}/notes/{noteId}/delete
   const res = await fetch(`${_currentDeleteBase}/${noteId}/delete`, { method: 'POST' });
   const d   = await res.json();
   if (d.success) e.currentTarget.closest('[data-noteid]').remove();
@@ -326,7 +318,9 @@ async function deleteNote(e) {
 
 document.querySelectorAll('.btn-notes').forEach(btn => {
   btn.addEventListener('click', function () {
-    _currentNoteUrl = this.dataset.urlPost;
+    _currentNoteUrl    = this.dataset.urlPost;
+    // data-delete-base = /tindak-lanjut/{tlId}/notes
+    _currentDeleteBase = this.dataset.deleteBase;
     document.getElementById('notes-desc').textContent = this.dataset.desc;
     document.getElementById('note-input').value = '';
     loadNotes(this.dataset.urlGet);

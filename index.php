@@ -87,14 +87,15 @@ $router->post('/api/comments/{id}/resolve', [CommentController::class, 'resolve'
 $router->post('/api/comments/{id}/delete',  [CommentController::class, 'delete']);
 
 // === TINDAK LANJUT ===
-$router->get('/tindak-lanjut',                          [TindakLanjutController::class, 'index']);
-$router->post('/tindak-lanjut',                         [TindakLanjutController::class, 'store']);
-$router->post('/tindak-lanjut/{id}/status',             [TindakLanjutController::class, 'updateStatus']);
-$router->post('/tindak-lanjut/{id}/delete',             [TindakLanjutController::class, 'destroy']);
-// Progress Notes
-$router->get('/tindak-lanjut/{id}/notes',               [TindakLanjutController::class, 'getNotes']);
-$router->post('/tindak-lanjut/{id}/notes',              [TindakLanjutController::class, 'addNote']);
-$router->post('/tindak-lanjut/notes/{noteId}/delete',   [TindakLanjutController::class, 'deleteNote']);
+$router->get('/tindak-lanjut',                               [TindakLanjutController::class, 'index']);
+$router->post('/tindak-lanjut',                              [TindakLanjutController::class, 'store']);
+$router->post('/tindak-lanjut/{id}/status',                  [TindakLanjutController::class, 'updateStatus']);
+// Progress Notes — HARUS didaftarkan SEBELUM /tindak-lanjut/{id}/delete
+// agar route /tindak-lanjut/notes/{noteId}/delete tidak ditangkap sebagai {id}=notes
+$router->get('/tindak-lanjut/{id}/notes',                    [TindakLanjutController::class, 'getNotes']);
+$router->post('/tindak-lanjut/{id}/notes',                   [TindakLanjutController::class, 'addNote']);
+$router->post('/tindak-lanjut/{tlId}/notes/{noteId}/delete', [TindakLanjutController::class, 'deleteNote']);
+$router->post('/tindak-lanjut/{id}/delete',                  [TindakLanjutController::class, 'destroy']);
 
 // === USERS ===
 $router->get('/users',                [UserController::class, 'index']);
@@ -158,7 +159,7 @@ $router->get('/api/notulen-templates/{id}',          [NotulenTemplateController:
 $router->get('/admin/activity-log',        [ActivityLogController::class, 'index']);
 $router->post('/admin/activity-log/purge', [ActivityLogController::class, 'purge']);
 
-// ── Dispatch ────────────────────────────────────────────────────────────────────────────────────
+// ── Dispatch ─────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
