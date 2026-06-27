@@ -26,6 +26,9 @@ $allUsersJson = json_encode(array_values(array_map(
     fn($u) => ['id' => (int)$u['id'], 'name' => $u['name']],
     $allUsers ?? []
 )));
+
+// Query meetings untuk modal form (dilakukan di sini agar tidak ada DB call di tengah HTML)
+$meetingOptions = Database::query("SELECT id, title FROM meetings ORDER BY start_datetime DESC LIMIT 200");
 ?>
 
 <!-- ═══════════════════════════  PAGE HEADER  ═══════════════════════════ -->
@@ -356,7 +359,7 @@ $allUsersJson = json_encode(array_values(array_map(
   </div>
 </div>
 
-<!-- ═══════════════════════  MODAL: TAMBAH TINDAK LANJUT  ═══════════════ -->
+<!-- ═══════════════════  MODAL: TAMBAH TINDAK LANJUT  ═══════════════════ -->
 <?php if ($isAdminLike): ?>
 <div class="modal modal-blur fade" id="modalTambahTL" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-lg">
@@ -378,10 +381,7 @@ $allUsersJson = json_encode(array_values(array_map(
               <label class="form-label required">Meeting / Kegiatan</label>
               <select name="meeting_id" class="form-select" required>
                 <option value="">— Pilih Meeting —</option>
-                <?php
-                $meetings = Database::query("SELECT id, title FROM meetings ORDER BY start_datetime DESC LIMIT 200");
-                foreach ($meetings as $m):
-                ?>
+                <?php foreach ($meetingOptions as $m): ?>
                 <option value="<?= $m['id'] ?>"><?= htmlspecialchars($m['title']) ?></option>
                 <?php endforeach; ?>
               </select>
@@ -704,11 +704,15 @@ $allUsersJson = json_encode(array_values(array_map(
 .tli-kcard:hover        { box-shadow: 0 4px 14px rgba(0,0,0,.1); transform: translateY(-1px); }
 .tli-kcard-overdue      { border-left: 3px solid #a82515; }
 .tli-kcard-faded        { opacity: .7; }
+/* fix: hapus duplikat display, gunakan -webkit-box saja */
 .tli-kcard-desc {
-  display: block; font-size: 12.5px; font-weight: 600;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12.5px; font-weight: 600;
   color: var(--text-main); text-decoration: none; line-height: 1.4;
   margin-bottom: .45rem;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .tli-kcard-desc:hover { color: var(--brand); }
 .tli-kcard-meta { display: flex; flex-direction: column; gap: .25rem; margin-bottom: .45rem; }
@@ -788,6 +792,9 @@ var BASE          = <?= json_encode($baseUrl) ?>;
 var ALL_USERS     = <?= $allUsersJson ?>;
 var IS_ADMIN_LIKE = <?= $isAdminLike ? 'true' : 'false' ?>;
 
+// In-memory view preference (tidak pakai localStorage — crash di sandboxed iframe)
+var _currentView = 'table';
+
 /* ── helpers ──────────────────────────────────────────── */
 function esc(s) {
   return String(s)
@@ -823,23 +830,26 @@ var divTable  = document.getElementById('view-table');
 var divKanban = document.getElementById('view-kanban');
 
 function setView(v) {
-  var isKanban = v === 'kanban';
+  _currentView    = v;
+  var isKanban    = v === 'kanban';
   divTable.style.display  = isKanban ? 'none' : '';
   divKanban.style.display = isKanban ? '' : 'none';
   btnTable.classList.toggle('active', !isKanban);
   btnKanban.classList.toggle('active', isKanban);
+  // Di kanban, filter status tidak relevan — disable tapi jangan hapus nilainya
   var fs = document.getElementById('filter-status');
-  if (fs) fs.disabled = isKanban;
-  try { localStorage.setItem('tl_view', v); } catch(e) {}
+  if (fs) {
+    fs.disabled = isKanban;
+    fs.style.opacity = isKanban ? '.45' : '';
+    fs.title = isKanban ? 'Filter status tidak tersedia di tampilan Kanban' : '';
+  }
 }
 
 btnTable.addEventListener('click', function() { setView('table'); });
 btnKanban.addEventListener('click', function() { setView('kanban'); });
-(function() {
-  var saved = 'kanban';
-  try { saved = localStorage.getItem('tl_view') || 'kanban'; } catch(e) {}
-  setView(saved);
-})();
+
+// Default: tampilkan tabel agar pagination langsung terlihat
+setView('table');
 
 /* ── Status select (table view) ───────────────────────── */
 document.querySelectorAll('.status-select').forEach(function(sel) {
@@ -848,7 +858,7 @@ document.querySelectorAll('.status-select').forEach(function(sel) {
     if (!d.success) { alert(d.message || 'Gagal update status'); return; }
     updateStatCards(d.summary);
     var tr = this.closest('tr');
-    if (tr) tr.style.opacity = ['done','cancelled'].includes(this.value) ? '.55' : '';
+    if (tr) tr.style.opacity = ['done','cancelled'].indexOf(this.value) >= 0 ? '.55' : '';
   });
 });
 
@@ -969,7 +979,7 @@ function renderNotes(notes) {
   }
   thread.innerHTML = notes.map(function(n) {
     var initials = (n.author_name || '?').charAt(0).toUpperCase();
-    var canDel   = n.can_delete ? '<button class="tli-nt-del" data-note-id="' + n.id + '" title="Hapus">×</button>' : '';
+    var canDel   = n.can_delete ? '<button class="tli-nt-del" data-note-id="' + n.id + '" title="Hapus">&times;</button>' : '';
     var txt      = esc(n.note || '').replace(/@(\w+)/g, '<strong>@$1</strong>');
     return '<div class="tli-nt-item" id="note-item-' + n.id + '">' +
       '<span class="tli-avatar tli-avatar-xs flex-shrink-0">' + initials + '</span>' +
@@ -993,8 +1003,9 @@ function renderNotes(notes) {
       var r   = await fetch(_notesCtx.delBase + '/' + nid + '/delete', { method: 'POST' });
       var d   = await r.json();
       if (!d.success) { alert(d.message || 'Gagal hapus'); return; }
-      document.getElementById('note-item-' + nid)?.remove();
-      updateNoteBubble(_notesCtx.id, d.note_count ?? 0);
+      var noteEl = document.getElementById('note-item-' + nid);
+      if (noteEl) noteEl.remove();
+      updateNoteBubble(_notesCtx.id, d.note_count != null ? d.note_count : 0);
     });
   });
 
@@ -1062,7 +1073,7 @@ document.getElementById('note-input').addEventListener('input', function() {
 
   var q       = m[1].toLowerCase();
   var matches = ALL_USERS.filter(function(u) {
-    return u.name.toLowerCase().includes(q);
+    return u.name.toLowerCase().indexOf(q) >= 0;
   }).slice(0, 6);
 
   if (!matches.length) { hideMentionDrop(); return; }
