@@ -90,8 +90,6 @@ $router->post('/api/comments/{id}/delete',  [CommentController::class, 'delete']
 $router->get('/tindak-lanjut',                               [TindakLanjutController::class, 'index']);
 $router->post('/tindak-lanjut',                              [TindakLanjutController::class, 'store']);
 $router->post('/tindak-lanjut/{id}/status',                  [TindakLanjutController::class, 'updateStatus']);
-// Progress Notes — HARUS didaftarkan SEBELUM /tindak-lanjut/{id}/delete
-// agar route /tindak-lanjut/notes/{noteId}/delete tidak ditangkap sebagai {id}=notes
 $router->get('/tindak-lanjut/{id}/notes',                    [TindakLanjutController::class, 'getNotes']);
 $router->post('/tindak-lanjut/{id}/notes',                   [TindakLanjutController::class, 'addNote']);
 $router->post('/tindak-lanjut/{tlId}/notes/{noteId}/delete', [TindakLanjutController::class, 'deleteNote']);
@@ -159,12 +157,12 @@ $router->get('/api/notulen-templates/{id}',          [NotulenTemplateController:
 $router->get('/admin/activity-log',        [ActivityLogController::class, 'index']);
 $router->post('/admin/activity-log/purge', [ActivityLogController::class, 'purge']);
 
-// ── Dispatch ─────────────────────────────────────────────────────────────────
+// ── Dispatch ─────────────────────────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
-if ($scriptDir !== '' && str_starts_with($uri, $scriptDir)) {
+if ($scriptDir !== '' && strncmp($uri, $scriptDir, strlen($scriptDir)) === 0) {
     $uri = substr($uri, strlen($scriptDir));
 }
 $uri = $uri ?: '/';
