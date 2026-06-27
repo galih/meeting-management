@@ -7,7 +7,7 @@
 ![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?style=flat-square&logo=php)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql)
 ![Tabler](https://img.shields.io/badge/Tabler-UI-0054A6?style=flat-square)
-![Version](https://img.shields.io/badge/version-1.1.0-f76707?style=flat-square)
+![Version](https://img.shields.io/badge/version-1.2.0-f76707?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
 </div>
@@ -28,14 +28,16 @@
 - Lupa password via email — cari akun dengan **username**, link reset dikirim ke email terdaftar
 - Sistem role: **Admin**, **Sekretaris**, **Peserta**
 
-### 📅 Meeting
+### 📅 Kegiatan
 - Buat, edit, dan hapus kegiatan
-- Kalender interaktif (FullCalendar v6)
-- Tampilan daftar dengan filter status
-- Manajemen peserta per kegiatan
+- Kalender interaktif (FullCalendar v6) dengan tampilan bulan, minggu, dan agenda
+- Tampilan daftar dengan **search real-time**, **filter status**, dan **sort** (terbaru / terlama / A→Z)
+- **Stat cards** ringkasan status — klik kartu untuk langsung filter daftar
+- Manajemen peserta per kegiatan dengan checkbox pill
+- Pilih warna kalender dengan **color preset** atau color picker
 - Ubah status: `scheduled → ongoing → done → cancelled`
 
-### 🔁 Recurring Meeting
+### 🔁 Kegiatan Berulang
 - Buat jadwal kegiatan berulang: **harian, mingguan, dua mingguan, bulanan**
 - Generate kegiatan otomatis sesuai jadwal
 - Manajemen peserta recurring terpisah
@@ -66,37 +68,35 @@
 - Badge jumlah notifikasi belum dibaca di navbar
 - Tandai semua sudah dibaca dengan satu klik
 
-### 👥 Manajemen User (Admin)
+### 👥 Manajemen User *(Admin)*
 - Tambah, edit, nonaktifkan, dan hapus user
 - Set username unik per user
 - Pagination & search
 - Reset password user
 
 ### 🏢 Departemen
-- Manajemen departemen/divisi
-- Assign user ke departemen
+- Manajemen departemen/divisi dengan struktur hierarki
+- Cascade dropdown Unit Kerja → Bidang → Sub Bidang
 - Filter kegiatan per departemen
 
 ### 🗂️ Log Aktivitas *(Admin only)*
-- Mencatat semua aktivitas penting secara otomatis: **login, logout, login gagal, buat/ubah/hapus kegiatan, buat/ubah/hapus user**
-- Halaman khusus admin di menu **Administrasi → Log Aktivitas**
-- Filter berdasarkan **user**, **modul** (auth / meeting / user), dan **rentang tanggal**
+- Mencatat semua aktivitas penting: **login, logout, login gagal, buat/ubah/hapus kegiatan, buat/ubah/hapus user**
+- Filter berdasarkan **user**, **modul**, dan **rentang tanggal**
 - Badge warna per jenis aksi (hijau = login, biru = dibuat, kuning = diubah, merah = dihapus)
 - Pagination 30 entri per halaman
 - Fitur **Bersihkan Log** — hapus log lebih dari N hari (default 90 hari)
 
 ### 📄 Export Notula Resmi (DOCX)
 - Template **Notula resmi** sesuai format surat dinas Kementerian Kebudayaan RI
-- **Kop surat** otomatis: logo instansi (dari pengaturan aplikasi) + nama Kementerian & Inspektorat Jenderal
+- **Kop surat** otomatis: logo instansi + nama Kementerian & Inspektorat Jenderal
 - Judul **N O T U L A** tebal bergaris bawah, rata tengah
-- Baris info rapat: Nama rapat, Hari/Tanggal, Pukul, Tempat, Pemimpin rapat
-- Daftar peserta bernomor beserta unit kerja
-- Isi pembahasan dari editor notulen (mendukung bold, italic, heading, list)
-- Seksi **Simpulan** dan tabel **Tindak Lanjut** (PIC, Deadline, Status)
-- Blok tanda tangan: Mengetahui (pejabat) & Notulis
 - Font **Times New Roman 12pt**, kertas **A4**, margin standar surat dinas
 - Logo di-embed langsung ke file DOCX (base64) — tidak butuh koneksi internet saat membuka
-- Fallback otomatis ke teks `[ LOGO ]` jika logo belum diupload
+
+### ⚙️ Pengaturan Aplikasi *(Admin)*
+- Upload logo instansi & background login
+- Konfigurasi SMTP dengan **test email** langsung dari halaman pengaturan
+- Antarmuka tab: **Branding** dan **Email / SMTP**
 
 ---
 
@@ -239,6 +239,7 @@ meeting-management/
 │   │   ├── EmailTemplate.php        # Template HTML email
 │   │   ├── PdfExporter.php          # Export PDF via mPDF + fallback HTML
 │   │   ├── DocxExporter.php         # Export DOCX notula resmi (Open XML, logo embed)
+│   │   ├── ErrorHandler.php         # Error handler (kompatibel PHP 8.4+)
 │   │   └── ActivityLog.php          # Helper log aktivitas
 │   ├── controllers/
 │   │   ├── AuthController.php
@@ -270,7 +271,7 @@ meeting-management/
 └── assets/
     ├── css/
     ├── js/
-    └── uploads/                     # Logo & background login (di-generate saat upload)
+    └── uploads/                     # Logo & background login
 ```
 
 ---
@@ -315,6 +316,7 @@ meeting-management/
 | GET | `/notifications` | Halaman notifikasi | Auth |
 | GET | `/api/notifications` | API polling JSON | Auth |
 | GET | `/api/meetings/calendar` | API events kalender | Auth |
+| GET | `/api/departments/children` | API cascade departemen | Auth |
 | GET | `/admin/activity-log` | Log aktivitas | Admin |
 | POST | `/admin/activity-log/purge` | Bersihkan log lama | Admin |
 
@@ -341,7 +343,7 @@ meeting-management/
 | Komponen | Teknologi | Keterangan |
 |---|---|---|
 | UI Framework | [Tabler](https://tabler.io) | Berbasis Bootstrap 5 |
-| Kalender | [FullCalendar v6](https://fullcalendar.io) | Tampilan bulan & agenda |
+| Kalender | [FullCalendar v6](https://fullcalendar.io) | Tampilan bulan, minggu & agenda |
 | Rich Text Editor | [Quill](https://quilljs.com) | Editor notulen WYSIWYG |
 | Real-time Notulen | Long Polling (PHP native) | Sync antar pengguna |
 | Notifikasi | AJAX Polling | Interval 20 detik |
@@ -355,6 +357,7 @@ meeting-management/
 - Login menggunakan **username** (bukan email publik)
 - Semua output di-escape dengan `htmlspecialchars()`
 - Prepared statements PDO untuk semua query database
+- CSRF token pada setiap form POST
 - Token reset password expire dalam 1 jam
 - File sensitif (`.env`, `.sql`, `.log`) diblokir via `.htaccess`
 - `display_errors` dimatikan di production
@@ -366,36 +369,64 @@ meeting-management/
 
 ## 📦 Changelog
 
+### v1.2.0 — UI/UX Rebuild
+
+**Perbaikan Kompatibilitas**
+- `ErrorHandler.php`: hapus referensi `E_STRICT` yang telah dihapus di PHP 8.4+
+
+**Halaman Kegiatan (`/meetings`)**
+- Hero header dengan gradien merah marun, konsisten dengan halaman lain
+- **Stat cards** ringkasan status (Total / Terjadwal / Berlangsung / Selesai / Dibatalkan) — klik kartu untuk filter daftar otomatis
+- Flash toast fixed kanan atas dengan auto-dismiss 4 detik (menggantikan alert Bootstrap)
+- Toolbar daftar: search real-time + tombol clear, filter status, dan sort (Terbaru / Terlama / A→Z)
+- Judul kegiatan di tabel menjadi **link langsung** ke halaman detail
+- Modal buat kegiatan: peserta via **checkbox pill**, **7 color preset swatch**, auto-fill waktu selesai +1 jam
+- Modal hapus: tampilan lebih bersih dengan deskripsi dampak penghapusan
+- Seluruh class menggunakan namespace `mi-*` — tanpa ketergantungan Bootstrap
+
+**Halaman Pengaturan (`/settings`)**
+- Layout tabbed: tab **Branding** (logo + background login) dan **Email / SMTP**
+- Kartu branding sejajar dengan preview dashed box
+- SMTP: field dikelompokkan per baris logis, toggle password (eye/eye-slash), guide cards grid
+- Namespace `st-*` — tanpa ketergantungan Bootstrap
+
+**Halaman Log Aktivitas (`/admin/activity-log`)**
+- Hero banner + stat cards
+- Timeline dengan avatar inisial, ikon aksi berwarna, pagination first/last
+- Modal purge custom tanpa Bootstrap
+
+**Halaman Departemen (`/departments`)**
+- Hero banner, tree view collapse/expand, stats cards, modal preview level
+
+**Halaman Error**
+- `404.php` dan `403.php`: standalone HTML dengan card design, tidak bergantung layout utama
+
 ### v1.1.0 — Template Notula Resmi
 - **Export DOCX**: template diperbarui sesuai format notula surat dinas Kementerian Kebudayaan RI
-- Kop surat otomatis dengan logo instansi ter-embed langsung di file (base64, tidak butuh internet)
+- Kop surat otomatis dengan logo instansi ter-embed langsung di file (base64)
 - Judul *N O T U L A* tebal bergaris bawah, font Times New Roman 12pt, kertas A4
 - Baris info rapat: Nama rapat, Hari/Tanggal, Pukul, Tempat, Pemimpin rapat
 - Daftar peserta bernomor + unit kerja
-- Seksi Persoalan yang Dibahas, Simpulan, dan tabel Tindak Lanjut
+- Seksi Simpulan dan tabel Tindak Lanjut
 - Blok tanda tangan dua kolom: Mengetahui & Notulis
 - Fallback `[ LOGO ]` jika logo belum diupload di Pengaturan
-- Logo dibaca dari `app_settings[app_logo]` yang diupload via menu Pengaturan Aplikasi
 
 ### v1.0.0 — Rilis Perdana
 - Multi-role: Admin, Sekretaris, Peserta
 - Login dengan username, Remember Me, reset password via email (PHPMailer)
 - Manajemen kegiatan: buat, edit, hapus, ubah status
 - Kalender interaktif (FullCalendar v6)
-- Manajemen peserta per kegiatan
 - Kegiatan berulang: harian, mingguan, dua mingguan, bulanan
-- Lampiran file per kegiatan dengan validasi tipe & ukuran
+- Lampiran file per kegiatan
 - Editor notulen real-time (Quill + long polling) dengan riwayat versi
 - Komentar & mention (@user) di notulen
 - Export notulen ke PDF (mPDF) & DOCX (native Open XML)
 - Tindak lanjut terintegrasi: assign, deadline, prioritas, update status
-- Sistem notifikasi polling otomatis (interval 20 detik)
-- Manajemen user: tambah, edit, nonaktifkan, hapus, reset password
-- Manajemen departemen & filter kegiatan per departemen
-- Pengaturan aplikasi: logo, background login, konfigurasi SMTP
-- Template notulen yang dapat dikustomisasi
-- Log aktivitas admin: login, logout, kegiatan, user — dengan filter & purge
-- Web Installer 4 langkah untuk setup tanpa sentuh kode
+- Notifikasi polling otomatis (interval 20 detik)
+- Manajemen user & departemen
+- Pengaturan: logo, background login, konfigurasi SMTP
+- Log aktivitas admin dengan filter & purge
+- Web Installer 4 langkah
 
 ---
 
