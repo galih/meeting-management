@@ -97,6 +97,66 @@ class TindakLanjutController
         ]);
     }
 
+    public static function show(int $id): void
+    {
+        Auth::requireAuth();
+
+        $tl = Database::queryOne(
+            "SELECT tl.*,
+                    m.title  AS meeting_title,
+                    m.id     AS meeting_id,
+                    u.name   AS assignee_name,
+                    u.email  AS assignee_email,
+                    c.name   AS creator_name
+             FROM tindak_lanjut tl
+             JOIN meetings m ON m.id = tl.meeting_id
+             LEFT JOIN users u ON u.id = tl.assigned_to
+             LEFT JOIN users c ON c.id = tl.created_by
+             WHERE tl.id = ?",
+            [$id]
+        );
+
+        if (!$tl) {
+            http_response_code(404);
+            $pageTitle = '404 - Tindak Lanjut Tidak Ditemukan';
+            include APP_PATH . '/views/errors/404.php';
+            return;
+        }
+
+        // Hanya assignee, admin, atau sekretaris yang boleh lihat
+        if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
+            http_response_code(403);
+            $pageTitle = '403 - Akses Ditolak';
+            include APP_PATH . '/views/errors/404.php';
+            return;
+        }
+
+        $notes = Database::query(
+            "SELECT n.id, n.note, n.created_at, n.user_id, u.name AS author_name
+             FROM tindak_lanjut_notes n
+             JOIN users u ON u.id = n.user_id
+             WHERE n.tindak_lanjut_id = ?
+             ORDER BY n.created_at ASC",
+            [$id]
+        );
+
+        $isAdmin = Auth::hasRole('admin');
+        $myId    = Auth::id();
+        foreach ($notes as &$n) {
+            $n['can_delete'] = $isAdmin || ((int)$n['user_id'] === $myId);
+        }
+        unset($n);
+
+        $canEdit = Auth::hasRole('admin', 'sekretaris') || ((int)$tl['assigned_to'] === $myId);
+
+        View::layout('tindak-lanjut/show', [
+            'pageTitle' => 'Detail Tindak Lanjut',
+            'tl'        => $tl,
+            'notes'     => $notes,
+            'canEdit'   => $canEdit,
+        ]);
+    }
+
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
