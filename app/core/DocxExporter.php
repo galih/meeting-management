@@ -100,7 +100,6 @@ class DocxExporter
         $zip->addFromString('word/settings.xml',            self::settings());
         $zip->addFromString('word/styles.xml',              self::styles());
 
-        // Simpan binary gambar ke dalam ZIP jika ada
         if ($logoB64 !== '') {
             $zip->addFromString(
                 'word/media/logo.' . $logoExt,
@@ -120,24 +119,17 @@ class DocxExporter
     }
 
     // ── Muat logo dari setting ─────────────────────────────────────────────────
-    /**
-     * Mengembalikan [base64_string, extension, width_emu, height_emu].
-     * Jika logo tidak ada, base64_string = ''.
-     * EMU = English Metric Units (914400 EMU = 1 inch).
-     * Logo ditampilkan ± 2 cm lebar (≈ 720000 EMU).
-     */
     private static function loadLogo(): array
     {
         try {
             $row = Database::queryOne("SELECT value FROM app_settings WHERE `key`='app_logo'");
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return ['', 'png', 0, 0];
         }
 
         $url = $row['value'] ?? '';
         if (empty($url)) return ['', 'png', 0, 0];
 
-        // Konversi URL → path absolut di server
         $baseUrl  = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
         $relative = ltrim(str_replace($baseUrl, '', $url), '/');
         $path     = (defined('ROOT_PATH') ? ROOT_PATH : __DIR__ . '/../../..') . '/' . $relative;
@@ -151,12 +143,10 @@ class DocxExporter
         $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION) ?: 'png');
         if ($ext === 'jpg') $ext = 'jpeg';
 
-        // Ukuran gambar (untuk EMU)
         $size = @getimagesize($path);
         $px_w = $size ? $size[0] : 200;
         $px_h = $size ? $size[1] : 200;
 
-        // Target lebar 2 cm = 720000 EMU, jaga rasio
         $targetW = 720000;
         $ratio   = $px_h > 0 ? ($px_w / $px_h) : 1;
         $targetH = (int)round($targetW / $ratio);
@@ -188,9 +178,7 @@ class DocxExporter
             . ' xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"'
             . ' mc:Ignorable=""';
 
-        // ── Sel logo (kolom kiri kop) ──
         if ($hasLogo) {
-            // Dapatkan ulang dimensi (sudah dihitung di loadLogo)
             [$logoB64, $logoExt, $logoW, $logoH] = self::loadLogo();
             $imgXml =
                 '<w:p><w:pPr><w:jc w:val="center"/></w:pPr>'
@@ -226,11 +214,9 @@ class DocxExporter
               . '</wp:inline>'
               . '</w:drawing></w:r></w:p>';
         } else {
-            // Fallback teks jika belum ada logo
             $imgXml = self::kopPara('[ LOGO ]', false, '20');
         }
 
-        // ── Kop surat ──
         $kop =
             '<w:tbl>'
           . '<w:tblPr>'
@@ -245,11 +231,9 @@ class DocxExporter
           . '</w:tblBorders>'
           . '</w:tblPr>'
           . '<w:tr>'
-          // Kolom logo
           . '<w:tc><w:tcPr><w:tcW w:w="1300" w:type="dxa"/><w:vAlign w:val="center"/></w:tcPr>'
           . $imgXml
           . '</w:tc>'
-          // Kolom teks kop
           . '<w:tc><w:tcPr><w:tcW w:w="0" w:type="auto"/></w:tcPr>'
           . self::kopPara('KEMENTERIAN KEBUDAYAAN REPUBLIK INDONESIA', true,  '28')
           . self::kopPara('INSPEKTORAT JENDERAL',                       true,  '28')
@@ -259,7 +243,6 @@ class DocxExporter
           . '</w:tr>'
           . '</w:tbl>';
 
-        // ── Judul NOTULA ──
         $judulNotula =
             '<w:p><w:pPr><w:jc w:val="center"/>'
           . '<w:spacing w:before="240" w:after="240"/>'
@@ -269,7 +252,6 @@ class DocxExporter
           . '<w:b/><w:sz w:val="28"/><w:u w:val="single"/>'
           . '</w:rPr><w:t>N O T U L A</w:t></w:r></w:p>';
 
-        // ── Info rapat ──
         $infoRows =
             self::infoRow('Nama rapat',     $namaRapat)
           . self::infoRow('Hari, Tanggal',  $hariTgl)
@@ -277,17 +259,14 @@ class DocxExporter
           . self::infoRow('Tempat',         $tempat)
           . self::infoRow('Pemimpin rapat', $pemimpin);
 
-        // ── Peserta ──
         $pesertaSection = self::infoLabelPara('Peserta Rapat') . $participantLines;
 
-        // ── Pembahasan ──
         $pembahasanSection =
             self::seksiPara('1.  Persoalan yang Dibahas')
           . $bodyXml
           . self::seksiPara('2.  Simpulan')
           . self::para('');
 
-        // ── Tindak Lanjut ──
         $tlSection =
             self::seksiPara('3.  Tindak Lanjut')
           . '<w:tbl>'
@@ -296,7 +275,6 @@ class DocxExporter
           . $tlRows
           . '</w:tbl>';
 
-        // ── Tanda tangan ──
         $ttd =
             '<w:p><w:pPr><w:spacing w:before="480"/></w:pPr></w:p>'
           . '<w:tbl>'
@@ -325,7 +303,6 @@ class DocxExporter
           . '</w:tr>'
           . '</w:tbl>';
 
-        // ── Rakit body ──
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n"
              . "<w:document {$ns}>"
              . '<w:body>'
@@ -338,7 +315,6 @@ class DocxExporter
              . $pembahasanSection
              . $tlSection
              . $ttd
-             // A4 + margin surat dinas
              . '<w:sectPr>'
              . '<w:pgSz w:w="11906" w:h="16838"/>'
              . '<w:pgMar w:top="1418" w:right="1134" w:bottom="1418" w:left="1701"'
@@ -504,12 +480,15 @@ class DocxExporter
     // ── OOXML boilerplate ─────────────────────────────────────────────────────
     private static function contentTypes(string $ext = 'png'): string
     {
-        $mime = match($ext) {
-            'jpeg', 'jpg' => 'image/jpeg',
-            'gif'         => 'image/gif',
-            'webp'        => 'image/webp',
-            default       => 'image/png',
-        };
+        // PHP 7.4 compat: ganti match() dengan array lookup
+        $mimeMap = [
+            'jpeg' => 'image/jpeg',
+            'jpg'  => 'image/jpeg',
+            'gif'  => 'image/gif',
+            'webp' => 'image/webp',
+        ];
+        $mime = $mimeMap[$ext] ?? 'image/png';
+
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n"
              . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
              . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
@@ -531,12 +510,7 @@ class DocxExporter
 
     private static function documentRels(bool $hasLogo = false): string
     {
-        $imgRel = $hasLogo
-            ? '<Relationship Id="' . self::IMG_ID . '" '
-              . 'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" '
-              . 'Target="media/logo.' . 'png' . '"/>'
-            : '';
-        // Cek ekstensi aktual
+        $imgRel = '';
         if ($hasLogo) {
             [$b64, $ext] = self::loadLogo();
             $imgRel = '<Relationship Id="' . self::IMG_ID . '" '
@@ -564,13 +538,11 @@ class DocxExporter
         $r = self::FONT; $sz = self::SZ;
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n"
              . '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" w:docDefaults="1">'
-             // Normal — TNR 12pt
              . '<w:style w:type="paragraph" w:default="1" w:styleId="Normal">'
              . '<w:name w:val="Normal"/>'
              . '<w:rPr><w:rFonts w:ascii="' . $r . '" w:hAnsi="' . $r . '" w:cs="' . $r . '"/>'
              . '<w:sz w:val="' . $sz . '"/><w:szCs w:val="' . $sz . '"/>'
              . '<w:lang w:val="id-ID"/></w:rPr></w:style>'
-             // TableGrid
              . '<w:style w:type="table" w:styleId="TableGrid">'
              . '<w:name w:val="Table Grid"/>'
              . '<w:tblPr><w:tblBorders>'

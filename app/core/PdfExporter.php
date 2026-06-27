@@ -25,15 +25,23 @@ class PdfExporter
         $html = '';
         foreach ($decoded['blocks'] as $block) {
             $text = htmlspecialchars_decode($block['data']['text'] ?? '');
-            $html .= match($block['type']) {
-                'header'    => '<h' . ($block['data']['level'] ?? 2) . '>' . $text . '</h' . ($block['data']['level'] ?? 2) . '>',
-                'paragraph' => '<p>' . $text . '</p>',
-                'list'      => self::renderList($block['data']),
-                'checklist' => self::renderChecklist($block['data']),
-                'quote'     => '<blockquote style="border-left:3px solid #555;padding-left:12px;color:#555;">' . $text . '</blockquote>',
-                'delimiter' => '<hr>',
-                default     => '<p>' . $text . '</p>',
-            };
+            $type = $block['type'] ?? 'paragraph';
+            // PHP 7.4 compat: ganti match() dengan if-elseif
+            if ($type === 'header') {
+                $html .= '<h' . ($block['data']['level'] ?? 2) . '>' . $text . '</h' . ($block['data']['level'] ?? 2) . '>';
+            } elseif ($type === 'paragraph') {
+                $html .= '<p>' . $text . '</p>';
+            } elseif ($type === 'list') {
+                $html .= self::renderList($block['data']);
+            } elseif ($type === 'checklist') {
+                $html .= self::renderChecklist($block['data']);
+            } elseif ($type === 'quote') {
+                $html .= '<blockquote style="border-left:3px solid #555;padding-left:12px;color:#555;">' . $text . '</blockquote>';
+            } elseif ($type === 'delimiter') {
+                $html .= '<hr>';
+            } else {
+                $html .= '<p>' . $text . '</p>';
+            }
         }
         return $html ?: '<p><em>Belum ada isi notulen.</em></p>';
     }
@@ -81,7 +89,6 @@ class PdfExporter
 
     /**
      * Ambil letterhead_html dari template yang terhubung ke notulen ini.
-     * Jika notulen tidak punya template, kembalikan string kosong.
      */
     private static function getLetterhead(array $notulen): string
     {
@@ -104,20 +111,17 @@ class PdfExporter
         $title     = htmlspecialchars($meeting['title']);
         $printDate = date('d F Y H:i');
 
-        // Kop surat dari template (Opsi B)
         $letterhead = self::getLetterhead($notulen);
 
-        // Notulis
         $notulisName = $notulen['editor_name'] ?? $meeting['creator_name'] ?? '-';
 
-        // Konten notulen + resolve placeholder
         $rawContent  = $notulen['content'] ?? '';
         $notulenHtml = self::normalizeContent($rawContent);
-        if (str_contains($notulenHtml, '{{')) {
+        // PHP 7.4 compat: ganti str_contains dengan strpos
+        if (strpos($notulenHtml, '{{') !== false) {
             $notulenHtml = self::resolvePlaceholders($notulenHtml, $meeting, $participants, $notulisName);
         }
 
-        // Tabel tindak lanjut
         $tlRows = '';
         foreach ($tindakLanjutList as $i => $tl) {
             $no     = $i + 1;
