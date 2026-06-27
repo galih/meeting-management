@@ -40,17 +40,17 @@ $tlStatusColor = ['pending' => 'secondary', 'in_progress' => 'blue', 'done' => '
 $tlStatusLabel = ['pending' => 'Menunggu', 'in_progress' => 'Berlangsung', 'done' => 'Selesai', 'cancelled' => 'Dibatalkan'];
 
 // ── Computed vars ──────────────────────────────────────────────────────────
-$canEdit      = $canEdit ?? false;
-$participants = $participants ?? [];
+$canEdit          = $canEdit ?? false;
+$participants     = $participants ?? [];
 $tindakLanjutList = $tindakLanjutList ?? [];
 
-$mStatus    = $meeting['status'] ?? 'scheduled';
-$mColor     = $statusColor[$mStatus]  ?? 'secondary';
-$mLabel     = $statusLabel[$mStatus]  ?? ucfirst($mStatus);
-$mIcon      = $statusIcon[$mStatus]   ?? '';
-$loc        = trim($meeting['location'] ?? '');
-$isLink     = $loc && (str_starts_with($loc,'http://') || str_starts_with($loc,'https://'));
-$brand      = htmlspecialchars($meeting['color'] ?? '#7B1C1C');
+$mStatus  = $meeting['status'] ?? 'scheduled';
+$mColor   = $statusColor[$mStatus] ?? 'secondary';
+$mLabel   = $statusLabel[$mStatus] ?? ucfirst($mStatus);
+$mIcon    = $statusIcon[$mStatus]  ?? '';
+$loc      = trim($meeting['location'] ?? '');
+$isLink   = $loc && (str_starts_with($loc, 'http://') || str_starts_with($loc, 'https://'));
+$brand    = htmlspecialchars($meeting['color'] ?? '#7B1C1C');
 
 $totalPeserta = count($participants);
 $totalTL      = count($tindakLanjutList);
@@ -58,11 +58,10 @@ $doneTL       = count(array_filter($tindakLanjutList, fn($t) => $t['status'] ===
 $today        = date('Y-m-d');
 $overdueTL    = count(array_filter($tindakLanjutList,
   fn($t) => !empty($t['due_date']) && $t['due_date'] < $today
-         && !in_array($t['status'], ['done','cancelled'])
+         && !in_array($t['status'], ['done', 'cancelled'])
 ));
 $progressPct  = $totalTL > 0 ? round(($doneTL / $totalTL) * 100) : 0;
-
-$csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
+$csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 ?>
 
 <?php /* ── Flash toast ── */ ?>
@@ -70,7 +69,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 <div class="sh-toast" id="shToast" role="alert" aria-live="polite">
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
   <?= htmlspecialchars($_SESSION['flash_success']) ?>
-  <button class="sh-toast-close" onclick="document.getElementById('shToast').remove()" aria-label="Tutup">&times;</button>
+  <button class="sh-toast-close" onclick="this.parentElement.remove()" aria-label="Tutup">&times;</button>
 </div>
 <?php unset($_SESSION['flash_success']); endif; ?>
 
@@ -78,14 +77,14 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 <div class="sh-toast sh-toast-error" id="shToastErr" role="alert" aria-live="polite">
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <?= htmlspecialchars($_SESSION['flash_error']) ?>
-  <button class="sh-toast-close" onclick="document.getElementById('shToastErr').remove()" aria-label="Tutup">&times;</button>
+  <button class="sh-toast-close" onclick="this.parentElement.remove()" aria-label="Tutup">&times;</button>
 </div>
 <?php unset($_SESSION['flash_error']); endif; ?>
 
 <?php /* ================================================================
    HERO
 ================================================================ */ ?>
-<div class="sh-hero mb-4" style="--brand:<?= $brand ?>">
+<div class="sh-hero mb-4" style="--meeting-color:<?= $brand ?>">
   <div class="sh-hero-body">
     <div class="sh-hero-top">
 
@@ -118,7 +117,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
           Edit
         </a>
         <?php endif; ?>
-        <?php if (Auth::hasRole('admin','sekretaris')): ?>
+        <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
         <button type="button" class="sh-btn sh-btn-ghost" data-bs-toggle="modal" data-bs-target="#modalStatus">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Ubah Status
@@ -131,6 +130,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         </button>
         <?php endif; ?>
       </div>
+
     </div>
   </div>
 
@@ -149,7 +149,10 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
     <span class="sh-strip-item">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       <?php if ($isLink): ?>
-        <a href="<?= htmlspecialchars($loc) ?>" target="_blank" rel="noopener noreferrer" class="sh-strip-link">Buka Link Kegiatan <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+        <a href="<?= htmlspecialchars($loc) ?>" target="_blank" rel="noopener noreferrer" class="sh-strip-link">
+          Buka Link Kegiatan
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
       <?php else: ?>
         <?= htmlspecialchars($loc) ?>
       <?php endif; ?>
@@ -178,7 +181,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         </div>
       </div>
       <div class="sh-stat">
-        <div class="sh-stat-ico sh-stat-ico-purple">
+        <div class="sh-stat-ico sh-stat-ico-brand-lt">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         </div>
         <div>
@@ -250,7 +253,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export DOCX
         </a>
-        <?php if (Auth::hasRole('admin','sekretaris')): ?>
+        <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
         <button type="button" class="sh-doc-btn sh-doc-outline" id="btnKirimUndangan">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
           Kirim Undangan
@@ -273,12 +276,14 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 
       <?php /* Tab nav */ ?>
       <div class="sh-tabs" role="tablist">
-        <button type="button" class="sh-tab active" data-tab="tl" role="tab" aria-selected="true" aria-controls="sh-tab-tl">
+        <button type="button" class="sh-tab active" data-tab="tl" role="tab"
+                aria-selected="true" aria-controls="sh-tab-tl">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           Tindak Lanjut
           <span class="sh-badge-pill"><?= $totalTL ?></span>
         </button>
-        <button type="button" class="sh-tab" data-tab="peserta" role="tab" aria-selected="false" aria-controls="sh-tab-peserta">
+        <button type="button" class="sh-tab" data-tab="peserta" role="tab"
+                aria-selected="false" aria-controls="sh-tab-peserta">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Peserta
           <span class="sh-badge-pill"><?= $totalPeserta ?></span>
@@ -288,7 +293,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
       <?php /* ── Tab: Tindak Lanjut ── */ ?>
       <div id="sh-tab-tl" class="sh-tab-panel active" role="tabpanel">
 
-        <?php if (Auth::hasRole('admin','sekretaris')): ?>
+        <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
         <div class="sh-panel-toolbar">
           <button type="button" class="sh-btn-add" data-bs-toggle="modal" data-bs-target="#modalTambahTL">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -302,8 +307,8 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
           <div class="sh-empty-ico">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
-          <p>Belum ada tindak lanjut</p>
-          <?php if (Auth::hasRole('admin','sekretaris')): ?>
+          <p>Belum ada tindak lanjut untuk kegiatan ini.</p>
+          <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
           <button type="button" class="sh-btn-add" data-bs-toggle="modal" data-bs-target="#modalTambahTL">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tambah Sekarang
@@ -320,18 +325,18 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
                 <th>Deadline</th>
                 <th>Prioritas</th>
                 <th>Status</th>
-                <th style="width:56px"></th>
+                <th style="width:60px"></th>
               </tr>
             </thead>
             <tbody>
             <?php foreach ($tindakLanjutList as $tl):
               $isOver = !empty($tl['due_date'])
                 && $tl['due_date'] < $today
-                && !in_array($tl['status'], ['done','cancelled']);
+                && !in_array($tl['status'], ['done', 'cancelled']);
               $pc  = $prioColor[$tl['priority']] ?? 'secondary';
               $pl  = $prioLabel[$tl['priority']] ?? ucfirst($tl['priority'] ?? '');
               $tc  = $tlStatusColor[$tl['status']] ?? 'secondary';
-              $tl_ = $tlStatusLabel[$tl['status']] ?? ucfirst($tl['status'] ?? '');
+              $tll = $tlStatusLabel[$tl['status']] ?? ucfirst($tl['status'] ?? '');
             ?>
               <tr class="<?= $isOver ? 'sh-tr-over' : '' ?>">
                 <td>
@@ -343,7 +348,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
                 <td>
                   <?php if (!empty($tl['assigned_name'])): ?>
                   <div class="sh-pic">
-                    <span class="sh-av sh-av-sm"><?= strtoupper(mb_substr($tl['assigned_name'],0,1)) ?></span>
+                    <span class="sh-av sh-av-sm"><?= strtoupper(mb_substr($tl['assigned_name'], 0, 1)) ?></span>
                     <span><?= htmlspecialchars($tl['assigned_name']) ?></span>
                   </div>
                   <?php else: ?><span class="sh-muted">&mdash;</span><?php endif; ?>
@@ -354,7 +359,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
                   </span>
                 </td>
                 <td><span class="sh-badge sh-badge-<?= $pc ?>"><?= $pl ?></span></td>
-                <td><span class="sh-badge sh-badge-<?= $tc ?>"><?= $tl_ ?></span></td>
+                <td><span class="sh-badge sh-badge-<?= $tc ?>"><?= $tll ?></span></td>
                 <td>
                   <a href="<?= $baseUrl ?>/tindak-lanjut/<?= (int)$tl['id'] ?>" class="sh-btn-detail">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -372,14 +377,14 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
       <?php /* ── Tab: Peserta ── */ ?>
       <div id="sh-tab-peserta" class="sh-tab-panel" role="tabpanel">
         <?php
-        $avPalette = ['#7B1C1C','#A83218','#C9A84C','#2F6BC4','#1a7340','#7d3cb5','#0d7a8a','#b5530a'];
+        $avPalette = ['#7B1C1C', '#A83218', '#C9A84C', '#2F6BC4', '#1a7340', '#7d3cb5', '#0d7a8a', '#b5530a'];
         ?>
         <?php if (empty($participants)): ?>
         <div class="sh-empty">
           <div class="sh-empty-ico">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
-          <p>Belum ada peserta terdaftar</p>
+          <p>Belum ada peserta terdaftar.</p>
         </div>
         <?php else: ?>
         <div class="sh-peserta-grid">
@@ -390,7 +395,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
           ?>
           <div class="sh-peserta-card">
             <span class="sh-av" style="background:<?= $bg ?>">
-              <?= strtoupper(mb_substr($p['name'],0,1)) ?>
+              <?= strtoupper(mb_substr($p['name'], 0, 1)) ?>
             </span>
             <div class="sh-peserta-info">
               <div class="sh-peserta-name"><?= htmlspecialchars($p['name']) ?></div>
@@ -413,7 +418,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
    MODALS
 ================================================================ */ ?>
 
-<?php if (Auth::hasRole('admin','sekretaris')): ?>
+<?php if (Auth::hasRole('admin', 'sekretaris')): ?>
 
 <?php /* Modal Ubah Status */ ?>
 <div class="modal modal-blur fade" id="modalStatus" tabindex="-1" aria-labelledby="modalStatusLabel" aria-hidden="true">
@@ -424,12 +429,12 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         <div class="modal-header">
           <h5 class="modal-title" id="modalStatusLabel">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Ubah Status
+            Ubah Status Kegiatan
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
         </div>
         <div class="modal-body">
-          <label class="form-label fw-semibold" for="modalStatusSelect">Status baru</label>
+          <label class="form-label fw-semibold" for="modalStatusSelect">Status Baru</label>
           <select id="modalStatusSelect" name="status" class="form-select">
             <?php foreach ($statusLabel as $val => $lbl): ?>
             <option value="<?= $val ?>" <?= ($meeting['status'] ?? '') === $val ? 'selected' : '' ?>>
@@ -459,17 +464,14 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
       </div>
       <div class="modal-body">
-
         <div class="mb-3">
-          <label class="form-label fw-semibold" for="tlDesc">Deskripsi Tugas <span class="text-danger">*</span></label>
-          <textarea id="tlDesc" class="form-control" rows="3"
-                    placeholder="Contoh: Buat laporan evaluasi Q2…"></textarea>
+          <label class="form-label required" for="tlDesc">Deskripsi Tugas</label>
+          <textarea id="tlDesc" class="form-control" rows="3" placeholder="Contoh: Buat laporan evaluasi Q2…"></textarea>
           <div class="invalid-feedback">Deskripsi wajib diisi.</div>
         </div>
-
         <div class="row g-2 mb-3">
           <div class="col-md-6">
-            <label class="form-label fw-semibold" for="tlAssigned">Ditugaskan ke</label>
+            <label class="form-label" for="tlAssigned">Ditugaskan ke</label>
             <select id="tlAssigned" class="form-select">
               <option value="">— Pilih peserta —</option>
               <?php foreach ($participants as $p): ?>
@@ -478,15 +480,14 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
             </select>
           </div>
           <div class="col-md-6">
-            <label class="form-label fw-semibold" for="tlDeadline">Deadline</label>
+            <label class="form-label" for="tlDeadline">Deadline</label>
             <input type="date" id="tlDeadline" class="form-control" min="<?= $today ?>">
           </div>
         </div>
-
         <div>
-          <label class="form-label fw-semibold">Prioritas</label>
+          <label class="form-label">Prioritas</label>
           <div class="d-flex gap-3 flex-wrap">
-            <?php foreach (['low' => 'Rendah','medium' => 'Sedang','high' => 'Tinggi'] as $v => $l): ?>
+            <?php foreach (['low' => 'Rendah', 'medium' => 'Sedang', 'high' => 'Tinggi'] as $v => $l): ?>
             <label class="form-check">
               <input type="radio" name="tlPriority" class="form-check-input" value="<?= $v ?>" <?= $v === 'medium' ? 'checked' : '' ?>>
               <span class="form-check-label"><?= $l ?></span>
@@ -494,7 +495,6 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
             <?php endforeach; ?>
           </div>
         </div>
-
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Batal</button>
@@ -518,7 +518,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         <div class="sh-del-ico mb-3">
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </div>
-        <h5 class="mb-1" id="modalHapusLabel">Hapus Kegiatan?</h5>
+        <h5 class="mb-2" id="modalHapusLabel">Hapus Kegiatan?</h5>
         <p class="text-muted small mb-0">
           Kegiatan <strong class="text-danger"><?= htmlspecialchars($meeting['title']) ?></strong>
           akan dihapus permanen beserta semua notulen, peserta, dan tindak lanjut.
@@ -544,11 +544,11 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 (function () {
   'use strict';
 
-  var BASE    = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
-  var MTG_ID  = <?= (int)$meeting['id'] ?>;
-  var CSRF    = <?= json_encode($csrfToken) ?>;
+  var BASE   = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+  var MTG_ID = <?= (int)$meeting['id'] ?>;
+  var CSRF   = <?= json_encode($csrfToken) ?>;
 
-  /* ── Tab switch ──────────────────────────────────────────────── */
+  /* ── Tab switch ── */
   document.querySelectorAll('.sh-tab').forEach(function (btn) {
     btn.addEventListener('click', function () {
       document.querySelectorAll('.sh-tab').forEach(function (b) {
@@ -565,7 +565,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
     });
   });
 
-  /* ── Tambah TL ───────────────────────────────────────────────── */
+  /* ── Tambah TL ── */
   var btnSaveTL = document.getElementById('btnSaveTL');
   if (btnSaveTL) {
     btnSaveTL.addEventListener('click', function () {
@@ -605,20 +605,20 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         if (data.success) {
           window.location.reload();
         } else {
-          shAlert(data.message || 'Gagal menyimpan tindak lanjut.');
+          shToastMsg(data.message || 'Gagal menyimpan tindak lanjut.');
           btnSaveTL.disabled = false;
           btnSaveTL.innerHTML = origHtml;
         }
       })
       .catch(function (err) {
-        shAlert('Terjadi kesalahan: ' + err.message);
+        shToastMsg('Terjadi kesalahan: ' + err.message);
         btnSaveTL.disabled = false;
         btnSaveTL.innerHTML = origHtml;
       });
     });
   }
 
-  /* ── Kirim Undangan ──────────────────────────────────────────── */
+  /* ── Kirim Undangan ── */
   var btnInv = document.getElementById('btnKirimUndangan');
   if (btnInv) {
     btnInv.addEventListener('click', function () {
@@ -632,13 +632,13 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         body: JSON.stringify({ _csrf: CSRF })
       })
       .then(function (r) { return r.json(); })
-      .then(function (d) { shAlert(d.message || 'Undangan terkirim.', 'success'); })
-      .catch(function () { shAlert('Gagal mengirim undangan.'); })
+      .then(function (d) { shToastMsg(d.message || 'Undangan terkirim.', 'success'); })
+      .catch(function () { shToastMsg('Gagal mengirim undangan.'); })
       .finally(function () { btnInv.disabled = false; btnInv.innerHTML = orig; });
     });
   }
 
-  /* ── Kirim Ringkasan ─────────────────────────────────────────── */
+  /* ── Kirim Ringkasan ── */
   var btnSum = document.getElementById('btnKirimRingkasan');
   if (btnSum) {
     btnSum.addEventListener('click', function () {
@@ -652,38 +652,43 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         body: JSON.stringify({ _csrf: CSRF })
       })
       .then(function (r) { return r.json(); })
-      .then(function (d) { shAlert(d.message || 'Ringkasan terkirim.', 'success'); })
-      .catch(function () { shAlert('Gagal mengirim ringkasan.'); })
+      .then(function (d) { shToastMsg(d.message || 'Ringkasan terkirim.', 'success'); })
+      .catch(function () { shToastMsg('Gagal mengirim ringkasan.'); })
       .finally(function () { btnSum.disabled = false; btnSum.innerHTML = orig; });
     });
   }
 
-  /* ── Toast helper ────────────────────────────────────────────── */
-  function shAlert(msg, type) {
+  /* ── Toast helper ── */
+  function shToastMsg(msg, type) {
     var t = document.createElement('div');
     t.className = 'sh-toast' + (type === 'success' ? '' : ' sh-toast-error');
     t.setAttribute('role', 'alert');
     t.innerHTML = msg + '<button class="sh-toast-close" onclick="this.parentElement.remove()" aria-label="Tutup">&times;</button>';
     document.body.appendChild(t);
-    setTimeout(function () { t.style.opacity = '0'; setTimeout(function () { t.remove(); }, 400); }, 4000);
+    setTimeout(function () {
+      t.style.opacity = '0';
+      setTimeout(function () { t.remove(); }, 400);
+    }, 4000);
   }
 
-  /* ── Auto-dismiss flash toasts ───────────────────────────────── */
-  ['shToast','shToastErr'].forEach(function (id) {
+  /* ── Auto-dismiss flash toasts ── */
+  ['shToast', 'shToastErr'].forEach(function (id) {
     var el = document.getElementById(id);
-    if (el) setTimeout(function () { el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 400); }, 4500);
+    if (el) {
+      setTimeout(function () {
+        el.style.opacity = '0';
+        setTimeout(function () { el.remove(); }, 400);
+      }, 4500);
+    }
   });
 
 }());
 </script>
 
 <?php /* ================================================================
-   STYLES
+   STYLES — semua menggunakan variabel dari custom.css (palet Kemenbud)
 ================================================================ */ ?>
 <style>
-/* ── CSS custom prop fallback ── */
-.sh-hero { --brand: #7B1C1C; }
-
 /* ── Toast ── */
 .sh-toast {
   position: fixed; top: 1.2rem; right: 1.2rem; z-index: 1090;
@@ -693,20 +698,22 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
   font-size: 13px; font-weight: 600;
   box-shadow: 0 4px 18px rgba(0,0,0,.18);
   transition: opacity .4s ease;
-  max-width: 340px;
+  max-width: 360px;
 }
-.sh-toast-error { background: #b91c1c; }
+.sh-toast-error { background: var(--brand); }
 .sh-toast-close {
   background: none; border: none; color: inherit; cursor: pointer;
   font-size: 18px; line-height: 1; padding: 0 0 0 .4rem; opacity: .8;
+  margin-left: auto;
 }
 .sh-toast-close:hover { opacity: 1; }
 
-/* ── Hero ── */
+/* ── Hero — gradient menggunakan --meeting-color (warna kegiatan) ── */
 .sh-hero {
-  background: linear-gradient(135deg, var(--brand) 0%, color-mix(in srgb, var(--brand) 75%, #fff 25%) 100%);
+  --meeting-color: var(--brand);
+  background: linear-gradient(135deg, var(--meeting-color) 0%, color-mix(in srgb, var(--meeting-color) 75%, #1a0000 25%) 100%);
   border-radius: 14px;
-  box-shadow: 0 4px 24px rgba(0,0,0,.16);
+  box-shadow: 0 4px 24px rgba(0,0,0,.18);
   overflow: hidden;
 }
 .sh-hero-body   { padding: 1.4rem 1.6rem 1rem; }
@@ -718,54 +725,55 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
   font-size: clamp(15px, 2.4vw, 22px); font-weight: 800;
   color: #fff; margin: 0; letter-spacing: -.02em; line-height: 1.25;
 }
-.sh-meta { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .5rem; }
+.sh-meta  { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .5rem; }
 .sh-status {
   display: inline-flex; align-items: center; gap: .3rem;
-  font-size: 11.5px; font-weight: 700; padding: .25em .72em; border-radius: 20px;
+  font-size: 11.5px; font-weight: 700;
+  padding: .25em .72em; border-radius: 20px;
 }
-.sh-status-blue     { background: rgba(147,197,253,.2);  color: #bfdbfe; }
-.sh-status-orange   { background: rgba(253,186,116,.2);  color: #fed7aa; }
-.sh-status-green    { background: rgba(134,239,172,.2);  color: #bbf7d0; }
-.sh-status-red      { background: rgba(252,165,165,.2);  color: #fecaca; }
-.sh-status-secondary{ background: rgba(255,255,255,.15); color: rgba(255,255,255,.8); }
+.sh-status-blue      { background: rgba(147,197,253,.22); color: #bfdbfe; }
+.sh-status-orange    { background: rgba(253,186,116,.22); color: #fed7aa; }
+.sh-status-green     { background: rgba(134,239,172,.22); color: #bbf7d0; }
+.sh-status-red       { background: rgba(252,165,165,.22); color: #fecaca; }
+.sh-status-secondary { background: rgba(255,255,255,.15); color: rgba(255,255,255,.8); }
 .sh-chip {
   display: inline-flex; align-items: center; gap: .3rem;
-  font-size: 12px; color: rgba(255,255,255,.75);
+  font-size: 12px; color: rgba(255,255,255,.78);
   background: rgba(255,255,255,.12); padding: .22em .65em; border-radius: 20px;
 }
-.sh-hero-actions  { display: flex; flex-wrap: wrap; gap: .4rem; }
+.sh-hero-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
 
-/* ── Hero action buttons ── */
+/* Tombol di hero */
 .sh-btn {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 13px; font-weight: 600; padding: .42rem .9rem;
-  border-radius: 8px; border: none; cursor: pointer; text-decoration: none;
-  transition: background .18s, color .18s;
+  border-radius: 8px; border: none; cursor: pointer;
+  text-decoration: none; transition: background .18s, filter .18s, color .18s;
   white-space: nowrap;
 }
-.sh-btn-gold   { background: #C9A84C; color: #3D0A0A; }
-.sh-btn-gold:hover { background: #b08e3a; color: #fff; }
+.sh-btn-gold   { background: var(--gold); color: var(--bg-topnav); }
+.sh-btn-gold:hover { background: var(--gold-dark); color: #fff; }
 .sh-btn-ghost  { background: rgba(255,255,255,.15); border: 1.5px solid rgba(255,255,255,.3); color: #fff; }
-.sh-btn-ghost:hover { background: rgba(255,255,255,.25); }
+.sh-btn-ghost:hover { background: rgba(255,255,255,.25); color: #fff; }
 .sh-btn-danger { background: rgba(185,28,28,.25); border: 1.5px solid rgba(185,28,28,.45); color: #fca5a5; }
 .sh-btn-danger:hover { background: rgba(185,28,28,.45); color: #fff; }
 
-/* ── Strip ── */
+/* Strip waktu & lokasi */
 .sh-hero-strip {
   display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
-  background: rgba(0,0,0,.18); padding: .5rem 1.6rem;
+  background: rgba(0,0,0,.20); padding: .5rem 1.6rem;
   font-size: 12.5px; color: rgba(255,255,255,.82);
 }
 .sh-strip-item { display: flex; align-items: center; gap: .3rem; }
 .sh-strip-sep  { color: rgba(255,255,255,.35); }
-.sh-strip-link { color: #C9A84C; text-decoration: none; display: inline-flex; align-items: center; gap: .25rem; }
-.sh-strip-link:hover { text-decoration: underline; }
+.sh-strip-link { color: var(--gold); text-decoration: none; display: inline-flex; align-items: center; gap: .25rem; }
+.sh-strip-link:hover { text-decoration: underline; color: var(--gold-dark); }
 
-/* ── Stat cards ── */
+/* Stat cards */
 .sh-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
 .sh-stat {
   display: flex; align-items: center; gap: .7rem;
-  background: #fff; border: 1px solid #e8e3db;
+  background: var(--bg-card); border: 1px solid var(--border-light);
   border-radius: 10px; padding: .75rem .85rem;
   box-shadow: 0 1px 4px rgba(0,0,0,.04);
 }
@@ -773,151 +781,155 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
   display: flex; align-items: center; justify-content: center;
   width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
 }
-.sh-stat-ico-blue   { background: #dbeafe; color: #1d4ed8; }
-.sh-stat-ico-purple { background: #ede9fe; color: #6d28d9; }
-.sh-stat-ico-green  { background: #dcfce7; color: #15803d; }
-.sh-stat-ico-red    { background: #fee2e2; color: #b91c1c; }
-.sh-stat-ico-muted  { background: #f1f0ee; color: #888; }
-.sh-stat-val { font-size: 20px; font-weight: 800; color: #222; line-height: 1; }
-.sh-stat-lbl { font-size: 11px; color: #888; font-weight: 500; margin-top: .1rem; }
-.sh-val-green { color: #15803d; }
-.sh-val-red   { color: #b91c1c; }
+.sh-stat-ico-blue     { background: rgba(32,107,196,.10); color: #1557a0; }
+.sh-stat-ico-brand-lt { background: var(--brand-light); color: var(--brand); }
+.sh-stat-ico-green    { background: rgba(47,179,68,.10);  color: #1e7a2e; }
+.sh-stat-ico-red      { background: rgba(192,57,43,.10);  color: #a82515; }
+.sh-stat-ico-muted    { background: var(--border-light); color: var(--text-muted); }
+.sh-stat-val { font-size: 20px; font-weight: 800; color: var(--text-main); line-height: 1; }
+.sh-stat-lbl { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-top: .1rem; }
+.sh-val-green { color: #1e7a2e; }
+.sh-val-red   { color: var(--brand); }
 
-/* ── Progress ── */
-.sh-prog-row   { display: flex; justify-content: space-between; align-items: center; margin-bottom: .35rem; }
-.sh-prog-pct   { font-size: 13px; font-weight: 700; color: #333; }
-.sh-prog-meta  { font-size: 12px; color: #888; }
-.sh-prog-bar   { height: 7px; background: #e8e3db; border-radius: 99px; overflow: hidden; }
-.sh-prog-fill  { height: 100%; background: var(--brand, #7B1C1C); border-radius: 99px; transition: width .4s ease; }
+/* Progress bar */
+.sh-prog-row  { display: flex; justify-content: space-between; align-items: center; margin-bottom: .35rem; }
+.sh-prog-pct  { font-size: 13px; font-weight: 700; color: var(--text-main); }
+.sh-prog-meta { font-size: 12px; color: var(--text-muted); }
+.sh-prog-bar  { height: 7px; background: var(--border); border-radius: 99px; overflow: hidden; }
+.sh-prog-fill { height: 100%; background: var(--brand); border-radius: 99px; transition: width .4s ease; }
 
-/* ── Sidebar card ── */
+/* Kartu sidebar */
 .sh-card {
-  background: #fff; border: 1px solid #e8e3db;
+  background: var(--bg-card); border: 1px solid var(--border-light);
   border-radius: 10px; overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,.04);
 }
 .sh-card-hd {
   display: flex; align-items: center; gap: .4rem;
-  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #666;
-  padding: .55rem 1rem; border-bottom: 1px solid #e8e3db; background: #fafaf8;
+  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-muted); padding: .55rem 1rem;
+  border-bottom: 1px solid var(--border-light); background: var(--bg-page);
 }
-.sh-card-body    { padding: .75rem 1rem; }
-.sh-agenda-text  { font-size: 13px; line-height: 1.65; color: #444; margin: 0; white-space: pre-wrap; }
-.sh-doc-list     { display: flex; flex-direction: column; gap: .45rem; }
+.sh-card-body   { padding: .75rem 1rem; }
+.sh-agenda-text { font-size: 13px; line-height: 1.65; color: var(--text-main); margin: 0; white-space: pre-wrap; }
+.sh-doc-list    { display: flex; flex-direction: column; gap: .45rem; }
 .sh-doc-btn {
   display: flex; align-items: center; justify-content: center; gap: .4rem;
   font-size: 13px; font-weight: 600; padding: .5rem .8rem;
   border-radius: 8px; border: none; cursor: pointer; text-decoration: none;
-  transition: background .18s, border-color .18s; white-space: nowrap;
+  transition: background .18s, filter .18s; white-space: nowrap;
 }
-.sh-doc-primary { background: var(--brand, #7B1C1C); color: #fff; }
+.sh-doc-primary { background: var(--brand); color: #fff; }
 .sh-doc-primary:hover { filter: brightness(1.1); color: #fff; }
-.sh-doc-outline { background: #fff; color: #333; border: 1.5px solid #d4cfc8; }
-.sh-doc-outline:hover { background: #f5f0ea; border-color: #b5a89a; }
-.sh-doc-outline-green { background: #fff; color: #15803d; border: 1.5px solid #a3d9a5; }
+.sh-doc-outline {
+  background: var(--bg-card); color: var(--text-main);
+  border: 1.5px solid var(--border);
+}
+.sh-doc-outline:hover { background: var(--bg-page); border-color: var(--text-muted); }
+.sh-doc-outline-green { background: var(--bg-card); color: #1e7a2e; border: 1.5px solid #a3d9a5; }
 .sh-doc-outline-green:hover { background: #f0faf0; }
 
-/* ── Main card ── */
+/* Kartu utama (tab panel) */
 .sh-main-card {
-  background: #fff; border: 1px solid #e8e3db;
+  background: var(--bg-card); border: 1px solid var(--border-light);
   border-radius: 12px; overflow: hidden;
   box-shadow: 0 1px 6px rgba(0,0,0,.05);
 }
 
-/* ── Tabs ── */
+/* Tabs */
 .sh-tabs {
-  display: flex; border-bottom: 1px solid #e8e3db;
-  background: #fafaf8; padding: 0 1rem; overflow-x: auto;
+  display: flex; border-bottom: 1px solid var(--border-light);
+  background: var(--bg-page); padding: 0 1rem; overflow-x: auto;
 }
 .sh-tab {
   display: flex; align-items: center; gap: .35rem;
-  font-size: 13px; font-weight: 600; color: #777;
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
   padding: .75rem 1rem; border: none; background: none;
-  border-bottom: 2px solid transparent; cursor: pointer;
+  border-bottom: 2.5px solid transparent; cursor: pointer;
   transition: color .18s, border-color .18s; white-space: nowrap;
 }
-.sh-tab:hover { color: var(--brand, #7B1C1C); }
-.sh-tab.active { color: var(--brand, #7B1C1C); border-bottom-color: var(--brand, #7B1C1C); }
+.sh-tab:hover { color: var(--brand); }
+.sh-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
 .sh-badge-pill {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 20px; height: 18px; padding: 0 5px;
   font-size: 11px; font-weight: 700;
-  background: #eee; color: #555; border-radius: 20px;
+  background: var(--border-light); color: var(--text-muted); border-radius: 20px;
 }
-.sh-tab.active .sh-badge-pill { background: var(--brand, #7B1C1C); color: #fff; }
+.sh-tab.active .sh-badge-pill { background: var(--brand); color: #fff; }
 
-/* ── Tab panel ── */
+/* Tab panel */
 .sh-tab-panel { display: none; }
 .sh-tab-panel.active { display: block; }
 .sh-panel-toolbar {
   display: flex; justify-content: flex-end; align-items: center;
-  padding: .75rem 1rem; border-bottom: 1px solid #f0ece6;
+  padding: .75rem 1rem; border-bottom: 1px solid var(--border-light);
 }
 
-/* ── Add button ── */
+/* Tombol tambah */
 .sh-btn-add {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 13px; font-weight: 600;
-  background: var(--brand, #7B1C1C); color: #fff;
+  background: var(--brand); color: #fff;
   padding: .42rem .9rem; border-radius: 8px; border: none; cursor: pointer;
   transition: filter .18s;
 }
 .sh-btn-add:hover { filter: brightness(1.12); }
 
-/* ── Empty state ── */
+/* Empty state */
 .sh-empty {
   display: flex; flex-direction: column; align-items: center;
-  text-align: center; padding: 2.5rem 1rem; color: #aaa;
+  text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);
 }
-.sh-empty-ico  { color: #ccc; margin-bottom: .65rem; }
-.sh-empty p    { font-size: 13px; margin: 0 0 1rem; }
+.sh-empty-ico { color: var(--border); margin-bottom: .65rem; }
+.sh-empty p   { font-size: 13px; margin: 0 0 1rem; }
 
-/* ── Table ── */
+/* Tabel */
 .sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.sh-table thead tr  { background: #faf8f5; }
+.sh-table thead tr { background: var(--bg-page); }
 .sh-table th {
   padding: .55rem 1rem; text-align: left;
   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
-  color: #777; border-bottom: 1px solid #e8e3db;
+  color: var(--text-muted); border-bottom: 1px solid var(--border-light);
 }
-.sh-table td        { padding: .7rem 1rem; border-bottom: 1px solid #f0ece6; vertical-align: middle; }
+.sh-table td { padding: .7rem 1rem; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
 .sh-table tbody tr:last-child td { border-bottom: none; }
-.sh-table tbody tr:hover td { background: #faf8f5; }
-.sh-tr-over td      { background: #fff8f5 !important; }
-.sh-tl-desc         { font-weight: 500; color: #222; }
-.sh-muted           { color: #bbb; }
-.sh-pic             { display: flex; align-items: center; gap: .45rem; }
+.sh-table tbody tr:hover td { background: var(--brand-xlight); }
+.sh-tr-over td  { background: #fff8f5 !important; }
+.sh-tl-desc     { font-weight: 500; color: var(--text-main); }
+.sh-muted       { color: var(--border); }
+.sh-pic         { display: flex; align-items: center; gap: .45rem; }
 .sh-av {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 50%;
   font-size: 12px; font-weight: 700; color: #fff;
-  background: var(--brand, #7B1C1C); flex-shrink: 0;
+  background: var(--brand); flex-shrink: 0;
 }
 .sh-av-sm { width: 26px; height: 26px; font-size: 11px; }
-.sh-deadline      { font-size: 12px; color: #555; }
-.sh-deadline-over { font-size: 12px; color: #b91c1c; font-weight: 700; }
+.sh-deadline      { font-size: 12px; color: var(--text-muted); }
+.sh-deadline-over { font-size: 12px; color: var(--brand); font-weight: 700; }
 .sh-btn-detail {
   display: inline-flex; align-items: center; gap: .25rem;
   font-size: 12px; font-weight: 600;
-  color: var(--brand, #7B1C1C); text-decoration: none;
+  color: var(--brand); text-decoration: none;
 }
-.sh-btn-detail:hover { text-decoration: underline; }
+.sh-btn-detail:hover { text-decoration: underline; color: var(--brand-dark); }
 
-/* ── Badges ── */
+/* Badge */
 .sh-badge {
   display: inline-flex; align-items: center;
   font-size: 11px; font-weight: 700;
   padding: .22em .65em; border-radius: 20px; line-height: 1.4;
 }
-.sh-badge-sm     { font-size: 10.5px; padding: .18em .55em; }
-.sh-badge-red    { background: #fee2e2; color: #b91c1c; }
-.sh-badge-orange { background: #ffedd5; color: #c2410c; }
-.sh-badge-green  { background: #dcfce7; color: #15803d; }
-.sh-badge-blue   { background: #dbeafe; color: #1d4ed8; }
-.sh-badge-teal   { background: #ccfbf1; color: #0f766e; }
-.sh-badge-secondary { background: #f1f0ee; color: #666; }
+.sh-badge-sm        { font-size: 10.5px; padding: .18em .55em; }
+.sh-badge-red       { background: rgba(192,57,43,.10); color: #a82515; }
+.sh-badge-orange    { background: var(--gold-light);   color: var(--gold-dark); }
+.sh-badge-green     { background: rgba(47,179,68,.10);  color: #1e7a2e; }
+.sh-badge-blue      { background: rgba(32,107,196,.10); color: #1557a0; }
+.sh-badge-teal      { background: rgba(12,166,120,.10); color: #0a7a58; }
+.sh-badge-secondary { background: var(--border-light);  color: var(--text-muted); }
 
-/* ── Peserta grid ── */
+/* Grid peserta */
 .sh-peserta-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -925,21 +937,21 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 }
 .sh-peserta-card {
   display: flex; align-items: center; gap: .6rem;
-  background: #faf8f5; border: 1px solid #e8e3db;
+  background: var(--bg-page); border: 1px solid var(--border-light);
   border-radius: 10px; padding: .6rem .8rem;
 }
-.sh-peserta-info  { flex: 1; min-width: 0; }
-.sh-peserta-name  { font-size: 13px; font-weight: 600; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sh-peserta-pos   { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-peserta-info { flex: 1; min-width: 0; }
+.sh-peserta-name { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-peserta-pos  { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ── Delete icon ── */
+/* Modal: ikon hapus */
 .sh-del-ico {
   display: flex; align-items: center; justify-content: center;
   width: 58px; height: 58px; border-radius: 50%;
-  background: #fee2e2; color: #b91c1c; margin: 0 auto;
+  background: rgba(192,57,43,.10); color: var(--brand); margin: 0 auto;
 }
 
-/* ── Responsive ── */
+/* Responsive */
 @media (max-width: 575px) {
   .sh-hero-body  { padding: 1rem; }
   .sh-hero-strip { padding: .45rem 1rem; font-size: 12px; }

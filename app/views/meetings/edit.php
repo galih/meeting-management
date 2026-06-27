@@ -37,13 +37,13 @@ foreach (($departments ?? []) as $d) {
 }
 
 // ── Warna preset & current ─────────────────────────────────────────────────
-$colorPresets   = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a','#b5530a','#6b6b6b'];
+$colorPresets   = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a', '#b5530a', '#6b6b6b'];
 $currentColor   = strtolower(trim($meeting['color'] ?? '#7B1C1C'));
 $participantIds = $participantIds ?? [];
 $allUsers       = $allUsers ?? [];
 
 // ── Avatar palette ─────────────────────────────────────────────────────────
-$avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
+$avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
 ?>
 
 <?php if (!empty($_SESSION['flash_error'])): ?>
@@ -57,7 +57,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
 <?php /* ================================================================
    HERO
 ================================================================ */ ?>
-<div class="ed-hero mb-4" style="--brand:<?= htmlspecialchars($currentColor) ?>">
+<div class="ed-hero mb-4" style="--meeting-color:<?= htmlspecialchars($currentColor) ?>">
   <div class="ed-hero-inner">
     <nav class="ed-breadcrumb" aria-label="Breadcrumb">
       <a href="<?= $baseUrl ?>/meetings">Kegiatan</a>
@@ -95,7 +95,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
       <div class="row g-3">
 
         <div class="col-12">
-          <label class="ed-label required" for="fTitle">Judul Kegiatan</label>
+          <label class="form-label required" for="fTitle">Judul Kegiatan</label>
           <input type="text" id="fTitle" name="title" class="form-control"
                  maxlength="255" autocomplete="off" required
                  value="<?= htmlspecialchars($meeting['title']) ?>">
@@ -103,21 +103,21 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
         </div>
 
         <div class="col-md-6">
-          <label class="ed-label required" for="fStart">Tanggal &amp; Jam Mulai</label>
+          <label class="form-label required" for="fStart">Tanggal &amp; Jam Mulai</label>
           <input type="datetime-local" id="fStart" name="start_datetime" class="form-control" required
                  value="<?= date('Y-m-d\TH:i', strtotime($meeting['start_datetime'])) ?>">
           <div class="invalid-feedback">Waktu mulai wajib diisi.</div>
         </div>
 
         <div class="col-md-6">
-          <label class="ed-label required" for="fEnd">Tanggal &amp; Jam Selesai</label>
+          <label class="form-label required" for="fEnd">Tanggal &amp; Jam Selesai</label>
           <input type="datetime-local" id="fEnd" name="end_datetime" class="form-control" required
                  value="<?= date('Y-m-d\TH:i', strtotime($meeting['end_datetime'])) ?>">
           <div class="invalid-feedback">Waktu selesai wajib diisi &amp; harus setelah waktu mulai.</div>
         </div>
 
         <div class="col-12">
-          <label class="ed-label" for="fLocation">Lokasi / Link Video</label>
+          <label class="form-label" for="fLocation">Lokasi / Link Video</label>
           <input type="text" id="fLocation" name="location" class="form-control"
                  placeholder="Ruang Rapat A, atau https://meet.google.com/…"
                  value="<?= htmlspecialchars($meeting['location'] ?? '') ?>">
@@ -125,7 +125,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
         </div>
 
         <div class="col-12">
-          <label class="ed-label" for="fDesc">Deskripsi / Agenda</label>
+          <label class="form-label" for="fDesc">Deskripsi / Agenda</label>
           <textarea id="fDesc" name="description" class="form-control" rows="4"
                     placeholder="Tulis agenda kegiatan…"><?= htmlspecialchars($meeting['description'] ?? '') ?></textarea>
         </div>
@@ -140,7 +140,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
       <p class="ed-section-title">Unit Kerja</p>
       <div class="row g-2">
         <div class="col-md-4">
-          <label class="ed-label-sm" for="fU1">Unit Kerja</label>
+          <label class="form-label" for="fU1">Unit Kerja</label>
           <select id="fU1" name="_u1" class="form-select" onchange="edCascade(1)">
             <option value="">— Semua Unit Kerja —</option>
             <?php foreach ($deptByParent[0] ?? [] as $d): ?>
@@ -151,7 +151,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
           </select>
         </div>
         <div class="col-md-4">
-          <label class="ed-label-sm" for="fU2">Bidang / Bagian</label>
+          <label class="form-label" for="fU2">Bidang / Bagian</label>
           <select id="fU2" name="_u2" class="form-select" onchange="edCascade(2)"
                   <?= $sel[1] ? '' : 'disabled' ?>>
             <option value="">— Semua Bidang —</option>
@@ -163,7 +163,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
           </select>
         </div>
         <div class="col-md-4">
-          <label class="ed-label-sm" for="fU3">
+          <label class="form-label" for="fU3">
             Sub Bidang <span class="ed-optional">(opsional)</span>
           </label>
           <select id="fU3" name="_u3" class="form-select" onchange="edCascade(3)"
@@ -274,7 +274,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
 
   var CHILD_URL = <?= json_encode($childrenUrl) ?>;
 
-  /* ── Cascade dept dropdowns ──────────────────────────────────── */
+  /* ── Cascade dept dropdowns ── */
   async function fetchKids(parentId) {
     try {
       var r = await fetch(CHILD_URL + '?parent_id=' + encodeURIComponent(parentId));
@@ -328,7 +328,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
     }
   };
 
-  /* ── Color picker ────────────────────────────────────────────── */
+  /* ── Color picker ── */
   window.edPickColor = function (hex) {
     document.getElementById('fColor').value = hex;
     document.getElementById('fColorPicker').value = hex;
@@ -337,11 +337,12 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
     document.querySelectorAll('.ed-swatch[data-color]').forEach(function (s) {
       s.classList.toggle('active', s.dataset.color.toLowerCase() === hex.toLowerCase());
     });
-    /* live preview brand color in hero */
-    document.querySelector('.ed-hero').style.setProperty('--brand', hex);
+    /* live preview warna hero */
+    var hero = document.querySelector('.ed-hero');
+    if (hero) hero.style.setProperty('--meeting-color', hex);
   };
 
-  /* ── Participant search ───────────────────────────────────────── */
+  /* ── Participant search ── */
   var pSearch = document.getElementById('fPSearch');
   var pList   = document.getElementById('fPList');
   var pCount  = document.getElementById('fPCountNum');
@@ -363,7 +364,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
     });
   }
 
-  /* ── Form validation ─────────────────────────────────────────── */
+  /* ── Form validation ── */
   var form = document.getElementById('editMeetingForm');
   if (form) {
     form.addEventListener('submit', function (e) {
@@ -371,12 +372,10 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
       var end   = document.getElementById('fEnd');
       var valid = true;
 
-      /* Reset previous invalid states */
       form.querySelectorAll('.is-invalid').forEach(function (el) {
         el.classList.remove('is-invalid');
       });
 
-      /* Required fields */
       form.querySelectorAll('[required]').forEach(function (el) {
         if (!el.value.trim()) {
           el.classList.add('is-invalid');
@@ -384,7 +383,6 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
         }
       });
 
-      /* End must be after start */
       if (start.value && end.value && end.value <= start.value) {
         end.classList.add('is-invalid');
         valid = false;
@@ -403,7 +401,7 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
     });
   }
 
-  /* ── Auto-suggest end = start + 1h ──────────────────────────── */
+  /* ── Auto-suggest end = start + 1h ── */
   var startEl = document.getElementById('fStart');
   var endEl   = document.getElementById('fEnd');
   if (startEl && endEl) {
@@ -426,38 +424,35 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
 </script>
 
 <?php /* ================================================================
-   STYLES
+   STYLES — semua token dari palet Kemenbud di custom.css
 ================================================================ */ ?>
 <style>
-.ed-hero { --brand: #7B1C1C; }
-
 /* ── Alert ── */
 .ed-alert {
   display: flex; align-items: center; gap: .5rem;
-  background: #fee2e2; color: #b91c1c;
-  border: 1px solid #fca5a5; border-radius: 8px;
+  background: rgba(192,57,43,.08); color: var(--brand);
+  border: 1px solid rgba(192,57,43,.25); border-radius: 8px;
   padding: .65rem 1rem; margin-bottom: 1rem;
   font-size: 13px; font-weight: 500;
 }
 .ed-alert-close {
   margin-left: auto; background: none; border: none;
-  font-size: 18px; cursor: pointer; color: inherit; opacity: .7;
-  line-height: 1;
+  font-size: 18px; cursor: pointer; color: inherit; opacity: .7; line-height: 1;
 }
 .ed-alert-close:hover { opacity: 1; }
 
 /* ── Hero ── */
 .ed-hero {
-  background: linear-gradient(135deg, var(--brand) 0%, color-mix(in srgb, var(--brand) 70%, #fff 30%) 100%);
+  --meeting-color: var(--brand);
+  background: linear-gradient(135deg, var(--meeting-color) 0%, color-mix(in srgb, var(--meeting-color) 75%, #1a0000 25%) 100%);
   border-radius: 14px;
   box-shadow: 0 4px 24px rgba(0,0,0,.16);
-  transition: --brand .3s;
 }
 .ed-hero-inner   { padding: 1.2rem 1.6rem; }
 .ed-breadcrumb   { display: flex; align-items: center; gap: .3rem; font-size: 12px; color: rgba(255,255,255,.62); margin-bottom: .55rem; }
 .ed-breadcrumb a { color: rgba(255,255,255,.8); text-decoration: none; }
 .ed-breadcrumb a:hover { color: #fff; text-decoration: underline; }
-.ed-hero-row     { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.ed-hero-row   { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
 .ed-hero-title {
   display: flex; align-items: center; gap: .5rem;
   font-size: clamp(14px, 2.2vw, 20px); font-weight: 800; color: #fff; margin: 0;
@@ -467,14 +462,13 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
   font-size: 13px; font-weight: 600;
   background: rgba(255,255,255,.15); border: 1.5px solid rgba(255,255,255,.3);
   color: #fff; padding: .38rem .85rem; border-radius: 8px;
-  text-decoration: none; transition: background .18s;
-  white-space: nowrap;
+  text-decoration: none; transition: background .18s; white-space: nowrap;
 }
 .ed-back-btn:hover { background: rgba(255,255,255,.25); color: #fff; }
 
-/* ── Card ── */
+/* ── Card wrapper ── */
 .ed-card {
-  background: #fff; border: 1px solid #e8e3db;
+  background: var(--bg-card); border: 1px solid var(--border-light);
   border-radius: 12px; overflow: hidden;
   box-shadow: 0 1px 6px rgba(0,0,0,.05);
 }
@@ -484,114 +478,104 @@ $avPalette = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
 .ed-section-title {
   font-size: 11px; font-weight: 800;
   text-transform: uppercase; letter-spacing: .08em;
-  color: #888; margin-bottom: 1rem;
+  color: var(--text-muted); margin-bottom: 1rem;
 }
-.ed-divider { height: 1px; background: #f0ece6; }
+.ed-divider { height: 1px; background: var(--border-light); }
 
-/* ── Labels ── */
-.ed-label {
-  display: block; font-size: 13px; font-weight: 600;
-  color: #2c2c2c; margin-bottom: .35rem;
-}
-.ed-label.required::after { content: ' *'; color: #b91c1c; }
-.ed-label-sm {
-  display: block; font-size: 12px; font-weight: 600;
-  color: #555; margin-bottom: .3rem;
-}
-.ed-optional { font-weight: 400; color: #aaa; font-size: 11px; }
-.ed-hint     { font-size: 12px; color: #888; margin-top: .25rem; }
+/* Reuse global .form-label — hanya tambahan kecil */
+.ed-hint     { font-size: 12px; color: var(--text-muted); margin-top: .25rem; }
+.ed-optional { font-weight: 400; color: var(--text-muted); font-size: 11px; }
 
 /* ── Color picker ── */
 .ed-color-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .5rem; }
 .ed-swatch {
   width: 26px; height: 26px; border-radius: 50%;
   border: 2.5px solid transparent; cursor: pointer;
-  transition: transform .15s, box-shadow .15s; flex-shrink: 0;
-  padding: 0;
+  transition: transform .15s, box-shadow .15s; flex-shrink: 0; padding: 0;
 }
 .ed-swatch:hover { transform: scale(1.15); }
 .ed-swatch.active { box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor; transform: scale(1.1); }
 .ed-swatch-custom {
   display: flex; align-items: center; justify-content: center;
-  background: #f1f0ee; border: 1.5px dashed #ccc; color: #777;
+  background: var(--bg-page); border: 1.5px dashed var(--border); color: var(--text-muted);
   cursor: pointer; overflow: hidden; position: relative;
   transition: border-color .15s, color .15s;
 }
-.ed-swatch-custom:hover { border-color: #888; color: #333; }
+.ed-swatch-custom:hover { border-color: var(--text-muted); color: var(--text-main); }
 .ed-swatch-custom input[type=color] {
   position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
 }
 .ed-color-preview { display: flex; align-items: center; gap: .4rem; margin-top: .3rem; }
 .ed-color-dot {
   display: inline-block; width: 14px; height: 14px;
-  border-radius: 50%; border: 1px solid rgba(0,0,0,.12); flex-shrink: 0;
+  border-radius: 50%; border: 1px solid var(--border); flex-shrink: 0;
 }
-.ed-color-hex { font-size: 12px; color: #666; font-family: monospace; }
+.ed-color-hex { font-size: 12px; color: var(--text-muted); font-family: monospace; }
 
 /* ── Participant box ── */
-.ed-p-wrap {
-  border: 1px solid #d4cfc8; border-radius: 10px; overflow: hidden;
-}
+.ed-p-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .ed-p-search {
   display: flex; align-items: center; gap: .4rem;
-  padding: .5rem .8rem; border-bottom: 1px solid #e8e3db;
-  background: #fafaf8;
+  padding: .5rem .8rem; border-bottom: 1px solid var(--border-light);
+  background: var(--bg-page);
 }
-.ed-p-search svg { flex-shrink: 0; color: #aaa; }
+.ed-p-search svg   { flex-shrink: 0; color: var(--text-muted); }
 .ed-p-search input {
   border: none; background: none; outline: none;
-  font-size: 13px; width: 100%; color: #333;
+  font-size: 13px; width: 100%; color: var(--text-main);
 }
 .ed-p-list {
   max-height: 230px; overflow-y: auto; padding: .3rem 0;
 }
 .ed-p-item {
   display: flex; align-items: center; gap: .5rem;
-  padding: .4rem .8rem; cursor: pointer;
-  transition: background .12s;
+  padding: .4rem .8rem; cursor: pointer; transition: background .12s;
 }
-.ed-p-item:hover { background: #faf5ee; }
-.ed-p-item input[type=checkbox] { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; accent-color: #7B1C1C; }
+.ed-p-item:hover { background: var(--brand-xlight); }
+.ed-p-item input[type=checkbox] {
+  width: 15px; height: 15px; flex-shrink: 0; cursor: pointer;
+  accent-color: var(--brand);
+}
 .ed-pav {
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; border-radius: 50%;
   font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
 }
-.ed-p-name { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ed-p-dept { font-size: 11px; color: #aaa; white-space: nowrap; }
+.ed-p-name  { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-p-dept  { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
 .ed-p-count {
-  padding: .35rem .8rem; font-size: 12px; font-weight: 600; color: #777;
-  background: #fafaf8; border-top: 1px solid #e8e3db;
+  padding: .35rem .8rem; font-size: 12px; font-weight: 600; color: var(--text-muted);
+  background: var(--bg-page); border-top: 1px solid var(--border-light);
 }
 
 /* ── Footer ── */
 .ed-footer {
   display: flex; justify-content: flex-end; align-items: center; gap: .75rem;
   padding: 1rem 1.6rem;
-  border-top: 1px solid #f0ece6;
-  background: #fafaf8;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-page);
 }
 .ed-btn-cancel {
-  font-size: 13px; font-weight: 600; color: #666;
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
   text-decoration: none; padding: .45rem .9rem;
   border-radius: 8px; transition: color .15s, background .15s;
 }
-.ed-btn-cancel:hover { color: #333; background: #f0ece6; }
+.ed-btn-cancel:hover { color: var(--text-main); background: var(--border-light); }
 .ed-btn-submit {
   display: inline-flex; align-items: center; gap: .4rem;
   font-size: 13px; font-weight: 700;
-  background: var(--brand, #7B1C1C); color: #fff;
+  background: var(--brand); color: #fff;
   padding: .5rem 1.2rem; border: none; border-radius: 8px;
-  cursor: pointer; transition: filter .18s;
+  cursor: pointer; transition: background .18s, filter .18s;
 }
-.ed-btn-submit:hover:not(:disabled) { filter: brightness(1.12); }
+.ed-btn-submit:hover:not(:disabled) { background: var(--brand-dark); }
 .ed-btn-submit:disabled { opacity: .6; cursor: not-allowed; }
 
 /* ── Responsive ── */
 @media (max-width: 575px) {
-  .ed-hero-inner  { padding: 1rem; }
-  .ed-section     { padding: 1rem; }
-  .ed-footer      { padding: .75rem 1rem; }
-  .ed-p-list      { max-height: 170px; }
+  .ed-hero-inner { padding: 1rem; }
+  .ed-section    { padding: 1rem; }
+  .ed-footer     { padding: .75rem 1rem; }
+  .ed-p-list     { max-height: 170px; }
 }
 </style>
