@@ -10,6 +10,32 @@ $statusLabel = [
 
 // $canEdit dikirim dari controller (admin atau pembuat)
 $canEdit = $canEdit ?? false;
+
+// PHP 7.4 compat: array lookup menggantikan match()
+$meetingStatusColor = [
+  'scheduled' => 'blue',
+  'ongoing'   => 'orange',
+  'done'      => 'green',
+  'cancelled' => 'red',
+];
+$participantStatusColor = [
+  'accepted' => 'green',
+  'invited'  => 'blue',
+  'declined' => 'red',
+  'attended' => 'teal',
+  'pending'  => 'secondary',
+];
+$priorityColor = [
+  'high'   => 'red',
+  'medium' => 'orange',
+  'low'    => 'green',
+];
+$tlStatusColor = [
+  'pending'     => 'secondary',
+  'in_progress' => 'blue',
+  'done'        => 'green',
+  'cancelled'   => 'red',
+];
 ?>
 
 <!-- Flash -->
@@ -46,10 +72,8 @@ $canEdit = $canEdit ?? false;
         <dl class="row mb-0">
           <dt class="col-5 fw-semibold small">Status</dt>
           <dd class="col-7">
-            <span class="badge bg-<?= match($meeting['status']) {
-              'scheduled'=>'blue','ongoing'=>'orange',
-              'done'=>'green','cancelled'=>'red',default=>'secondary'
-            } ?>"><?= $statusLabel[$meeting['status']] ?? ucfirst($meeting['status']) ?></span>
+            <?php $msc = $meetingStatusColor[$meeting['status']] ?? 'secondary'; ?>
+            <span class="badge bg-<?= $msc ?>"><?= $statusLabel[$meeting['status']] ?? ucfirst($meeting['status']) ?></span>
           </dd>
           <dt class="col-5 fw-semibold small">Unit Kerja</dt>
           <dd class="col-7"><?= htmlspecialchars($meeting['dept_name'] ?? '-') ?></dd>
@@ -121,7 +145,9 @@ $canEdit = $canEdit ?? false;
         <?php if (empty($participants)): ?>
         <div class="list-group-item text-center py-3">Belum ada peserta</div>
         <?php endif; ?>
-        <?php foreach ($participants as $p): ?>
+        <?php foreach ($participants as $p):
+          $psc = $participantStatusColor[$p['status']] ?? 'secondary';
+        ?>
         <div class="list-group-item">
           <div class="d-flex align-items-center gap-2">
             <span class="avatar avatar-sm"
@@ -131,10 +157,7 @@ $canEdit = $canEdit ?? false;
             <div class="flex-fill">
               <div class="fw-semibold" style="font-size:13px;"><?= htmlspecialchars($p['name']) ?></div>
             </div>
-            <span class="badge bg-<?= match($p['status']) {
-              'accepted'=>'green','invited'=>'blue','declined'=>'red',
-              'attended'=>'teal','pending'=>'secondary',default=>'secondary'
-            } ?>-lt" style="font-size:10px;"><?= ucfirst($p['status']) ?></span>
+            <span class="badge bg-<?= $psc ?>-lt" style="font-size:10px;"><?= ucfirst($p['status']) ?></span>
           </div>
         </div>
         <?php endforeach; ?>
@@ -173,6 +196,8 @@ $canEdit = $canEdit ?? false;
               $overdue = !empty($tl['due_date'])
                 && $tl['due_date'] < date('Y-m-d')
                 && !in_array($tl['status'], ['done', 'cancelled']);
+              $pc  = $priorityColor[$tl['priority']] ?? 'secondary';
+              $tlc = $tlStatusColor[$tl['status']]   ?? 'secondary';
             ?>
             <tr class="<?= $overdue ? 'table-danger' : '' ?>">
               <td>
@@ -186,15 +211,10 @@ $canEdit = $canEdit ?? false;
                 <?= !empty($tl['due_date']) ? date('d M Y', strtotime($tl['due_date'])) : '-' ?>
               </td>
               <td>
-                <span class="badge bg-<?= match($tl['priority']) {
-                  'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'
-                } ?>-lt"><?= ucfirst($tl['priority']) ?></span>
+                <span class="badge bg-<?= $pc ?>-lt"><?= ucfirst($tl['priority']) ?></span>
               </td>
               <td>
-                <span class="badge bg-<?= match($tl['status']) {
-                  'pending'=>'secondary','in_progress'=>'blue',
-                  'done'=>'green','cancelled'=>'red',default=>'secondary'
-                } ?>"><?= ucfirst(str_replace('_', ' ', $tl['status'])) ?></span>
+                <span class="badge bg-<?= $tlc ?>"><?= ucfirst(str_replace('_', ' ', $tl['status'])) ?></span>
               </td>
             </tr>
             <?php endforeach; ?>
