@@ -62,7 +62,6 @@ $router->post('/meetings/{id}/delete',     [MeetingController::class, 'destroy']
 // === NOTULEN ===
 $router->get('/notulen/{id}',              [NotulisController::class, 'editor']);
 $router->get('/notulen/{id}/history',      [NotulisController::class, 'history']);
-$router->get('/notulen/{id}/export-pdf',   [ExportController::class,  'exportPdf']);
 $router->get('/notulen/{id}/export-docx',  [ExportController::class,  'exportDocx']);
 
 // === API NOTULEN ===
