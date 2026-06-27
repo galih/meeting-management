@@ -7,7 +7,7 @@
 ![PHP](https://img.shields.io/badge/PHP-8.5-777BB4?style=flat-square&logo=php)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?style=flat-square&logo=mysql)
 ![Tabler](https://img.shields.io/badge/Tabler-UI-0054A6?style=flat-square)
-![Version](https://img.shields.io/badge/version-1.2.0-f76707?style=flat-square)
+![Version](https://img.shields.io/badge/version-2.0.3-f76707?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)
 
 </div>
@@ -369,7 +369,7 @@ meeting-management/
 
 ## 📦 Changelog
 
-### v1.2.0 — UI/UX Rebuild
+### v2.0.3 — UI/UX Rebuild
 
 **Perbaikan Kompatibilitas**
 - `ErrorHandler.php`: hapus referensi `E_STRICT` yang telah dihapus di PHP 8.4+
@@ -442,7 +442,7 @@ meeting-management/
 
 ## 📄 Lisensi
 
-Distribusikan di bawah lisensi **MIT**. Lihat file `LICENSE` untuk detail.
+Didistribusikan di bawah lisensi **MIT**. Lihat file `LICENSE` untuk detail.
 
 ---
 
