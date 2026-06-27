@@ -16,6 +16,10 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/skeleton.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/theme.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/palettes/blue.css"/>
+  <!-- Quill Snow CSS — dimuat global agar selalu tersedia di halaman notulen;
+       tidak bisa di-inject lewat $headScripts karena view notulen di-render
+       SETELAH <head> sudah dicetak (late-bind tidak bekerja). -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css"/>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css?v=<?= filemtime(ROOT_PATH . '/assets/css/custom.css') ?>">
 
@@ -235,7 +239,7 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
         allowfullscreen
         src=""></iframe>
       <div id="yt-error-msg">
-        <span class="err-icon">🚫</span>
+        <span class="err-icon">&#x1F6AB;</span>
         <span>Video/playlist ini tidak bisa di-embed.<br>Coba URL lain atau buka langsung di
           <a id="yt-error-link" href="#" target="_blank" rel="noopener">YouTube</a>.
         </span>
