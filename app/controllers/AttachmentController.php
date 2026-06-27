@@ -1,186 +1,158 @@
 <?php
+declare(strict_types=1);
+
 class AttachmentController
 {
-    private static int $MAX_SIZE   = 10485760; // 10 MB
-    private static array $ALLOWED  = [
-        'application/pdf', 'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-        'text/plain',
-    ];
-
-    private static function uploadDir(int $meetingId): string
+    /* ------------------------------------------------------------------ */
+    /*  LIST                                                                */
+    /* ------------------------------------------------------------------ */
+    public static function index(): void
     {
-        // Coba assets/uploads dulu, fallback ke public/uploads
-        $base = ROOT_PATH . '/assets/uploads/attachments/' . $meetingId . '/';
-        if (is_dir($base)) return $base;
-        return ROOT_PATH . '/public/uploads/attachments/' . $meetingId . '/';
-    }
+        Auth::requireLogin();
+        $meetingId = (int)($_GET['meeting_id'] ?? 0);
+        if (!$meetingId) { http_response_code(400); echo json_encode(['success'=>false,'message'=>'meeting_id diperlukan']); exit; }
 
-    /**
-     * GET /api/meetings/{id}/attachments
-     */
-    public static function index(int $meetingId): void
-    {
-        // Cegah output apapun sebelum JSON
-        while (ob_get_level()) ob_end_clean();
-
-        Auth::requireAuth();
-
-        $currentUserId = Auth::id();
-        $isAdmin       = Auth::hasRole('admin', 'sekretaris');
-
-        $list = Database::query(
+        $rows = Database::query(
             "SELECT a.*, u.name AS uploader_name
-             FROM meeting_attachments a
-             JOIN users u ON u.id = a.uploaded_by
+             FROM attachments a
+             LEFT JOIN users u ON u.id = a.uploaded_by
              WHERE a.meeting_id = ?
              ORDER BY a.created_at DESC",
             [$meetingId]
         );
 
-        foreach ($list as &$f) {
-            $f['size_human']  = self::formatBytes((int)$f['file_size']);
-            $f['icon']        = self::mimeIcon($f['mime_type']);
-            $f['can_delete']  = $isAdmin || (int)$f['uploaded_by'] === (int)$currentUserId;
+        foreach ($rows as &$row) {
+            $row['icon']     = self::iconForMime($row['mime_type'] ?? '');
+            $row['size_fmt'] = self::formatSize((int)($row['file_size'] ?? 0));
         }
-        unset($f);
+        unset($row);
 
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(['success' => true, 'attachments' => $list]);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'data' => $rows]);
         exit;
     }
 
-    /**
-     * POST /api/meetings/{id}/attachments
-     */
-    public static function upload(int $meetingId): void
+    /* ------------------------------------------------------------------ */
+    /*  UPLOAD                                                              */
+    /* ------------------------------------------------------------------ */
+    public static function upload(): void
     {
-        while (ob_get_level()) ob_end_clean();
-        Auth::requireRole('admin', 'sekretaris');
+        Auth::requireLogin();
+        header('Content-Type: application/json');
 
-        if (empty($_FILES['file'])) {
-            self::json(false, 'Tidak ada file yang dikirim'); return;
+        $meetingId = (int)($_POST['meeting_id'] ?? 0);
+        if (!$meetingId) { echo json_encode(['success'=>false,'message'=>'meeting_id diperlukan']); exit; }
+
+        $meeting = Database::queryOne("SELECT id FROM meetings WHERE id=?", [$meetingId]);
+        if (!$meeting) { echo json_encode(['success'=>false,'message'=>'Meeting tidak ditemukan']); exit; }
+
+        if (!Auth::hasRole('admin', 'sekretaris')) {
+            $isMember = Database::queryOne(
+                "SELECT id FROM meeting_participants WHERE meeting_id=? AND user_id=?",
+                [$meetingId, Auth::id()]
+            );
+            if (!$isMember) { echo json_encode(['success'=>false,'message'=>'Anda tidak terdaftar di meeting ini']); exit; }
         }
 
-        $file     = $_FILES['file'];
-        $category = $_POST['category'] ?? 'lainnya';
-
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            self::json(false, 'Upload gagal, kode error: ' . $file['error']); return;
-        }
-        if ($file['size'] > self::$MAX_SIZE) {
-            self::json(false, 'Ukuran file maksimal 10 MB'); return;
+        $file = $_FILES['file'] ?? null;
+        if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
+            $codes = [1=>'Ukuran melebihi php.ini',2=>'Ukuran melebihi MAX_FILE_SIZE',3=>'Upload tidak lengkap',4=>'Tidak ada file',6=>'Tidak ada folder tmp',7=>'Gagal tulis ke disk',8=>'Upload dihentikan ekstensi'];
+            $msg   = $codes[$file['error'] ?? 0] ?? 'Upload gagal';
+            echo json_encode(['success'=>false,'message'=>$msg]); exit;
         }
 
-        $finfo    = new finfo(FILEINFO_MIME_TYPE);
-        $mimeType = $finfo->file($file['tmp_name']);
-        if (!in_array($mimeType, self::$ALLOWED)) {
-            self::json(false, 'Tipe file tidak diizinkan: ' . $mimeType); return;
-        }
+        $allowedMimes = [
+            'application/pdf','application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'image/jpeg','image/png','image/gif','image/webp',
+            'text/plain','text/csv',
+            'application/zip','application/x-zip-compressed',
+        ];
+        $maxSize = 10 * 1024 * 1024; // 10 MB
+        $mime    = mime_content_type($file['tmp_name']);
 
-        // Buat folder jika belum ada
-        $uploadDir = ROOT_PATH . '/assets/uploads/attachments/' . $meetingId . '/';
-        if (!is_dir($uploadDir)) {
-            if (!@mkdir($uploadDir, 0755, true)) {
-                // Fallback ke public/uploads
-                $uploadDir = ROOT_PATH . '/public/uploads/attachments/' . $meetingId . '/';
-                if (!is_dir($uploadDir) && !@mkdir($uploadDir, 0755, true)) {
-                    self::json(false, 'Gagal membuat folder upload. Periksa permission folder.'); return;
-                }
-            }
+        if (!in_array($mime, $allowedMimes)) {
+            echo json_encode(['success'=>false,'message'=>'Tipe file tidak diizinkan. Gunakan PDF, Word, Excel, PowerPoint, gambar, atau ZIP.']); exit;
+        }
+        if ($file['size'] > $maxSize) {
+            echo json_encode(['success'=>false,'message'=>'Ukuran file maksimal 10 MB.']); exit;
         }
 
         $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'bin');
-        $stored   = bin2hex(random_bytes(16)) . '.' . $ext;
-        $destPath = $uploadDir . $stored;
+        $filename = 'attachment_' . $meetingId . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $dir      = ROOT_PATH . '/assets/uploads/attachments/';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
 
-        if (!move_uploaded_file($file['tmp_name'], $destPath)) {
-            self::json(false, 'Gagal menyimpan file ke server'); return;
+        if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
+            echo json_encode(['success'=>false,'message'=>'Gagal menyimpan file']); exit;
         }
 
-        Database::getInstance()->prepare(
-            "INSERT INTO meeting_attachments
-             (meeting_id, uploaded_by, filename, stored_name, mime_type, file_size, category)
-             VALUES (?,?,?,?,?,?,?)"
-        )->execute([
-            $meetingId, Auth::id(),
-            $file['name'], $stored, $mimeType, $file['size'], $category
-        ]);
+        $filePath = '/assets/uploads/attachments/' . $filename;
+        $db       = Database::getInstance();
+        $db->prepare(
+            "INSERT INTO attachments (meeting_id, uploaded_by, original_name, file_path, mime_type, file_size)
+             VALUES (?,?,?,?,?,?)"
+        )->execute([$meetingId, Auth::id(), $file['name'], $filePath, $mime, $file['size']]);
 
-        self::json(true, 'File berhasil diupload', [
-            'filename'   => $file['name'],
-            'size_human' => self::formatBytes($file['size']),
-            'icon'       => self::mimeIcon($mimeType),
-        ]);
+        ActivityLog::record('attachment.create', 'Upload lampiran: ' . $file['name'], 'meeting', $meetingId);
+
+        echo json_encode(['success'=>true,'message'=>'File berhasil diupload','file_path'=>BASE_URL.$filePath,'original_name'=>$file['name'],'icon'=>self::iconForMime($mime)]);
+        exit;
     }
 
-    /**
-     * GET /attachments/{id}/download
-     */
-    public static function download(int $id): void
+    /* ------------------------------------------------------------------ */
+    /*  DELETE                                                              */
+    /* ------------------------------------------------------------------ */
+    public static function delete(): void
     {
-        Auth::requireAuth();
-        $att = Database::queryOne(
-            "SELECT * FROM meeting_attachments WHERE id=?", [$id]
-        );
-        if (!$att) { http_response_code(404); echo 'File tidak ditemukan.'; exit; }
+        Auth::requireLogin();
+        header('Content-Type: application/json');
 
-        $path = self::uploadDir((int)$att['meeting_id']) . $att['stored_name'];
-        if (!file_exists($path)) { http_response_code(404); echo 'File tidak ada di server.'; exit; }
+        $id = (int)($_POST['id'] ?? 0);
+        if (!$id) { echo json_encode(['success'=>false,'message'=>'ID tidak valid']); exit; }
 
-        header('Content-Type: ' . $att['mime_type']);
-        header('Content-Disposition: attachment; filename="' . addslashes($att['filename']) . '"');
-        header('Content-Length: ' . filesize($path));
-        readfile($path); exit;
-    }
+        $att = Database::queryOne("SELECT * FROM attachments WHERE id=?", [$id]);
+        if (!$att) { echo json_encode(['success'=>false,'message'=>'Lampiran tidak ditemukan']); exit; }
 
-    /**
-     * POST /api/attachments/{id}/delete
-     */
-    public static function delete(int $id): void
-    {
-        while (ob_get_level()) ob_end_clean();
-        Auth::requireRole('admin', 'sekretaris');
-        $att = Database::queryOne("SELECT * FROM meeting_attachments WHERE id=?", [$id]);
-        if (!$att) { self::json(false, 'Tidak ditemukan'); return; }
+        if (!Auth::hasRole('admin') && $att['uploaded_by'] != Auth::id()) {
+            echo json_encode(['success'=>false,'message'=>'Anda tidak berhak menghapus file ini']); exit;
+        }
 
-        $path = self::uploadDir((int)$att['meeting_id']) . $att['stored_name'];
+        $path = ROOT_PATH . $att['file_path'];
         if (file_exists($path)) @unlink($path);
 
-        Database::getInstance()->prepare("DELETE FROM meeting_attachments WHERE id=?")->execute([$id]);
-        self::json(true, 'File dihapus');
+        Database::getInstance()->prepare("DELETE FROM attachments WHERE id=?")->execute([$id]);
+        ActivityLog::record('attachment.delete', 'Hapus lampiran: '.$att['original_name'], 'meeting', $att['meeting_id']);
+
+        echo json_encode(['success'=>true,'message'=>'Lampiran berhasil dihapus']); exit;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
-    private static function formatBytes(int $bytes): string
+    /* ------------------------------------------------------------------ */
+    /*  HELPERS                                                             */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * PHP 7.4 compat: ganti match(true) + str_contains dengan if-elseif chain
+     */
+    private static function iconForMime(string $mime): string
     {
-        if ($bytes >= 1048576) return round($bytes / 1048576, 1) . ' MB';
-        if ($bytes >= 1024)    return round($bytes / 1024, 1) . ' KB';
-        return $bytes . ' B';
+        if (strpos($mime, 'pdf') !== false)          return '📄';
+        if (strpos($mime, 'word') !== false)         return '📝';
+        if (strpos($mime, 'sheet') !== false)        return '📊';
+        if (strpos($mime, 'excel') !== false)        return '📊';
+        if (strpos($mime, 'presentation') !== false) return '📋';
+        if (strpos($mime, 'image') !== false)        return '🖼️';
+        return '📎';
     }
 
-    private static function mimeIcon(?string $mime): string
+    private static function formatSize(int $bytes): string
     {
-        return match(true) {
-            str_contains($mime ?? '', 'pdf')          => '📄',
-            str_contains($mime ?? '', 'word')         => '📝',
-            str_contains($mime ?? '', 'sheet')        => '📊',
-            str_contains($mime ?? '', 'excel')        => '📊',
-            str_contains($mime ?? '', 'presentation') => '📋',
-            str_contains($mime ?? '', 'image')        => '🖼️',
-            default                                    => '📎',
-        };
-    }
-
-    private static function json(bool $success, string $message, array $extra = []): void
-    {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode(array_merge(compact('success', 'message'), $extra));
-        exit;
+        if ($bytes < 1024)        return $bytes . ' B';
+        if ($bytes < 1048576)     return round($bytes / 1024, 1) . ' KB';
+        return round($bytes / 1048576, 2) . ' MB';
     }
 }

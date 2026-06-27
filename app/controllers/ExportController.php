@@ -1,117 +1,95 @@
 <?php
+declare(strict_types=1);
+
 class ExportController
 {
-    /**
-     * GET /notulen/{id}/export-pdf
-     */
-    public static function exportPdf(int $meetingId): void
+    public static function downloadPdf(): void
     {
-        Auth::requireAuth();
+        Auth::requireLogin();
+        $meetingId = (int)($_GET['meeting_id'] ?? 0);
+        if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
 
-        $meeting = Database::queryOne(
-            "SELECT m.*, u.name AS creator_name
-             FROM meetings m
-             LEFT JOIN users u ON u.id = m.created_by
-             WHERE m.id = ?",
-            [$meetingId]
-        );
-        if (!$meeting) { http_response_code(404); die('Meeting tidak ditemukan.'); }
+        $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
-        $notulenRaw = Database::queryOne(
-            "SELECT * FROM notulen WHERE meeting_id = ?", [$meetingId]
-        );
-        $notulen = is_array($notulenRaw) ? $notulenRaw : ['content' => null, 'meeting_id' => $meetingId];
-
+        $notulen      = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
         $participants = Database::query(
-            "SELECT u.id, u.name, mp.status
+            "SELECT u.name, u.email, mp.status
              FROM meeting_participants mp
              JOIN users u ON u.id = mp.user_id
-             WHERE mp.meeting_id = ?",
+             WHERE mp.meeting_id=? ORDER BY u.name",
             [$meetingId]
         );
-
-        $tindakLanjutList = Database::query(
+        $tindakLanjut = Database::query(
             "SELECT tl.*, u.name AS assigned_name
              FROM tindak_lanjut tl
              LEFT JOIN users u ON u.id = tl.assigned_to
-             WHERE tl.meeting_id = ?
-             ORDER BY tl.priority DESC, tl.due_date ASC",
+             WHERE tl.meeting_id=? ORDER BY tl.created_at",
             [$meetingId]
         );
 
-        $user = Auth::user();
+        $exporter = new PdfExporter();
+        $exporter->download($meeting, $notulen, $participants, $tindakLanjut);
+    }
 
-        try {
-            Database::getInstance()->prepare(
-                "INSERT INTO notulen_exports (meeting_id, exported_by, format)
-                 VALUES (?, ?, 'pdf')"
-            )->execute([$meetingId, $user['id']]);
-        } catch (\PDOException) {
-            // tabel notulen_exports belum ada, lanjut
-        }
+    public static function downloadDocx(): void
+    {
+        Auth::requireLogin();
+        $meetingId = (int)($_GET['meeting_id'] ?? 0);
+        if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
 
-        $html = PdfExporter::export($meeting, $notulen, $participants, $tindakLanjutList, $user);
+        $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
-        if (str_starts_with($html, '/exports/')) {
-            header('Content-Type: application/pdf');
-            header('Content-Disposition: attachment; filename="notulen-' . $meetingId . '.pdf"');
-            readfile(ROOT_PATH . '/public' . $html);
-        } else {
-            echo $html;
-        }
-        exit;
+        $notulen      = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
+        $participants = Database::query(
+            "SELECT u.name, u.email, mp.status
+             FROM meeting_participants mp
+             JOIN users u ON u.id = mp.user_id
+             WHERE mp.meeting_id=? ORDER BY u.name",
+            [$meetingId]
+        );
+        $tindakLanjut = Database::query(
+            "SELECT tl.*, u.name AS assigned_name
+             FROM tindak_lanjut tl
+             LEFT JOIN users u ON u.id = tl.assigned_to
+             WHERE tl.meeting_id=? ORDER BY tl.created_at",
+            [$meetingId]
+        );
+
+        $exporter = new DocxExporter();
+        $exporter->download($meeting, $notulen, $participants, $tindakLanjut);
     }
 
     /**
-     * GET /notulen/{id}/export-docx
+     * Serve static export file yang sudah tersimpan di /exports/
+     * Diakses via route /exports/{filename}
      */
-    public static function exportDocx(int $meetingId): void
+    public static function serveFile(): void
     {
-        Auth::requireAuth();
+        Auth::requireLogin();
+        $html = $_GET['file'] ?? '';
 
-        $meeting = Database::queryOne(
-            "SELECT m.*, d.name AS dept_name, u.name AS creator_name
-             FROM meetings m
-             LEFT JOIN departments d ON d.id = m.department_id
-             LEFT JOIN users u ON u.id = m.created_by
-             WHERE m.id = ?",
-            [$meetingId]
-        );
-        if (!$meeting) { http_response_code(404); die('Meeting tidak ditemukan.'); }
-
-        $notulenRaw = Database::queryOne(
-            "SELECT * FROM notulen WHERE meeting_id = ?", [$meetingId]
-        );
-        $notulen = is_array($notulenRaw) ? $notulenRaw : ['content' => '', 'meeting_id' => $meetingId];
-
-        $participants = Database::query(
-            "SELECT u.id, u.name, mp.status
-             FROM meeting_participants mp
-             JOIN users u ON u.id = mp.user_id
-             WHERE mp.meeting_id = ?",
-            [$meetingId]
-        );
-
-        $tindakLanjutList = Database::query(
-            "SELECT tl.*, u.name AS assigned_name
-             FROM tindak_lanjut tl
-             LEFT JOIN users u ON u.id = tl.assigned_to
-             WHERE tl.meeting_id = ?
-             ORDER BY tl.priority DESC, tl.due_date ASC",
-            [$meetingId]
-        );
-
-        $user = Auth::user();
-
-        try {
-            Database::getInstance()->prepare(
-                "INSERT INTO notulen_exports (meeting_id, exported_by, format)
-                 VALUES (?, ?, 'docx')"
-            )->execute([$meetingId, $user['id']]);
-        } catch (\PDOException) {
-            // tabel notulen_exports belum ada, lanjut
+        // PHP 7.4 compat: ganti str_starts_with dengan strncmp
+        if (strncmp($html, '/exports/', 9) !== 0) {
+            http_response_code(400); echo 'Path tidak valid.'; exit;
         }
 
-        DocxExporter::export($meeting, $notulen, $participants, $tindakLanjutList, $user);
+        $path = ROOT_PATH . $html;
+        if (!file_exists($path)) { http_response_code(404); echo 'File tidak ditemukan.'; exit; }
+
+        $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mimeMap = [
+            'pdf'  => 'application/pdf',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ];
+        $mime = $mimeMap[$ext] ?? 'application/octet-stream';
+
+        header('Content-Type: ' . $mime);
+        header('Content-Disposition: inline; filename="' . basename($path) . '"');
+        header('Content-Length: ' . filesize($path));
+        readfile($path);
+        exit;
     }
 }

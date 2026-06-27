@@ -1,194 +1,207 @@
 <?php
+declare(strict_types=1);
+
 class RecurringController
 {
+    /* ------------------------------------------------------------------ */
+    /*  LIST                                                                */
+    /* ------------------------------------------------------------------ */
     public static function index(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $list = Database::query(
-            "SELECT r.*, u.name AS creator_name, d.name AS dept_name,
-                    (SELECT COUNT(*) FROM meetings m WHERE m.recurring_id = r.id) AS total_generated
+        $recurring = Database::query(
+            "SELECT r.*, u.name AS creator_name, d.name AS dept_name
              FROM recurring_meetings r
-             LEFT JOIN users u ON u.id = r.created_by
+             LEFT JOIN users      u ON u.id = r.created_by
              LEFT JOIN departments d ON d.id = r.department_id
-             WHERE r.is_active = 1
              ORDER BY r.created_at DESC"
         );
-        $users       = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
-        $departments = Database::query("SELECT id, name FROM departments WHERE is_active=1 ORDER BY name");
-
         View::layout('recurring/index', [
-            'pageTitle'   => 'Recurring Meeting',
-            'list'        => $list,
-            'users'       => $users,
-            'departments' => $departments,
+            'pageTitle' => 'Jadwal Berulang',
+            'recurring' => $recurring,
         ]);
     }
 
+    /* ------------------------------------------------------------------ */
+    /*  STORE                                                               */
+    /* ------------------------------------------------------------------ */
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $d  = $_POST;
-        $db = Database::getInstance();
-        $db->prepare(
+        header('Content-Type: application/json');
+        Auth::csrfCheck();
+
+        $data = self::validateInput($_POST);
+        if (isset($data['error'])) { echo json_encode(['success'=>false,'message'=>$data['error']]); exit; }
+
+        $db   = Database::getInstance();
+        $stmt = $db->prepare(
             "INSERT INTO recurring_meetings
-             (title, description, location, frequency, day_of_week, day_of_month,
-              start_time, end_time, start_date, end_date, color, department_id, created_by)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
-        )->execute([
-            trim($d['title']),
-            trim($d['description'] ?? ''),
-            trim($d['location']    ?? ''),
-            $d['frequency'],
-            !empty($d['day_of_week'])   ? (int)$d['day_of_week']   : null,
-            !empty($d['day_of_month'])  ? (int)$d['day_of_month']  : null,
-            $d['start_time'],
-            $d['end_time'],
-            $d['start_date'],
-            !empty($d['end_date'])      ? $d['end_date'] : null,
-            $d['color'] ?? '#f76707',
-            !empty($d['department_id']) ? (int)$d['department_id'] : null,
+             (title, frequency, day_of_week, day_of_month, start_time, end_time,
+              location, description, department_id, participants, created_by)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?)"
+        );
+        $stmt->execute([
+            $data['title'],
+            $data['frequency'],
+            $data['day_of_week']   ?: null,
+            $data['day_of_month']  ?: null,
+            $data['start_time'],
+            $data['end_time'],
+            $data['location']      ?: null,
+            $data['description']   ?: null,
+            $data['department_id'] ?: null,
+            $data['participants'],
             Auth::id(),
         ]);
-        $recurringId = (int)$db->lastInsertId();
 
-        $participants = $_POST['participants'] ?? [];
-        foreach ($participants as $uid) {
-            $db->prepare(
-                "INSERT IGNORE INTO recurring_participants (recurring_id, user_id) VALUES (?,?)"
-            )->execute([$recurringId, (int)$uid]);
-        }
-
-        self::generateNext($recurringId);
-
-        $_SESSION['flash_success'] = 'Recurring meeting berhasil dibuat & meeting pertama sudah digenerate.';
-        header('Location: ' . BASE_URL . '/recurring'); exit;
+        ActivityLog::record('recurring.create', 'Buat jadwal berulang: ' . $data['title']);
+        echo json_encode(['success'=>true,'message'=>'Jadwal berulang berhasil dibuat.']);
+        exit;
     }
 
-    public static function generate(int $id): void
+    /* ------------------------------------------------------------------ */
+    /*  UPDATE                                                              */
+    /* ------------------------------------------------------------------ */
+    public static function update(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        $count = self::generateNext($id);
         header('Content-Type: application/json');
-        echo json_encode([
-            'success' => true,
-            'message' => $count > 0 ? "{$count} meeting berhasil digenerate." : 'Tidak ada meeting baru (sudah melewati end_date).',
-            'count'   => $count,
-        ]); exit;
-    }
+        Auth::csrfCheck();
 
-    public static function delete(int $id): void
-    {
-        Auth::requireRole('admin', 'sekretaris');
+        $id = (int)($_POST['id'] ?? 0);
+        $r  = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
+        if (!$r) { echo json_encode(['success'=>false,'message'=>'Data tidak ditemukan']); exit; }
+
+        $data = self::validateInput($_POST);
+        if (isset($data['error'])) { echo json_encode(['success'=>false,'message'=>$data['error']]); exit; }
+
         Database::getInstance()->prepare(
-            "UPDATE recurring_meetings SET is_active=0 WHERE id=?"
-        )->execute([$id]);
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true]); exit;
+            "UPDATE recurring_meetings
+             SET title=?, frequency=?, day_of_week=?, day_of_month=?,
+                 start_time=?, end_time=?, location=?, description=?,
+                 department_id=?, participants=?
+             WHERE id=?"
+        )->execute([
+            $data['title'], $data['frequency'],
+            $data['day_of_week']  ?: null, $data['day_of_month'] ?: null,
+            $data['start_time'],  $data['end_time'],
+            $data['location']     ?: null, $data['description']  ?: null,
+            $data['department_id'] ?: null, $data['participants'],
+            $id,
+        ]);
+
+        ActivityLog::record('recurring.update', 'Ubah jadwal berulang: ' . $data['title'], 'recurring', $id);
+        echo json_encode(['success'=>true,'message'=>'Jadwal berhasil diperbarui.']);
+        exit;
     }
 
-    public static function generateAll(): void
+    /* ------------------------------------------------------------------ */
+    /*  DELETE                                                              */
+    /* ------------------------------------------------------------------ */
+    public static function delete(): void
     {
-        $recurrings = Database::query(
-            "SELECT * FROM recurring_meetings
-             WHERE is_active=1
-               AND (end_date IS NULL OR end_date >= CURDATE())"
-        );
-        $total = 0;
-        foreach ($recurrings as $r) {
-            $total += self::generateNext($r['id']);
+        Auth::requireRole('admin', 'sekretaris');
+        header('Content-Type: application/json');
+        Auth::csrfCheck();
+
+        $id = (int)($_POST['id'] ?? 0);
+        $r  = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
+        if (!$r) { echo json_encode(['success'=>false,'message'=>'Data tidak ditemukan']); exit; }
+
+        Database::getInstance()->prepare("DELETE FROM recurring_meetings WHERE id=?")->execute([$id]);
+        ActivityLog::record('recurring.delete', 'Hapus jadwal berulang: '.$r['title'], 'recurring', $id);
+        echo json_encode(['success'=>true,'message'=>'Jadwal berhasil dihapus.']);
+        exit;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  GENERATE (buat meeting dari recurring)                             */
+    /* ------------------------------------------------------------------ */
+    public static function generate(): void
+    {
+        Auth::requireRole('admin', 'sekretaris');
+        header('Content-Type: application/json');
+        Auth::csrfCheck();
+
+        $id = (int)($_POST['id'] ?? 0);
+        $r  = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
+        if (!$r) { echo json_encode(['success'=>false,'message'=>'Data tidak ditemukan']); exit; }
+
+        $targetDate = $_POST['target_date'] ?? null;
+        if (!$targetDate || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $targetDate)) {
+            echo json_encode(['success'=>false,'message'=>'Format tanggal tidak valid']); exit;
         }
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true, 'total_generated' => $total]); exit;
-    }
 
-    private static function generateNext(int $recurringId): int
-    {
-        $r = Database::queryOne(
-            "SELECT * FROM recurring_meetings WHERE id=?", [$recurringId]
+        // PHP 7.4 compat: ganti match() dengan array lookup
+        $freqMap = [
+            'weekly'    => 'Mingguan',
+            'biweekly'  => 'Dua Mingguan',
+            'monthly'   => 'Bulanan',
+            'quarterly' => 'Triwulanan',
+        ];
+        $freqLabel = $freqMap[$r['frequency']] ?? ucfirst($r['frequency']);
+
+        $title      = "[{$freqLabel}] {$r['title']} - " . date('d M Y', strtotime($targetDate));
+        $startDt    = $targetDate . ' ' . $r['start_time'];
+        $endDt      = $targetDate . ' ' . $r['end_time'];
+
+        $db   = Database::getInstance();
+        $stmt = $db->prepare(
+            "INSERT INTO meetings (title, start_datetime, end_datetime, location, description, department_id, created_by, status, color)
+             VALUES (?,?,?,?,?,?,?,'scheduled','#206bc4')"
         );
-        if (!$r || !$r['is_active']) return 0;
+        $stmt->execute([
+            $title, $startDt, $endDt,
+            $r['location'], $r['description'],
+            $r['department_id'], Auth::id(),
+        ]);
+        $meetingId = (int)$db->lastInsertId();
 
-        $from  = $r['last_generated']
-            ? date('Y-m-d', strtotime($r['last_generated'] . ' +1 day'))
-            : $r['start_date'];
-        $until = date('Y-m-d', strtotime('+4 weeks'));
-        if ($r['end_date'] && $r['end_date'] < $until) $until = $r['end_date'];
-
-        $dates        = self::getDates($r, $from, $until);
-        $count        = 0;
-        $lastDate     = null;
-        $participants = Database::query(
-            "SELECT user_id FROM recurring_participants WHERE recurring_id=?", [$recurringId]
-        );
-
-        $db = Database::getInstance();
-        foreach ($dates as $date) {
-            $startDt = $date . ' ' . $r['start_time'];
-            $endDt   = $date . ' ' . $r['end_time'];
-            $exists  = Database::queryOne(
-                "SELECT id FROM meetings WHERE recurring_id=? AND DATE(start_datetime)=?",
-                [$recurringId, $date]
-            );
-            if ($exists) continue;
-
-            $db->prepare(
-                "INSERT INTO meetings
-                 (title, description, location, start_datetime, end_datetime,
-                  color, department_id, recurring_id, created_by)
-                 VALUES (?,?,?,?,?,?,?,?,?)"
-            )->execute([
-                $r['title'], $r['description'], $r['location'],
-                $startDt, $endDt,
-                $r['color'], $r['department_id'], $recurringId, $r['created_by'],
-            ]);
-            $meetingId = (int)$db->lastInsertId();
-
-            foreach ($participants as $p) {
+        if (!empty($r['participants'])) {
+            $ids = json_decode($r['participants'], true) ?: [];
+            foreach ($ids as $uid) {
                 $db->prepare(
-                    "INSERT IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?,?)"
-                )->execute([$meetingId, $p['user_id']]);
+                    "INSERT IGNORE INTO meeting_participants (meeting_id,user_id,status) VALUES (?,?,'invited')"
+                )->execute([$meetingId, (int)$uid]);
             }
-            $lastDate = $date;
-            $count++;
         }
 
-        if ($lastDate) {
-            $db->prepare(
-                "UPDATE recurring_meetings SET last_generated=? WHERE id=?"
-            )->execute([$lastDate, $recurringId]);
-        }
-        return $count;
+        ActivityLog::record('recurring.generate', "Generate meeting dari jadwal berulang: {$r['title']}", 'meeting', $meetingId);
+        echo json_encode([
+            'success'    => true,
+            'message'    => 'Meeting berhasil dibuat dari jadwal berulang.',
+            'meeting_id' => $meetingId,
+        ]);
+        exit;
     }
 
-    private static function getDates(array $r, string $from, string $until): array
+    /* ------------------------------------------------------------------ */
+    /*  VALIDATE INPUT                                                      */
+    /* ------------------------------------------------------------------ */
+    private static function validateInput(array $post): array
     {
-        $dates   = [];
-        $current = strtotime($from);
-        $end     = strtotime($until);
+        $title     = trim($post['title'] ?? '');
+        $frequency = trim($post['frequency'] ?? '');
+        $startTime = trim($post['start_time'] ?? '');
+        $endTime   = trim($post['end_time'] ?? '');
 
-        while ($current <= $end) {
-            $dateStr = date('Y-m-d', $current);
-            $dow     = (int)date('N', $current);
-            $dom     = (int)date('j', $current);
+        if (!$title)     return ['error' => 'Judul wajib diisi'];
+        if (!$frequency) return ['error' => 'Frekuensi wajib dipilih'];
+        if (!$startTime) return ['error' => 'Jam mulai wajib diisi'];
+        if (!$endTime)   return ['error' => 'Jam selesai wajib diisi'];
 
-            $match = match($r['frequency']) {
-                'daily'    => true,
-                'weekly'   => $r['day_of_week'] !== null
-                                  ? (int)$r['day_of_week'] === ($dow % 7)
-                                  : true,
-                'biweekly' => $r['day_of_week'] !== null
-                                  ? ((int)$r['day_of_week'] === ($dow % 7))
-                                    && (floor((strtotime($dateStr) - strtotime($r['start_date'])) / (86400 * 14)) % 2 == 0)
-                                  : false,
-                'monthly'  => $r['day_of_month'] !== null
-                                  ? $dom === (int)$r['day_of_month']
-                                  : false,
-                default    => false,
-            };
-
-            if ($match) $dates[] = $dateStr;
-            $current = strtotime('+1 day', $current);
-        }
-        return $dates;
+        return [
+            'title'         => $title,
+            'frequency'     => $frequency,
+            'day_of_week'   => (int)($post['day_of_week']   ?? 0),
+            'day_of_month'  => (int)($post['day_of_month']  ?? 0),
+            'start_time'    => $startTime,
+            'end_time'      => $endTime,
+            'location'      => trim($post['location']    ?? ''),
+            'description'   => trim($post['description'] ?? ''),
+            'department_id' => (int)($post['department_id'] ?? 0) ?: null,
+            'participants'  => json_encode(array_map('intval', (array)($post['participants'] ?? []))),
+        ];
     }
 }
