@@ -75,12 +75,8 @@ class Auth
         return self::hasRole(...$roles);
     }
 
-    // ── CSRF Token helpers ─────────────────────────────────────────────
+    // ── CSRF Token helpers ──────────────────────────────────────────
 
-    /**
-     * Generate dan simpan CSRF token ke session.
-     * Panggil sekali saat awal request (misal di layout).
-     */
     public static function csrfToken(): string
     {
         if (empty($_SESSION['csrf_token'])) {
@@ -89,18 +85,11 @@ class Auth
         return $_SESSION['csrf_token'];
     }
 
-    /**
-     * Render hidden input CSRF untuk form HTML.
-     */
     public static function csrfField(): string
     {
         return '<input type="hidden" name="_csrf" value="' . htmlspecialchars(self::csrfToken()) . '">';
     }
 
-    /**
-     * Verifikasi CSRF token dari POST atau header X-CSRF-Token.
-     * Lempar exception / return false jika tidak valid.
-     */
     public static function verifyCsrf(): bool
     {
         $token   = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
@@ -132,6 +121,8 @@ class Auth
                     'avatar' => $row['avatar'] ?? null,
                 ];
             }
-        } catch (\Throwable) {}
+        } catch (\Throwable $e) {
+            // silent — jangan crash hanya karena remember-me gagal
+        }
     }
 }

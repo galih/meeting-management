@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 class Database {
-    private static ?PDO $instance = null;
+    private static $instance = null;
 
     public static function getInstance(): PDO {
         if (self::$instance === null) {
@@ -28,14 +28,21 @@ class Database {
         return self::$instance;
     }
 
-    // Utility: jalankan query sederhana
+    /**
+     * Jalankan query dan kembalikan semua baris.
+     * @return array
+     */
     public static function query(string $sql, array $params = []): array {
         $stmt = self::getInstance()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
     }
 
-    public static function queryOne(string $sql, array $params = []): array|false {
+    /**
+     * Jalankan query dan kembalikan satu baris, atau false jika tidak ditemukan.
+     * @return array|false
+     */
+    public static function queryOne(string $sql, array $params = []) {
         $stmt = self::getInstance()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetch();
