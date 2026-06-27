@@ -1,31 +1,31 @@
 <?php
 $baseUrl = rtrim(BASE_URL, '/');
 
-// ── Status maps ────────────────────────────────────────────────────────────
+// ── Status maps ──────────────────────────────────────────────
 $statusLabel = [
   'scheduled' => 'Terjadwal',
   'ongoing'   => 'Sedang Berlangsung',
   'done'      => 'Selesai',
   'cancelled' => 'Dibatalkan',
 ];
-$statusColor = [
-  'scheduled' => 'blue',
-  'ongoing'   => 'orange',
-  'done'      => 'green',
-  'cancelled' => 'red',
+$statusCls = [
+  'scheduled' => 'sh-status-blue',
+  'ongoing'   => 'sh-status-orange',
+  'done'      => 'sh-status-green',
+  'cancelled' => 'sh-status-red',
 ];
 $statusIcon = [
-  'scheduled' => '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-  'ongoing'   => '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
-  'done'      => '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
-  'cancelled' => '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  'scheduled' => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+  'ongoing'   => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+  'done'      => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+  'cancelled' => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
 ];
-$pStatusColor = [
-  'accepted' => 'green',
-  'invited'  => 'blue',
-  'declined' => 'red',
-  'attended' => 'teal',
-  'pending'  => 'secondary',
+$pStatusCls = [
+  'accepted' => 'sh-bdg-green',
+  'invited'  => 'sh-bdg-blue',
+  'declined' => 'sh-bdg-red',
+  'attended' => 'sh-bdg-teal',
+  'pending'  => 'sh-bdg-muted',
 ];
 $pStatusLabel = [
   'accepted' => 'Diterima',
@@ -34,20 +34,20 @@ $pStatusLabel = [
   'attended' => 'Hadir',
   'pending'  => 'Menunggu',
 ];
-$prioColor = ['high' => 'red', 'medium' => 'orange', 'low' => 'green'];
-$prioLabel = ['high' => 'Tinggi', 'medium' => 'Sedang', 'low' => 'Rendah'];
-$tlStatusColor = ['pending' => 'secondary', 'in_progress' => 'blue', 'done' => 'green', 'cancelled' => 'red'];
-$tlStatusLabel = ['pending' => 'Menunggu', 'in_progress' => 'Berlangsung', 'done' => 'Selesai', 'cancelled' => 'Dibatalkan'];
+$prioClsMap = ['high' => 'sh-bdg-red', 'medium' => 'sh-bdg-orange', 'low' => 'sh-bdg-green'];
+$prioLblMap = ['high' => 'Tinggi', 'medium' => 'Sedang', 'low' => 'Rendah'];
+$tlSClsMap  = ['pending' => 'sh-bdg-muted', 'in_progress' => 'sh-bdg-blue', 'done' => 'sh-bdg-green', 'cancelled' => 'sh-bdg-red'];
+$tlSLblMap  = ['pending' => 'Menunggu', 'in_progress' => 'Berlangsung', 'done' => 'Selesai', 'cancelled' => 'Dibatalkan'];
 
-// ── Computed vars ──────────────────────────────────────────────────────────
+// ── Computed vars ─────────────────────────────────────────────
 $canEdit          = $canEdit ?? false;
 $participants     = $participants ?? [];
 $tindakLanjutList = $tindakLanjutList ?? [];
 
 $mStatus  = $meeting['status'] ?? 'scheduled';
-$mColor   = $statusColor[$mStatus] ?? 'secondary';
-$mLabel   = $statusLabel[$mStatus] ?? ucfirst($mStatus);
-$mIcon    = $statusIcon[$mStatus]  ?? '';
+$mCls     = $statusCls[$mStatus]    ?? 'sh-status-muted';
+$mLabel   = $statusLabel[$mStatus]  ?? ucfirst($mStatus);
+$mIcon    = $statusIcon[$mStatus]   ?? '';
 $loc      = trim($meeting['location'] ?? '');
 $isLink   = $loc && (str_starts_with($loc, 'http://') || str_starts_with($loc, 'https://'));
 $brand    = htmlspecialchars($meeting['color'] ?? '#7B1C1C');
@@ -62,20 +62,20 @@ $overdueTL    = count(array_filter($tindakLanjutList,
 ));
 $progressPct  = $totalTL > 0 ? round(($doneTL / $totalTL) * 100) : 0;
 $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
+$avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a', '#b5530a'];
 ?>
 
-<?php /* ── Flash toast ── */ ?>
+<?php /* ── Flash toasts ── */ ?>
 <?php if (!empty($_SESSION['flash_success'])): ?>
 <div class="sh-toast" id="shToast" role="alert" aria-live="polite">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
   <?= htmlspecialchars($_SESSION['flash_success']) ?>
   <button class="sh-toast-close" onclick="this.parentElement.remove()" aria-label="Tutup">&times;</button>
 </div>
 <?php unset($_SESSION['flash_success']); endif; ?>
-
 <?php if (!empty($_SESSION['flash_error'])): ?>
-<div class="sh-toast sh-toast-error" id="shToastErr" role="alert" aria-live="polite">
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+<div class="sh-toast sh-toast--error" id="shToastErr" role="alert" aria-live="polite">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <?= htmlspecialchars($_SESSION['flash_error']) ?>
   <button class="sh-toast-close" onclick="this.parentElement.remove()" aria-label="Tutup">&times;</button>
 </div>
@@ -84,19 +84,19 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 <?php /* ================================================================
    HERO
 ================================================================ */ ?>
-<div class="sh-hero mb-4" style="--meeting-color:<?= $brand ?>">
+<div class="sh-hero" style="--mc:<?= $brand ?>">
   <div class="sh-hero-body">
-    <div class="sh-hero-top">
+    <div class="sh-hero-row">
 
       <div class="sh-hero-left">
-        <nav class="sh-breadcrumb" aria-label="Breadcrumb">
+        <nav class="sh-bc" aria-label="Breadcrumb">
           <a href="<?= $baseUrl ?>/meetings">Kegiatan</a>
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           <span>Detail</span>
         </nav>
-        <h1 class="sh-title"><?= htmlspecialchars($meeting['title']) ?></h1>
-        <div class="sh-meta">
-          <span class="sh-status sh-status-<?= $mColor ?>"><?= $mIcon ?>&nbsp;<?= $mLabel ?></span>
+        <h1 class="sh-hero-title"><?= htmlspecialchars($meeting['title']) ?></h1>
+        <div class="sh-hero-meta">
+          <span class="sh-status <?= $mCls ?>"><?= $mIcon ?> <?= $mLabel ?></span>
           <?php if (!empty($meeting['dept_name'])): ?>
           <span class="sh-chip">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -112,20 +112,20 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 
       <div class="sh-hero-actions">
         <?php if ($canEdit): ?>
-        <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>/edit" class="sh-btn sh-btn-gold">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>/edit" class="sh-btn sh-btn--gold">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           Edit
         </a>
         <?php endif; ?>
         <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
-        <button type="button" class="sh-btn sh-btn-ghost" data-bs-toggle="modal" data-bs-target="#modalStatus">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <button type="button" class="sh-btn sh-btn--ghost" data-bs-toggle="modal" data-bs-target="#modalStatus">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Ubah Status
         </button>
         <?php endif; ?>
         <?php if (Auth::hasRole('admin')): ?>
-        <button type="button" class="sh-btn sh-btn-danger" data-bs-toggle="modal" data-bs-target="#modalHapus">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        <button type="button" class="sh-btn sh-btn--danger" data-bs-toggle="modal" data-bs-target="#modalHapus">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
           Hapus
         </button>
         <?php endif; ?>
@@ -136,22 +136,22 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 
   <div class="sh-hero-strip">
     <span class="sh-strip-item">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <strong>Mulai:</strong>&nbsp;<?= date('d M Y, H:i', strtotime($meeting['start_datetime'])) ?>
     </span>
     <span class="sh-strip-sep">&rarr;</span>
     <span class="sh-strip-item">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <strong>Selesai:</strong>&nbsp;<?= date('d M Y, H:i', strtotime($meeting['end_datetime'])) ?>
     </span>
     <?php if ($loc): ?>
     <span class="sh-strip-sep">&middot;</span>
     <span class="sh-strip-item">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       <?php if ($isLink): ?>
         <a href="<?= htmlspecialchars($loc) ?>" target="_blank" rel="noopener noreferrer" class="sh-strip-link">
           Buka Link Kegiatan
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
       <?php else: ?>
         <?= htmlspecialchars($loc) ?>
@@ -162,105 +162,94 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 </div>
 
 <?php /* ================================================================
-   BODY LAYOUT
+   BODY
 ================================================================ */ ?>
-<div class="row g-3">
+<div class="row g-3 mt-1">
 
   <?php /* ── SIDEBAR ── */ ?>
   <div class="col-xl-3 col-lg-4">
 
-    <?php /* Stat cards */ ?>
-    <div class="sh-stat-grid mb-3">
+    <!-- Stat cards -->
+    <div class="sh-stats mb-3">
       <div class="sh-stat">
-        <div class="sh-stat-ico sh-stat-ico-blue">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <div class="sh-stat-ico sh-sico-blue">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
-        <div>
-          <div class="sh-stat-val"><?= $totalPeserta ?></div>
-          <div class="sh-stat-lbl">Peserta</div>
-        </div>
+        <div><div class="sh-stat-val"><?= $totalPeserta ?></div><div class="sh-stat-lbl">Peserta</div></div>
       </div>
       <div class="sh-stat">
-        <div class="sh-stat-ico sh-stat-ico-brand-lt">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <div class="sh-stat-ico sh-sico-brand">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         </div>
-        <div>
-          <div class="sh-stat-val"><?= $totalTL ?></div>
-          <div class="sh-stat-lbl">Tindak Lanjut</div>
-        </div>
+        <div><div class="sh-stat-val"><?= $totalTL ?></div><div class="sh-stat-lbl">Tindak Lanjut</div></div>
       </div>
       <div class="sh-stat">
-        <div class="sh-stat-ico sh-stat-ico-green">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <div class="sh-stat-ico sh-sico-green">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
-        <div>
-          <div class="sh-stat-val sh-val-green"><?= $doneTL ?></div>
-          <div class="sh-stat-lbl">Selesai</div>
-        </div>
+        <div><div class="sh-stat-val sh-val-green"><?= $doneTL ?></div><div class="sh-stat-lbl">Selesai</div></div>
       </div>
       <div class="sh-stat">
-        <div class="sh-stat-ico <?= $overdueTL > 0 ? 'sh-stat-ico-red' : 'sh-stat-ico-muted' ?>">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div class="sh-stat-ico <?= $overdueTL > 0 ? 'sh-sico-red' : 'sh-sico-muted' ?>">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
-        <div>
-          <div class="sh-stat-val <?= $overdueTL > 0 ? 'sh-val-red' : '' ?>"><?= $overdueTL ?></div>
-          <div class="sh-stat-lbl">Terlambat</div>
-        </div>
+        <div><div class="sh-stat-val <?= $overdueTL > 0 ? 'sh-val-red' : '' ?>"><?= $overdueTL ?></div><div class="sh-stat-lbl">Terlambat</div></div>
       </div>
     </div>
 
-    <?php /* Progress TL */ ?>
+    <!-- Progress TL -->
     <?php if ($totalTL > 0): ?>
     <div class="sh-card mb-3">
       <div class="sh-card-hd">Progress Tindak Lanjut</div>
-      <div class="sh-card-body">
+      <div class="sh-card-bd">
         <div class="sh-prog-row">
           <span class="sh-prog-pct"><?= $progressPct ?>%</span>
-          <span class="sh-prog-meta"><?= $doneTL ?> / <?= $totalTL ?></span>
+          <span class="sh-prog-meta"><?= $doneTL ?> / <?= $totalTL ?> selesai</span>
         </div>
-        <div class="sh-prog-bar">
+        <div class="sh-prog-bar" role="progressbar"
+             aria-valuenow="<?= $progressPct ?>" aria-valuemin="0" aria-valuemax="100">
           <div class="sh-prog-fill" style="width:<?= $progressPct ?>%"></div>
         </div>
       </div>
     </div>
     <?php endif; ?>
 
-    <?php /* Agenda */ ?>
+    <!-- Agenda -->
     <?php if (!empty($meeting['description'])): ?>
     <div class="sh-card mb-3">
       <div class="sh-card-hd">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         Agenda
       </div>
-      <div class="sh-card-body">
-        <p class="sh-agenda-text"><?= nl2br(htmlspecialchars($meeting['description'])) ?></p>
+      <div class="sh-card-bd">
+        <p class="sh-agenda"><?= nl2br(htmlspecialchars($meeting['description'])) ?></p>
       </div>
     </div>
     <?php endif; ?>
 
-    <?php /* Dokumen */ ?>
+    <!-- Dokumen -->
     <div class="sh-card">
       <div class="sh-card-hd">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Dokumen
       </div>
-      <div class="sh-card-body sh-doc-list">
+      <div class="sh-card-bd sh-doc-list">
         <a href="<?= $baseUrl ?>/notulen/<?= (int)$meeting['id'] ?>" class="sh-doc-btn sh-doc-primary">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           Buka Notulen
         </a>
         <a href="<?= $baseUrl ?>/notulen/<?= (int)$meeting['id'] ?>/export-docx" class="sh-doc-btn sh-doc-outline">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export DOCX
         </a>
         <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
         <button type="button" class="sh-doc-btn sh-doc-outline" id="btnKirimUndangan">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
           Kirim Undangan
         </button>
         <?php if (($meeting['status'] ?? '') === 'done'): ?>
-        <button type="button" class="sh-doc-btn sh-doc-outline-green" id="btnKirimRingkasan">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <button type="button" class="sh-doc-btn sh-doc-outline-teal" id="btnKirimRingkasan">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 2 11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           Kirim Ringkasan
         </button>
         <?php endif; ?>
@@ -274,29 +263,29 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
   <div class="col-xl-9 col-lg-8">
     <div class="sh-main-card">
 
-      <?php /* Tab nav */ ?>
+      <!-- Tab nav -->
       <div class="sh-tabs" role="tablist">
-        <button type="button" class="sh-tab active" data-tab="tl" role="tab"
-                aria-selected="true" aria-controls="sh-tab-tl">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <button type="button" class="sh-tab active" data-tab="tl"
+                role="tab" aria-selected="true" aria-controls="sh-panel-tl">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           Tindak Lanjut
-          <span class="sh-badge-pill"><?= $totalTL ?></span>
+          <span class="sh-pill"><?= $totalTL ?></span>
         </button>
-        <button type="button" class="sh-tab" data-tab="peserta" role="tab"
-                aria-selected="false" aria-controls="sh-tab-peserta">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <button type="button" class="sh-tab" data-tab="peserta"
+                role="tab" aria-selected="false" aria-controls="sh-panel-peserta">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Peserta
-          <span class="sh-badge-pill"><?= $totalPeserta ?></span>
+          <span class="sh-pill"><?= $totalPeserta ?></span>
         </button>
       </div>
 
-      <?php /* ── Tab: Tindak Lanjut ── */ ?>
-      <div id="sh-tab-tl" class="sh-tab-panel active" role="tabpanel">
+      <?php /* Tab: Tindak Lanjut */ ?>
+      <div id="sh-panel-tl" class="sh-panel active" role="tabpanel">
 
         <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
-        <div class="sh-panel-toolbar">
+        <div class="sh-toolbar">
           <button type="button" class="sh-btn-add" data-bs-toggle="modal" data-bs-target="#modalTambahTL">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tambah Tindak Lanjut
           </button>
         </div>
@@ -305,12 +294,12 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         <?php if (empty($tindakLanjutList)): ?>
         <div class="sh-empty">
           <div class="sh-empty-ico">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
           <p>Belum ada tindak lanjut untuk kegiatan ini.</p>
           <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
           <button type="button" class="sh-btn-add" data-bs-toggle="modal" data-bs-target="#modalTambahTL">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Tambah Sekarang
           </button>
           <?php endif; ?>
@@ -325,7 +314,7 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
                 <th>Deadline</th>
                 <th>Prioritas</th>
                 <th>Status</th>
-                <th style="width:60px"></th>
+                <th style="width:56px"></th>
               </tr>
             </thead>
             <tbody>
@@ -333,16 +322,16 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
               $isOver = !empty($tl['due_date'])
                 && $tl['due_date'] < $today
                 && !in_array($tl['status'], ['done', 'cancelled']);
-              $pc  = $prioColor[$tl['priority']] ?? 'secondary';
-              $pl  = $prioLabel[$tl['priority']] ?? ucfirst($tl['priority'] ?? '');
-              $tc  = $tlStatusColor[$tl['status']] ?? 'secondary';
-              $tll = $tlStatusLabel[$tl['status']] ?? ucfirst($tl['status'] ?? '');
+              $pCls = $prioClsMap[$tl['priority'] ?? ''] ?? 'sh-bdg-muted';
+              $pLbl = $prioLblMap[$tl['priority'] ?? ''] ?? ucfirst($tl['priority'] ?? '-');
+              $sCls = $tlSClsMap[$tl['status'] ?? '']   ?? 'sh-bdg-muted';
+              $sLbl = $tlSLblMap[$tl['status'] ?? '']   ?? ucfirst($tl['status'] ?? '-');
             ?>
-              <tr class="<?= $isOver ? 'sh-tr-over' : '' ?>">
+              <tr class="<?= $isOver ? 'sh-row-over' : '' ?>">
                 <td>
                   <div class="sh-tl-desc"><?= htmlspecialchars($tl['description']) ?></div>
                   <?php if ($isOver): ?>
-                  <span class="sh-badge sh-badge-red sh-badge-sm" style="margin-top:.2rem">Terlambat</span>
+                  <span class="sh-bdg sh-bdg-red" style="font-size:10px;margin-top:.2rem;display:inline-flex">Terlambat</span>
                   <?php endif; ?>
                 </td>
                 <td>
@@ -354,15 +343,15 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
                   <?php else: ?><span class="sh-muted">&mdash;</span><?php endif; ?>
                 </td>
                 <td>
-                  <span class="<?= $isOver ? 'sh-deadline-over' : 'sh-deadline' ?>">
+                  <span class="<?= $isOver ? 'sh-dl-over' : 'sh-dl' ?>">
                     <?= !empty($tl['due_date']) ? date('d M Y', strtotime($tl['due_date'])) : '&mdash;' ?>
                   </span>
                 </td>
-                <td><span class="sh-badge sh-badge-<?= $pc ?>"><?= $pl ?></span></td>
-                <td><span class="sh-badge sh-badge-<?= $tc ?>"><?= $tll ?></span></td>
+                <td><span class="sh-bdg <?= $pCls ?>"><?= $pLbl ?></span></td>
+                <td><span class="sh-bdg <?= $sCls ?>"><?= $sLbl ?></span></td>
                 <td>
-                  <a href="<?= $baseUrl ?>/tindak-lanjut/<?= (int)$tl['id'] ?>" class="sh-btn-detail">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <a href="<?= $baseUrl ?>/tindak-lanjut/<?= (int)$tl['id'] ?>" class="sh-link-detail">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     Detail
                   </a>
                 </td>
@@ -374,24 +363,21 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         <?php endif; ?>
       </div>
 
-      <?php /* ── Tab: Peserta ── */ ?>
-      <div id="sh-tab-peserta" class="sh-tab-panel" role="tabpanel">
-        <?php
-        $avPalette = ['#7B1C1C', '#A83218', '#C9A84C', '#2F6BC4', '#1a7340', '#7d3cb5', '#0d7a8a', '#b5530a'];
-        ?>
+      <?php /* Tab: Peserta */ ?>
+      <div id="sh-panel-peserta" class="sh-panel" role="tabpanel">
         <?php if (empty($participants)): ?>
         <div class="sh-empty">
           <div class="sh-empty-ico">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
           <p>Belum ada peserta terdaftar.</p>
         </div>
         <?php else: ?>
         <div class="sh-peserta-grid">
           <?php foreach ($participants as $p):
-            $psc = $pStatusColor[$p['status']] ?? 'secondary';
-            $psl = $pStatusLabel[$p['status']] ?? ucfirst($p['status'] ?? '');
-            $bg  = $avPalette[abs(crc32($p['name'])) % count($avPalette)];
+            $psCls = $pStatusCls[$p['status'] ?? '']   ?? 'sh-bdg-muted';
+            $psLbl = $pStatusLabel[$p['status'] ?? ''] ?? ucfirst($p['status'] ?? '-');
+            $bg    = $avPalette[abs(crc32($p['name'])) % count($avPalette)];
           ?>
           <div class="sh-peserta-card">
             <span class="sh-av" style="background:<?= $bg ?>">
@@ -403,7 +389,7 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
               <div class="sh-peserta-pos"><?= htmlspecialchars($p['position']) ?></div>
               <?php endif; ?>
             </div>
-            <span class="sh-badge sh-badge-<?= $psc ?>"><?= $psl ?></span>
+            <span class="sh-bdg <?= $psCls ?>"><?= $psLbl ?></span>
           </div>
           <?php endforeach; ?>
         </div>
@@ -412,7 +398,8 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 
     </div><!-- /sh-main-card -->
   </div>
-</div>
+
+</div><!-- /row -->
 
 <?php /* ================================================================
    MODALS
@@ -420,22 +407,20 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 
 <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
 
-<?php /* Modal Ubah Status */ ?>
-<div class="modal modal-blur fade" id="modalStatus" tabindex="-1" aria-labelledby="modalStatusLabel" aria-hidden="true">
+<!-- Modal: Ubah Status -->
+<div class="modal modal-blur fade" id="modalStatus" tabindex="-1"
+     aria-labelledby="lblModalStatus" aria-hidden="true">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
       <form method="POST" action="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>/status">
         <?= Auth::csrfField() ?>
         <div class="modal-header">
-          <h5 class="modal-title" id="modalStatusLabel">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Ubah Status Kegiatan
-          </h5>
+          <h5 class="modal-title" id="lblModalStatus">Ubah Status Kegiatan</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
         </div>
         <div class="modal-body">
-          <label class="form-label fw-semibold" for="modalStatusSelect">Status Baru</label>
-          <select id="modalStatusSelect" name="status" class="form-select">
+          <label class="form-label" for="selStatus">Status Baru</label>
+          <select id="selStatus" name="status" class="form-select">
             <?php foreach ($statusLabel as $val => $lbl): ?>
             <option value="<?= $val ?>" <?= ($meeting['status'] ?? '') === $val ? 'selected' : '' ?>>
               <?= htmlspecialchars($lbl) ?>
@@ -452,21 +437,20 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
   </div>
 </div>
 
-<?php /* Modal Tambah Tindak Lanjut */ ?>
-<div class="modal modal-blur fade" id="modalTambahTL" tabindex="-1" aria-labelledby="modalTLLabel" aria-hidden="true">
+<!-- Modal: Tambah Tindak Lanjut -->
+<div class="modal modal-blur fade" id="modalTambahTL" tabindex="-1"
+     aria-labelledby="lblModalTL" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-header">
-        <h5 class="modal-title" id="modalTLLabel">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          Tambah Tindak Lanjut
-        </h5>
+        <h5 class="modal-title" id="lblModalTL">Tambah Tindak Lanjut</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
       </div>
       <div class="modal-body">
         <div class="mb-3">
           <label class="form-label required" for="tlDesc">Deskripsi Tugas</label>
-          <textarea id="tlDesc" class="form-control" rows="3" placeholder="Contoh: Buat laporan evaluasi Q2…"></textarea>
+          <textarea id="tlDesc" class="form-control" rows="3"
+                    placeholder="Contoh: Buat laporan evaluasi Q2&hellip;"></textarea>
           <div class="invalid-feedback">Deskripsi wajib diisi.</div>
         </div>
         <div class="row g-2 mb-3">
@@ -489,7 +473,8 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
           <div class="d-flex gap-3 flex-wrap">
             <?php foreach (['low' => 'Rendah', 'medium' => 'Sedang', 'high' => 'Tinggi'] as $v => $l): ?>
             <label class="form-check">
-              <input type="radio" name="tlPriority" class="form-check-input" value="<?= $v ?>" <?= $v === 'medium' ? 'checked' : '' ?>>
+              <input type="radio" name="tlPriority" class="form-check-input"
+                     value="<?= $v ?>" <?= $v === 'medium' ? 'checked' : '' ?>>
               <span class="form-check-label"><?= $l ?></span>
             </label>
             <?php endforeach; ?>
@@ -498,10 +483,7 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-link link-secondary" data-bs-dismiss="modal">Batal</button>
-        <button type="button" class="btn btn-primary" id="btnSaveTL">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-          Simpan
-        </button>
+        <button type="button" class="btn btn-primary" id="btnSaveTL">Simpan</button>
       </div>
     </div>
   </div>
@@ -510,23 +492,26 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 <?php endif; /* admin/sekretaris */ ?>
 
 <?php if (Auth::hasRole('admin')): ?>
-<?php /* Modal Hapus */ ?>
-<div class="modal modal-blur fade" id="modalHapus" tabindex="-1" aria-labelledby="modalHapusLabel" aria-hidden="true">
+<!-- Modal: Hapus -->
+<div class="modal modal-blur fade" id="modalHapus" tabindex="-1"
+     aria-labelledby="lblModalHapus" aria-hidden="true">
   <div class="modal-dialog modal-sm modal-dialog-centered">
     <div class="modal-content">
       <div class="modal-body text-center py-4">
         <div class="sh-del-ico mb-3">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
         </div>
-        <h5 class="mb-2" id="modalHapusLabel">Hapus Kegiatan?</h5>
+        <h5 class="mb-2" id="lblModalHapus">Hapus Kegiatan?</h5>
         <p class="text-muted small mb-0">
           Kegiatan <strong class="text-danger"><?= htmlspecialchars($meeting['title']) ?></strong>
           akan dihapus permanen beserta semua notulen, peserta, dan tindak lanjut.
         </p>
       </div>
       <div class="modal-footer justify-content-center gap-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-        <form method="POST" action="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>/delete">
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                data-bs-dismiss="modal">Batal</button>
+        <form method="POST"
+              action="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>/delete">
           <?= Auth::csrfField() ?>
           <input type="hidden" name="_method" value="DELETE">
           <button type="submit" class="btn btn-sm btn-danger">Ya, Hapus</button>
@@ -555,12 +540,12 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         b.classList.remove('active');
         b.setAttribute('aria-selected', 'false');
       });
-      document.querySelectorAll('.sh-tab-panel').forEach(function (p) {
+      document.querySelectorAll('.sh-panel').forEach(function (p) {
         p.classList.remove('active');
       });
       btn.classList.add('active');
       btn.setAttribute('aria-selected', 'true');
-      var panel = document.getElementById('sh-tab-' + btn.dataset.tab);
+      var panel = document.getElementById('sh-panel-' + btn.dataset.tab);
       if (panel) panel.classList.add('active');
     });
   });
@@ -583,18 +568,22 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 
       var origHtml = btnSaveTL.innerHTML;
       btnSaveTL.disabled = true;
-      btnSaveTL.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Menyimpan…';
+      btnSaveTL.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Menyimpan…';
 
       fetch(BASE + '/tindak-lanjut', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        method : 'POST',
+        headers: {
+          'Content-Type'    : 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
         body: JSON.stringify({
-          meeting_id:  MTG_ID,
+          meeting_id : MTG_ID,
           description: desc.value.trim(),
           assigned_to: assigned ? (assigned.value || null) : null,
-          due_date:    deadline ? (deadline.value || null) : null,
-          priority:    prio ? prio.value : 'medium',
-          _csrf:       CSRF
+          due_date   : deadline ? (deadline.value  || null) : null,
+          priority   : prio ? prio.value : 'medium',
+          _csrf      : CSRF
         })
       })
       .then(function (r) {
@@ -605,13 +594,13 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
         if (data.success) {
           window.location.reload();
         } else {
-          shToastMsg(data.message || 'Gagal menyimpan tindak lanjut.');
+          shToast(data.message || 'Gagal menyimpan tindak lanjut.');
           btnSaveTL.disabled = false;
           btnSaveTL.innerHTML = origHtml;
         }
       })
       .catch(function (err) {
-        shToastMsg('Terjadi kesalahan: ' + err.message);
+        shToast('Terjadi kesalahan: ' + err.message);
         btnSaveTL.disabled = false;
         btnSaveTL.innerHTML = origHtml;
       });
@@ -625,15 +614,19 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
       if (!confirm('Kirim undangan email ke semua peserta?')) return;
       var orig = btnInv.innerHTML;
       btnInv.disabled = true;
-      btnInv.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+      btnInv.innerHTML =
+        '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
       fetch(BASE + '/meetings/' + MTG_ID + '/send-invitations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        method : 'POST',
+        headers: {
+          'Content-Type'    : 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
         body: JSON.stringify({ _csrf: CSRF })
       })
       .then(function (r) { return r.json(); })
-      .then(function (d) { shToastMsg(d.message || 'Undangan terkirim.', 'success'); })
-      .catch(function () { shToastMsg('Gagal mengirim undangan.'); })
+      .then(function (d) { shToast(d.message || 'Undangan terkirim.', 'success'); })
+      .catch(function ()  { shToast('Gagal mengirim undangan.'); })
       .finally(function () { btnInv.disabled = false; btnInv.innerHTML = orig; });
     });
   }
@@ -645,30 +638,36 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
       if (!confirm('Kirim ringkasan kegiatan ke semua peserta?')) return;
       var orig = btnSum.innerHTML;
       btnSum.disabled = true;
-      btnSum.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+      btnSum.innerHTML =
+        '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
       fetch(BASE + '/meetings/' + MTG_ID + '/send-summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        method : 'POST',
+        headers: {
+          'Content-Type'    : 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
         body: JSON.stringify({ _csrf: CSRF })
       })
       .then(function (r) { return r.json(); })
-      .then(function (d) { shToastMsg(d.message || 'Ringkasan terkirim.', 'success'); })
-      .catch(function () { shToastMsg('Gagal mengirim ringkasan.'); })
+      .then(function (d) { shToast(d.message || 'Ringkasan terkirim.', 'success'); })
+      .catch(function ()  { shToast('Gagal mengirim ringkasan.'); })
       .finally(function () { btnSum.disabled = false; btnSum.innerHTML = orig; });
     });
   }
 
   /* ── Toast helper ── */
-  function shToastMsg(msg, type) {
+  function shToast(msg, type) {
     var t = document.createElement('div');
-    t.className = 'sh-toast' + (type === 'success' ? '' : ' sh-toast-error');
+    t.className = 'sh-toast' + (type === 'success' ? '' : ' sh-toast--error');
     t.setAttribute('role', 'alert');
-    t.innerHTML = msg + '<button class="sh-toast-close" onclick="this.parentElement.remove()" aria-label="Tutup">&times;</button>';
+    t.innerHTML =
+      msg +
+      '<button class="sh-toast-close" onclick="this.parentElement.remove()" aria-label="Tutup">&times;</button>';
     document.body.appendChild(t);
     setTimeout(function () {
       t.style.opacity = '0';
-      setTimeout(function () { t.remove(); }, 400);
-    }, 4000);
+      setTimeout(function () { if (t.parentElement) t.remove(); }, 400);
+    }, 4500);
   }
 
   /* ── Auto-dismiss flash toasts ── */
@@ -677,7 +676,7 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
     if (el) {
       setTimeout(function () {
         el.style.opacity = '0';
-        setTimeout(function () { el.remove(); }, 400);
+        setTimeout(function () { if (el.parentElement) el.remove(); }, 400);
       }, 4500);
     }
   });
@@ -686,277 +685,350 @@ $csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 </script>
 
 <?php /* ================================================================
-   STYLES — semua menggunakan variabel dari custom.css (palet Kemenbud)
+   STYLES
+   Semua token dari custom.css:
+     --brand, --brand-dark, --brand-light, --brand-xlight
+     --gold, --gold-dark, --gold-light
+     --bg-page, --bg-card, --text-main, --text-muted
+     --border, --border-light
 ================================================================ */ ?>
 <style>
-/* ── Toast ── */
+/* ─────────────────────────────────────────────
+   TOAST
+───────────────────────────────────────────── */
 .sh-toast {
-  position: fixed; top: 1.2rem; right: 1.2rem; z-index: 1090;
-  display: flex; align-items: center; gap: .5rem;
-  background: #15803d; color: #fff;
-  padding: .65rem 1rem; border-radius: 10px;
+  position: fixed; top: 1.1rem; right: 1.1rem; z-index: 1090;
+  display: flex; align-items: center; gap: .45rem;
+  background: #1a7340; color: #fff;
+  padding: .6rem 1rem; border-radius: 9px;
   font-size: 13px; font-weight: 600;
   box-shadow: 0 4px 18px rgba(0,0,0,.18);
   transition: opacity .4s ease;
-  max-width: 360px;
+  max-width: 340px; pointer-events: auto;
 }
-.sh-toast-error { background: var(--brand); }
+.sh-toast--error { background: var(--brand); }
 .sh-toast-close {
-  background: none; border: none; color: inherit; cursor: pointer;
-  font-size: 18px; line-height: 1; padding: 0 0 0 .4rem; opacity: .8;
-  margin-left: auto;
+  background: none; border: none; color: inherit;
+  cursor: pointer; font-size: 17px; line-height: 1;
+  padding: 0 0 0 .4rem; opacity: .8; margin-left: auto;
 }
 .sh-toast-close:hover { opacity: 1; }
 
-/* ── Hero — gradient menggunakan --meeting-color (warna kegiatan) ── */
+/* ─────────────────────────────────────────────
+   HERO
+───────────────────────────────────────────── */
 .sh-hero {
-  --meeting-color: var(--brand);
-  background: linear-gradient(135deg, var(--meeting-color) 0%, color-mix(in srgb, var(--meeting-color) 75%, #1a0000 25%) 100%);
+  --mc: var(--brand);
+  background: linear-gradient(
+    135deg,
+    var(--mc) 0%,
+    color-mix(in srgb, var(--mc) 72%, #1a0000 28%) 100%
+  );
   border-radius: 14px;
   box-shadow: 0 4px 24px rgba(0,0,0,.18);
   overflow: hidden;
+  margin-bottom: 0;
 }
-.sh-hero-body   { padding: 1.4rem 1.6rem 1rem; }
-.sh-hero-top    { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .75rem; }
-.sh-breadcrumb  { display: flex; align-items: center; gap: .3rem; font-size: 12px; color: rgba(255,255,255,.6); margin-bottom: .45rem; }
-.sh-breadcrumb a { color: rgba(255,255,255,.8); text-decoration: none; }
-.sh-breadcrumb a:hover { color: #fff; text-decoration: underline; }
-.sh-title {
-  font-size: clamp(15px, 2.4vw, 22px); font-weight: 800;
+.sh-hero-body   { padding: 1.35rem 1.6rem 1rem; }
+.sh-hero-row    {
+  display: flex; flex-wrap: wrap;
+  align-items: flex-start; justify-content: space-between; gap: .75rem;
+}
+.sh-bc {
+  display: flex; align-items: center; gap: .3rem;
+  font-size: 11.5px; color: rgba(255,255,255,.58); margin-bottom: .4rem;
+}
+.sh-bc a { color: rgba(255,255,255,.78); text-decoration: none; }
+.sh-bc a:hover { color: #fff; text-decoration: underline; }
+.sh-hero-title {
+  font-size: clamp(15px, 2.3vw, 21px); font-weight: 800;
   color: #fff; margin: 0; letter-spacing: -.02em; line-height: 1.25;
 }
-.sh-meta  { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-top: .5rem; }
+.sh-hero-meta {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: .35rem; margin-top: .5rem;
+}
+
+/* Status pill */
 .sh-status {
   display: inline-flex; align-items: center; gap: .3rem;
-  font-size: 11.5px; font-weight: 700;
-  padding: .25em .72em; border-radius: 20px;
+  font-size: 11px; font-weight: 700; padding: .25em .6em;
+  border-radius: 20px; white-space: nowrap;
 }
-.sh-status-blue      { background: rgba(147,197,253,.22); color: #bfdbfe; }
-.sh-status-orange    { background: rgba(253,186,116,.22); color: #fed7aa; }
-.sh-status-green     { background: rgba(134,239,172,.22); color: #bbf7d0; }
-.sh-status-red       { background: rgba(252,165,165,.22); color: #fecaca; }
-.sh-status-secondary { background: rgba(255,255,255,.15); color: rgba(255,255,255,.8); }
-.sh-chip {
-  display: inline-flex; align-items: center; gap: .3rem;
-  font-size: 12px; color: rgba(255,255,255,.78);
-  background: rgba(255,255,255,.12); padding: .22em .65em; border-radius: 20px;
-}
-.sh-hero-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.sh-status-blue     { background: rgba(47,107,196,.22); color: #a8caff; }
+.sh-status-orange   { background: rgba(201,168,76,.22); color: #ffe9a0; }
+.sh-status-green    { background: rgba(26,115,64,.28);  color: #a1f0c0; }
+.sh-status-red      { background: rgba(192,57,43,.28);  color: #ffc1b8; }
+.sh-status-muted    { background: rgba(255,255,255,.12); color: rgba(255,255,255,.7); }
 
-/* Tombol di hero */
+/* Chip */
+.sh-chip {
+  display: inline-flex; align-items: center; gap: .25rem;
+  font-size: 11px; color: rgba(255,255,255,.72);
+  background: rgba(255,255,255,.10);
+  padding: .2em .55em; border-radius: 20px;
+}
+
+/* Hero actions */
+.sh-hero-actions {
+  display: flex; flex-wrap: wrap; gap: .4rem; align-items: flex-start;
+  padding-top: 1.2rem;
+}
 .sh-btn {
   display: inline-flex; align-items: center; gap: .35rem;
-  font-size: 13px; font-weight: 600; padding: .42rem .9rem;
-  border-radius: 8px; border: none; cursor: pointer;
-  text-decoration: none; transition: background .18s, filter .18s, color .18s;
+  font-size: 12.5px; font-weight: 700;
+  padding: .38rem .9rem; border-radius: 8px;
+  cursor: pointer; border: none; text-decoration: none;
+  transition: background .18s, box-shadow .18s, filter .18s;
   white-space: nowrap;
 }
-.sh-btn-gold   { background: var(--gold); color: var(--bg-topnav); }
-.sh-btn-gold:hover { background: var(--gold-dark); color: #fff; }
-.sh-btn-ghost  { background: rgba(255,255,255,.15); border: 1.5px solid rgba(255,255,255,.3); color: #fff; }
-.sh-btn-ghost:hover { background: rgba(255,255,255,.25); color: #fff; }
-.sh-btn-danger { background: rgba(185,28,28,.25); border: 1.5px solid rgba(185,28,28,.45); color: #fca5a5; }
-.sh-btn-danger:hover { background: rgba(185,28,28,.45); color: #fff; }
+.sh-btn--gold    { background: var(--gold);  color: #fff; }
+.sh-btn--gold:hover { background: var(--gold-dark); color: #fff; }
+.sh-btn--ghost {
+  background: rgba(255,255,255,.14);
+  border: 1.5px solid rgba(255,255,255,.3);
+  color: #fff;
+}
+.sh-btn--ghost:hover { background: rgba(255,255,255,.24); }
+.sh-btn--danger {
+  background: rgba(192,57,43,.2);
+  border: 1.5px solid rgba(255,255,255,.25);
+  color: #ffd5cf;
+}
+.sh-btn--danger:hover { background: rgba(192,57,43,.38); color: #fff; }
 
-/* Strip waktu & lokasi */
+/* Hero strip */
 .sh-hero-strip {
   display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
-  background: rgba(0,0,0,.20); padding: .5rem 1.6rem;
-  font-size: 12.5px; color: rgba(255,255,255,.82);
+  background: rgba(0,0,0,.18);
+  padding: .55rem 1.6rem; font-size: 12px;
+  color: rgba(255,255,255,.80);
 }
-.sh-strip-item { display: flex; align-items: center; gap: .3rem; }
-.sh-strip-sep  { color: rgba(255,255,255,.35); }
-.sh-strip-link { color: var(--gold); text-decoration: none; display: inline-flex; align-items: center; gap: .25rem; }
-.sh-strip-link:hover { text-decoration: underline; color: var(--gold-dark); }
+.sh-strip-item  { display: flex; align-items: center; gap: .3rem; }
+.sh-strip-sep   { opacity: .45; }
+.sh-strip-link  {
+  color: rgba(255,255,255,.9); text-decoration: underline dotted;
+  display: inline-flex; align-items: center; gap: .2rem;
+}
+.sh-strip-link:hover { color: #fff; }
 
-/* Stat cards */
-.sh-stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+/* ─────────────────────────────────────────────
+   STAT GRID (sidebar)
+───────────────────────────────────────────── */
+.sh-stats {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .5rem;
+}
 .sh-stat {
-  display: flex; align-items: center; gap: .7rem;
-  background: var(--bg-card); border: 1px solid var(--border-light);
-  border-radius: 10px; padding: .75rem .85rem;
-  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  display: flex; align-items: center; gap: .6rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 10px; padding: .7rem .85rem;
 }
 .sh-stat-ico {
-  display: flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-.sh-stat-ico-blue     { background: rgba(32,107,196,.10); color: #1557a0; }
-.sh-stat-ico-brand-lt { background: var(--brand-light); color: var(--brand); }
-.sh-stat-ico-green    { background: rgba(47,179,68,.10);  color: #1e7a2e; }
-.sh-stat-ico-red      { background: rgba(192,57,43,.10);  color: #a82515; }
-.sh-stat-ico-muted    { background: var(--border-light); color: var(--text-muted); }
-.sh-stat-val { font-size: 20px; font-weight: 800; color: var(--text-main); line-height: 1; }
-.sh-stat-lbl { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-top: .1rem; }
-.sh-val-green { color: #1e7a2e; }
-.sh-val-red   { color: var(--brand); }
+.sh-sico-blue  { background: rgba(47,107,196,.10); color: #2F6BC4; }
+.sh-sico-brand { background: var(--brand-light);   color: var(--brand); }
+.sh-sico-green { background: rgba(26,115,64,.10);  color: #1a7340; }
+.sh-sico-red   { background: rgba(192,57,43,.10);  color: #c0392b; }
+.sh-sico-muted { background: rgba(122,106,90,.08); color: var(--text-muted); }
+.sh-stat-val   { font-size: 18px; font-weight: 800; color: var(--text-main); line-height: 1.1; }
+.sh-stat-lbl   { font-size: 10.5px; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
+.sh-val-green  { color: #1a7340; }
+.sh-val-red    { color: #c0392b; }
 
-/* Progress bar */
-.sh-prog-row  { display: flex; justify-content: space-between; align-items: center; margin-bottom: .35rem; }
-.sh-prog-pct  { font-size: 13px; font-weight: 700; color: var(--text-main); }
-.sh-prog-meta { font-size: 12px; color: var(--text-muted); }
-.sh-prog-bar  { height: 7px; background: var(--border); border-radius: 99px; overflow: hidden; }
-.sh-prog-fill { height: 100%; background: var(--brand); border-radius: 99px; transition: width .4s ease; }
-
-/* Kartu sidebar */
+/* ─────────────────────────────────────────────
+   SIDEBAR CARDS
+───────────────────────────────────────────── */
 .sh-card {
-  background: var(--bg-card); border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
   border-radius: 10px; overflow: hidden;
-  box-shadow: 0 1px 4px rgba(0,0,0,.04);
 }
 .sh-card-hd {
-  display: flex; align-items: center; gap: .4rem;
-  font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
-  color: var(--text-muted); padding: .55rem 1rem;
-  border-bottom: 1px solid var(--border-light); background: var(--bg-page);
+  display: flex; align-items: center; gap: .35rem;
+  font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text-muted);
+  padding: .65rem .9rem;
+  border-bottom: 1px solid var(--border-light);
+  background: #faf6ef;
 }
-.sh-card-body   { padding: .75rem 1rem; }
-.sh-agenda-text { font-size: 13px; line-height: 1.65; color: var(--text-main); margin: 0; white-space: pre-wrap; }
-.sh-doc-list    { display: flex; flex-direction: column; gap: .45rem; }
+.sh-card-bd { padding: .85rem .9rem; }
+
+/* Progress */
+.sh-prog-row  { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .4rem; }
+.sh-prog-pct  { font-size: 14px; font-weight: 800; color: var(--brand); }
+.sh-prog-meta { font-size: 11.5px; color: var(--text-muted); }
+.sh-prog-bar  {
+  height: 7px; background: var(--border-light);
+  border-radius: 999px; overflow: hidden;
+}
+.sh-prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), var(--gold));
+  border-radius: 999px; transition: width .5s ease;
+}
+
+.sh-agenda {
+  font-size: 13px; color: var(--text-main);
+  line-height: 1.65; margin: 0;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+/* Dokumen buttons */
+.sh-doc-list  { display: flex; flex-direction: column; gap: .45rem; }
 .sh-doc-btn {
-  display: flex; align-items: center; justify-content: center; gap: .4rem;
-  font-size: 13px; font-weight: 600; padding: .5rem .8rem;
-  border-radius: 8px; border: none; cursor: pointer; text-decoration: none;
-  transition: background .18s, filter .18s; white-space: nowrap;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: .4rem; font-size: 13px; font-weight: 600;
+  padding: .45rem .9rem; border-radius: 8px;
+  cursor: pointer; text-decoration: none;
+  border: none; transition: background .16s, color .16s;
+  width: 100%;
 }
-.sh-doc-primary { background: var(--brand); color: #fff; }
-.sh-doc-primary:hover { filter: brightness(1.1); color: #fff; }
+.sh-doc-primary {
+  background: var(--brand); color: #fff;
+}
+.sh-doc-primary:hover { background: var(--brand-dark); color: #fff; }
 .sh-doc-outline {
-  background: var(--bg-card); color: var(--text-main);
+  background: transparent; color: var(--text-main);
   border: 1.5px solid var(--border);
 }
-.sh-doc-outline:hover { background: var(--bg-page); border-color: var(--text-muted); }
-.sh-doc-outline-green { background: var(--bg-card); color: #1e7a2e; border: 1.5px solid #a3d9a5; }
-.sh-doc-outline-green:hover { background: #f0faf0; }
-
-/* Kartu utama (tab panel) */
-.sh-main-card {
-  background: var(--bg-card); border: 1px solid var(--border-light);
-  border-radius: 12px; overflow: hidden;
-  box-shadow: 0 1px 6px rgba(0,0,0,.05);
+.sh-doc-outline:hover { background: var(--brand-xlight); border-color: var(--brand); color: var(--brand); }
+.sh-doc-outline-teal {
+  background: transparent; color: #0d7a8a;
+  border: 1.5px solid rgba(13,122,138,.3);
 }
+.sh-doc-outline-teal:hover { background: rgba(13,122,138,.06); border-color: #0d7a8a; }
 
-/* Tabs */
+/* ─────────────────────────────────────────────
+   MAIN CARD + TABS
+───────────────────────────────────────────── */
+.sh-main-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px; overflow: hidden;
+}
 .sh-tabs {
-  display: flex; border-bottom: 1px solid var(--border-light);
-  background: var(--bg-page); padding: 0 1rem; overflow-x: auto;
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border-light);
+  background: #faf6ef;
+  padding: 0 1rem;
 }
 .sh-tab {
-  display: flex; align-items: center; gap: .35rem;
-  font-size: 13px; font-weight: 600; color: var(--text-muted);
-  padding: .75rem 1rem; border: none; background: none;
-  border-bottom: 2.5px solid transparent; cursor: pointer;
-  transition: color .18s, border-color .18s; white-space: nowrap;
-}
-.sh-tab:hover { color: var(--brand); }
-.sh-tab.active { color: var(--brand); border-bottom-color: var(--brand); }
-.sh-badge-pill {
-  display: inline-flex; align-items: center; justify-content: center;
-  min-width: 20px; height: 18px; padding: 0 5px;
-  font-size: 11px; font-weight: 700;
-  background: var(--border-light); color: var(--text-muted); border-radius: 20px;
-}
-.sh-tab.active .sh-badge-pill { background: var(--brand); color: #fff; }
-
-/* Tab panel */
-.sh-tab-panel { display: none; }
-.sh-tab-panel.active { display: block; }
-.sh-panel-toolbar {
-  display: flex; justify-content: flex-end; align-items: center;
-  padding: .75rem 1rem; border-bottom: 1px solid var(--border-light);
-}
-
-/* Tombol tambah */
-.sh-btn-add {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 13px; font-weight: 600;
-  background: var(--brand); color: #fff;
-  padding: .42rem .9rem; border-radius: 8px; border: none; cursor: pointer;
-  transition: filter .18s;
+  color: var(--text-muted);
+  padding: .7rem .9rem;
+  background: none; border: none;
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
 }
-.sh-btn-add:hover { filter: brightness(1.12); }
+.sh-tab:hover { color: var(--brand); }
+.sh-tab.active {
+  color: var(--brand);
+  border-bottom-color: var(--brand);
+  font-weight: 700;
+}
+.sh-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  font-size: 10px; font-weight: 700;
+  background: var(--border-light);
+  color: var(--text-muted);
+  border-radius: 9px;
+}
+.sh-tab.active .sh-pill {
+  background: var(--brand-light); color: var(--brand);
+}
+
+.sh-panel { display: none; }
+.sh-panel.active { display: block; }
+
+.sh-toolbar {
+  padding: .75rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  background: #fdfaf5;
+}
 
 /* Empty state */
 .sh-empty {
-  display: flex; flex-direction: column; align-items: center;
-  text-align: center; padding: 2.5rem 1rem; color: var(--text-muted);
+  display: flex; flex-direction: column;
+  align-items: center; text-align: center;
+  padding: 2.5rem 1rem;
+  color: var(--text-muted);
 }
-.sh-empty-ico { color: var(--border); margin-bottom: .65rem; }
-.sh-empty p   { font-size: 13px; margin: 0 0 1rem; }
+.sh-empty-ico {
+  width: 56px; height: 56px; border-radius: 14px;
+  background: var(--brand-xlight);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--brand); margin-bottom: .9rem;
+}
+.sh-empty p { font-size: 13.5px; margin-bottom: 1rem; }
 
-/* Tabel */
-.sh-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.sh-table thead tr { background: var(--bg-page); }
-.sh-table th {
-  padding: .55rem 1rem; text-align: left;
-  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
-  color: var(--text-muted); border-bottom: 1px solid var(--border-light);
+/* Add button */
+.sh-btn-add {
+  display: inline-flex; align-items: center; gap: .35rem;
+  font-size: 12.5px; font-weight: 700;
+  background: var(--brand); color: #fff;
+  padding: .4rem 1rem; border-radius: 8px;
+  border: none; cursor: pointer;
+  transition: background .18s;
 }
-.sh-table td { padding: .7rem 1rem; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
+.sh-btn-add:hover { background: var(--brand-dark); }
+
+/* Table */
+.sh-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 13px; color: var(--text-main);
+}
+.sh-table thead th {
+  font-size: 10.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
+  color: var(--text-muted); background: #faf6ef;
+  border-bottom: 2px solid var(--border);
+  padding: .6rem 1rem; white-space: nowrap;
+}
+.sh-table tbody td {
+  padding: .65rem 1rem;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+}
 .sh-table tbody tr:last-child td { border-bottom: none; }
-.sh-table tbody tr:hover td { background: var(--brand-xlight); }
-.sh-tr-over td  { background: #fff8f5 !important; }
-.sh-tl-desc     { font-weight: 500; color: var(--text-main); }
-.sh-muted       { color: var(--border); }
-.sh-pic         { display: flex; align-items: center; gap: .45rem; }
+.sh-table tbody tr:hover { background: var(--brand-xlight); }
+.sh-row-over { background: rgba(192,57,43,.03) !important; }
+.sh-row-over:hover { background: rgba(192,57,43,.06) !important; }
+
+/* Badges */
+.sh-bdg {
+  display: inline-flex; align-items: center;
+  font-size: 10.5px; font-weight: 700;
+  padding: .25em .6em; border-radius: 5px;
+  white-space: nowrap;
+}
+.sh-bdg-green  { background: rgba(26,115,64,.10);  color: #1a7340; }
+.sh-bdg-blue   { background: rgba(47,107,196,.10); color: #1557a0; }
+.sh-bdg-red    { background: rgba(192,57,43,.10);  color: #a82515; }
+.sh-bdg-orange { background: var(--gold-light);    color: #7a5f00; }
+.sh-bdg-teal   { background: rgba(13,122,138,.10); color: #0a7a58; }
+.sh-bdg-muted  { background: rgba(122,106,90,.09); color: var(--text-muted); }
+
+/* Misc */
+.sh-tl-desc   { font-size: 13px; font-weight: 500; line-height: 1.4; }
+.sh-muted     { color: var(--text-muted); font-size: 13px; }
+.sh-dl        { font-size: 12.5px; color: var(--text-muted); }
+.sh-dl-over   { font-size: 12.5px; color: #c0392b; font-weight: 700; }
+.sh-pic       { display: flex; align-items: center; gap: .4rem; font-size: 13px; }
 .sh-av {
   display: inline-flex; align-items: center; justify-content: center;
   width: 30px; height: 30px; border-radius: 50%;
-  font-size: 12px; font-weight: 700; color: #fff;
-  background: var(--brand); flex-shrink: 0;
+  font-size: 12px; font-weight: 800;
+  color: #fff; background: var(--brand); flex-shrink: 0;
 }
-.sh-av-sm { width: 26px; height: 26px; font-size: 11px; }
-.sh-deadline      { font-size: 12px; color: var(--text-muted); }
-.sh-deadline-over { font-size: 12px; color: var(--brand); font-weight: 700; }
-.sh-btn-detail {
+.sh-av-sm { width: 22px; height: 22px; font-size: 10px; }
+.sh-link-detail {
   display: inline-flex; align-items: center; gap: .25rem;
-  font-size: 12px; font-weight: 600;
-  color: var(--brand); text-decoration: none;
-}
-.sh-btn-detail:hover { text-decoration: underline; color: var(--brand-dark); }
-
-/* Badge */
-.sh-badge {
-  display: inline-flex; align-items: center;
-  font-size: 11px; font-weight: 700;
-  padding: .22em .65em; border-radius: 20px; line-height: 1.4;
-}
-.sh-badge-sm        { font-size: 10.5px; padding: .18em .55em; }
-.sh-badge-red       { background: rgba(192,57,43,.10); color: #a82515; }
-.sh-badge-orange    { background: var(--gold-light);   color: var(--gold-dark); }
-.sh-badge-green     { background: rgba(47,179,68,.10);  color: #1e7a2e; }
-.sh-badge-blue      { background: rgba(32,107,196,.10); color: #1557a0; }
-.sh-badge-teal      { background: rgba(12,166,120,.10); color: #0a7a58; }
-.sh-badge-secondary { background: var(--border-light);  color: var(--text-muted); }
-
-/* Grid peserta */
-.sh-peserta-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: .55rem; padding: .9rem 1rem;
-}
-.sh-peserta-card {
-  display: flex; align-items: center; gap: .6rem;
-  background: var(--bg-page); border: 1px solid var(--border-light);
-  border-radius: 10px; padding: .6rem .8rem;
-}
-.sh-peserta-info { flex: 1; min-width: 0; }
-.sh-peserta-name { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sh-peserta-pos  { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-/* Modal: ikon hapus */
-.sh-del-ico {
-  display: flex; align-items: center; justify-content: center;
-  width: 58px; height: 58px; border-radius: 50%;
-  background: rgba(192,57,43,.10); color: var(--brand); margin: 0 auto;
-}
-
-/* Responsive */
-@media (max-width: 575px) {
-  .sh-hero-body  { padding: 1rem; }
-  .sh-hero-strip { padding: .45rem 1rem; font-size: 12px; }
-  .sh-stat-grid  { grid-template-columns: repeat(2, 1fr); }
-  .sh-peserta-grid { grid-template-columns: 1fr; }
-  .sh-table th, .sh-table td { padding: .5rem .7rem; }
-}
-</style>
+  font-size: 12px; font-
