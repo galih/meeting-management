@@ -28,9 +28,13 @@ foreach ($tindakLanjutList as $tl) {
   if (isset($kanbanCols[$s])) $kanbanCols[$s]['items'][] = $tl;
 }
 
+// Helper arrays menggantikan match() agar kompatibel PHP 7.4+
+$priorityColor = ['high'=>'red','medium'=>'orange','low'=>'green'];
+$statusColor   = ['pending'=>'secondary','in_progress'=>'blue','done'=>'green','cancelled'=>'red'];
+
 // JSON semua user untuk @mention autocomplete di JS
 $allUsersJson = json_encode(array_values(array_map(
-  fn($u) => ['id'=>(int)$u['id'], 'name'=>$u['name']],
+  function($u) { return ['id'=>(int)$u['id'], 'name'=>$u['name']]; },
   $allUsers ?? []
 )));
 ?>
@@ -120,6 +124,8 @@ $allUsersJson = json_encode(array_values(array_map(
             $overdue = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in_array($tl['status'],['done','cancelled']);
             $canEdit = Auth::hasRole('admin','sekretaris') || ($user['role']==='peserta' && $tl['assigned_to']==$user['id']);
             $nc = (int)($tl['note_count'] ?? 0);
+            $pc = $priorityColor[$tl['priority']] ?? 'secondary';
+            $sc = $statusColor[$tl['status']] ?? 'secondary';
           ?>
           <tr class="<?= $overdue?'table-danger':'' ?>" id="trow-<?= $tl['id'] ?>">
             <td>
@@ -129,7 +135,7 @@ $allUsersJson = json_encode(array_values(array_map(
             <td><a href="<?= $baseUrl ?>/meetings/<?= $tl['meeting_id'] ?>" class="text-orange small"><?= htmlspecialchars($tl['meeting_title']) ?></a></td>
             <td class="text-muted"><?= htmlspecialchars($tl['assignee_name'] ?? '-') ?></td>
             <td class="text-muted small"><?= !empty($tl['due_date'])?date('d M Y',strtotime($tl['due_date'])):'-' ?></td>
-            <td><span class="badge bg-<?= match($tl['priority']){'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'} ?>-lt"><?= ucfirst($tl['priority']) ?></span></td>
+            <td><span class="badge bg-<?= $pc ?>-lt"><?= ucfirst($tl['priority']) ?></span></td>
             <td>
               <?php if ($canEdit): ?>
               <select class="form-select form-select-sm status-select" data-id="<?= $tl['id'] ?>"
@@ -139,7 +145,7 @@ $allUsersJson = json_encode(array_values(array_map(
                 <?php endforeach; ?>
               </select>
               <?php else: ?>
-              <span class="badge bg-<?= match($tl['status']){'pending'=>'secondary','in_progress'=>'blue','done'=>'green','cancelled'=>'red',default=>'secondary'} ?>"><?= ucfirst(str_replace('_',' ',$tl['status'])) ?></span>
+              <span class="badge bg-<?= $sc ?>"><?= ucfirst(str_replace('_',' ',$tl['status'])) ?></span>
               <?php endif; ?>
             </td>
             <td class="text-end">
@@ -201,7 +207,7 @@ $allUsersJson = json_encode(array_values(array_map(
           <?php foreach ($col['items'] as $tl):
             $overdue = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in_array($tl['status'],['done','cancelled']);
             $canEdit = Auth::hasRole('admin','sekretaris') || ($user['role']==='peserta' && $tl['assigned_to']==$user['id']);
-            $pc = match($tl['priority']){'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'};
+            $pc = $priorityColor[$tl['priority']] ?? 'secondary';
             $nc = (int)($tl['note_count'] ?? 0);
           ?>
           <div class="kanban-card card card-sm mb-2 <?= $overdue?'border-danger':'' ?>"
@@ -263,19 +269,15 @@ $allUsersJson = json_encode(array_values(array_map(
         <div id="notes-thread" style="max-height:340px;overflow-y:auto;padding:1rem;" class="d-flex flex-column gap-2">
           <div class="text-center text-muted py-3 small">Memuat...</div>
         </div>
-        <!-- Tombol Tandai Selesai -->
         <div id="done-bar" class="border-top px-3 py-2" style="display:none;">
-          <button id="btn-mark-done" class="btn btn-success btn-sm w-100">
-            ✅ Tandai Selesai
-          </button>
+          <button id="btn-mark-done" class="btn btn-success btn-sm w-100">✅ Tandai Selesai</button>
         </div>
         <div class="border-top p-3" style="position:relative;">
           <div class="d-flex gap-2 align-items-end">
             <div class="flex-fill position-relative">
-              <textarea id="note-input" class="form-control form-control-sm"
-                        rows="2" placeholder="Tulis progress note... ketik @ untuk mention (Ctrl+Enter kirim)"
+              <textarea id="note-input" class="form-control form-control-sm" rows="2"
+                        placeholder="Tulis progress note... ketik @ untuk mention (Ctrl+Enter kirim)"
                         style="resize:none;"></textarea>
-              <!-- Dropdown autocomplete @mention -->
               <div id="mention-dropdown"
                    style="display:none;position:absolute;bottom:calc(100% + 4px);left:0;z-index:9999;
                           background:#fff;border:1px solid #dee2e6;border-radius:6px;
@@ -302,23 +304,22 @@ function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 function updateStatCards(summary) {
   if (!summary) return;
-  ['total','pending','in_progress','done','overdue'].forEach(k => {
-    const el = document.getElementById('stat-' + k);
+  ['total','pending','in_progress','done','overdue'].forEach(function(k) {
+    var el = document.getElementById('stat-' + k);
     if (el && summary[k] !== undefined) el.textContent = summary[k];
   });
 }
 
 async function postStatus(url, status) {
-  const res = await fetch(url, {
+  var res = await fetch(url, {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ status, user_id: _activeUserId })
+    body: JSON.stringify({ status: status, user_id: _activeUserId })
   });
   return res.json();
 }
 
-// ── Badge note count helper ────────────────────────────────────────────
 function updateNoteBadge(tlId, count) {
-  document.querySelectorAll(`#nbadge-${tlId}`).forEach(el => {
+  document.querySelectorAll('#nbadge-' + tlId).forEach(function(el) {
     if (count > 0) {
       el.className = 'badge bg-blue note-badge ms-1';
       el.textContent = count;
@@ -329,62 +330,63 @@ function updateNoteBadge(tlId, count) {
   });
 }
 
-// ── Toggle View ────────────────────────────────────────────────────────
-const LS_VIEW = 'tl_view_pref';
-const btnTable  = document.getElementById('btn-view-table');
-const btnKanban = document.getElementById('btn-view-kanban');
-const divTable  = document.getElementById('view-table');
-const divKanban = document.getElementById('view-kanban');
+// ── Toggle View
+var LS_VIEW = 'tl_view_pref';
+var btnTable  = document.getElementById('btn-view-table');
+var btnKanban = document.getElementById('btn-view-kanban');
+var divTable  = document.getElementById('view-table');
+var divKanban = document.getElementById('view-kanban');
 
 function setView(v) {
-  const isKanban = v === 'kanban';
+  var isKanban = v === 'kanban';
   divTable.style.display  = isKanban ? 'none' : '';
   divKanban.style.display = isKanban ? '' : 'none';
   btnTable.classList.toggle('active', !isKanban);
   btnKanban.classList.toggle('active', isKanban);
   localStorage.setItem(LS_VIEW, v);
-  const fs = document.getElementById('filter-status');
+  var fs = document.getElementById('filter-status');
   if (fs) fs.disabled = isKanban;
 }
-btnTable.addEventListener('click',  () => setView('table'));
-btnKanban.addEventListener('click', () => setView('kanban'));
+btnTable.addEventListener('click',  function() { setView('table'); });
+btnKanban.addEventListener('click', function() { setView('kanban'); });
 setView(localStorage.getItem(LS_VIEW) || 'kanban');
 
-// ── Status select (tabel) ──────────────────────────────────────────────
-document.querySelectorAll('#view-table .status-select').forEach(sel => {
-  sel.addEventListener('change', async function () {
-    const d = await postStatus(this.dataset.url, this.value);
+// ── Status select (tabel)
+document.querySelectorAll('#view-table .status-select').forEach(function(sel) {
+  sel.addEventListener('change', async function() {
+    var d = await postStatus(this.dataset.url, this.value);
     if (!d.success) { alert(d.message || 'Gagal update status'); return; }
     updateStatCards(d.summary);
-    this.closest('tr').style.opacity = ['done','cancelled'].includes(this.value) ? '0.5' : '';
+    this.closest('tr').style.opacity = ['done','cancelled'].indexOf(this.value) >= 0 ? '0.5' : '';
   });
 });
 
-// ── Hapus TL ──────────────────────────────────────────────────────────
+// ── Hapus TL
 function bindDelButtons() {
-  document.querySelectorAll('.btn-del').forEach(btn => {
+  document.querySelectorAll('.btn-del').forEach(function(btn) {
     if (btn.dataset.bound) return;
     btn.dataset.bound = '1';
-    btn.addEventListener('click', async function () {
+    btn.addEventListener('click', async function() {
       if (!confirm('Hapus tindak lanjut ini?')) return;
-      const res = await fetch(this.dataset.url, { method: 'POST' });
-      const d   = await res.json();
+      var res = await fetch(this.dataset.url, { method: 'POST' });
+      var d   = await res.json();
       if (!d.success) { alert(d.message || 'Gagal hapus'); return; }
-      document.getElementById('trow-' + this.dataset.id)?.remove();
-      const kcard = document.getElementById('kcard-' + this.dataset.id);
-      if (kcard) { const col = kcard.closest('.kanban-col'); kcard.remove(); updateColCount(col); }
+      var trow = document.getElementById('trow-' + this.dataset.id);
+      if (trow) trow.remove();
+      var kcard = document.getElementById('kcard-' + this.dataset.id);
+      if (kcard) { var col = kcard.closest('.kanban-col'); kcard.remove(); updateColCount(col); }
     });
   });
 }
 bindDelButtons();
 
-// ── Kanban col count ──────────────────────────────────────────────────
+// ── Kanban col count
 function updateColCount(colEl) {
   if (!colEl) return;
-  const count = colEl.querySelectorAll('.kanban-card').length;
-  const badge = document.getElementById('kanban-count-' + colEl.dataset.status);
+  var count = colEl.querySelectorAll('.kanban-card').length;
+  var badge = document.getElementById('kanban-count-' + colEl.dataset.status);
   if (badge) badge.textContent = count;
-  let empty = colEl.querySelector('.kanban-empty');
+  var empty = colEl.querySelector('.kanban-empty');
   if (count === 0 && !empty) {
     empty = document.createElement('div');
     empty.className = 'kanban-empty text-center text-muted py-4 small';
@@ -394,23 +396,22 @@ function updateColCount(colEl) {
   } else if (count > 0 && empty) { empty.remove(); }
 }
 
-// ── SortableJS ────────────────────────────────────────────────────────
-document.querySelectorAll('.kanban-col').forEach(col => {
+// ── SortableJS
+document.querySelectorAll('.kanban-col').forEach(function(col) {
   Sortable.create(col, {
     group: 'kanban', animation: 150, ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
     disabled: !_isAdminLike, filter: '.btn-notes,.btn-del',
-    onEnd: async function (evt) {
-      const card = evt.item, newColEl = evt.to, newStatus = newColEl.dataset.status, oldStatus = evt.from.dataset.status;
+    onEnd: async function(evt) {
+      var card = evt.item, newColEl = evt.to, newStatus = newColEl.dataset.status, oldStatus = evt.from.dataset.status;
       if (newStatus === oldStatus) return;
       card.style.opacity = '0.5';
-      const d = await postStatus(card.dataset.url, newStatus);
+      var d = await postStatus(card.dataset.url, newStatus);
       if (d.success) {
         card.dataset.status = newStatus;
         updateStatCards(d.summary);
         updateColCount(evt.from); updateColCount(newColEl);
-        card.style.opacity = ['done','cancelled'].includes(newStatus) ? '0.7' : '';
-        // Update tombol notes data-status & data-can-done
-        const nb = card.querySelector('.btn-notes');
+        card.style.opacity = ['done','cancelled'].indexOf(newStatus) >= 0 ? '0.7' : '';
+        var nb = card.querySelector('.btn-notes');
         if (nb) { nb.dataset.status = newStatus; nb.dataset.canDone = newStatus !== 'done' ? '1' : '0'; }
       } else {
         alert(d.message || 'Gagal update status');
@@ -422,127 +423,115 @@ document.querySelectorAll('.kanban-col').forEach(col => {
   });
 });
 
-// ── Progress Notes ─────────────────────────────────────────────────────
-let _currentTlId       = 0;
-let _currentNoteUrl    = '';
-let _currentStatusUrl  = '';
-let _currentDeleteBase = '';
+// ── Progress Notes
+var _currentTlId       = 0;
+var _currentNoteUrl    = '';
+var _currentStatusUrl  = '';
+var _currentDeleteBase = '';
 
 function renderNote(n) {
-  const d  = new Date(n.created_at);
-  const ts = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})
-           + ' ' + d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
-  const div = document.createElement('div');
+  var d  = new Date(n.created_at);
+  var ts = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})
+         + ' ' + d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  var div = document.createElement('div');
   div.className = 'card card-sm mb-1'; div.dataset.noteid = n.id;
-  const delBtn = n.can_delete
-    ? `<button class="btn btn-sm btn-ghost-danger btn-del-note ms-1 py-0 px-1" data-note-id="${n.id}" title="Hapus">✕</button>`
+  var delBtn = n.can_delete
+    ? '<button class="btn btn-sm btn-ghost-danger btn-del-note ms-1 py-0 px-1" data-note-id="' + n.id + '" title="Hapus">✕</button>'
     : '';
-  // Render @mention sebagai highlight
-  const noteHtml = escHtml(n.note).replace(/@([\w]+(?:\s[\w]+)*)/g, '<span class="badge bg-azure-lt text-azure">@$1</span>');
-  div.innerHTML = `
-    <div class="card-body py-2 px-3">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <span class="fw-semibold small">${escHtml(n.author_name)}</span>
-        <span class="text-muted" style="font-size:11px;">${ts}${delBtn}</span>
-      </div>
-      <div class="small" style="white-space:pre-wrap;line-height:1.5;">${noteHtml}</div>
-    </div>`;
+  var noteHtml = escHtml(n.note).replace(/@([\w]+(?:\s[\w]+)*)/g, '<span class="badge bg-azure-lt text-azure">@$1</span>');
+  div.innerHTML =
+    '<div class="card-body py-2 px-3">'
+    + '<div class="d-flex justify-content-between align-items-center mb-1">'
+    + '<span class="fw-semibold small">' + escHtml(n.author_name) + '</span>'
+    + '<span class="text-muted" style="font-size:11px;">' + ts + delBtn + '</span>'
+    + '</div>'
+    + '<div class="small" style="white-space:pre-wrap;line-height:1.5;">' + noteHtml + '</div>'
+    + '</div>';
   if (n.can_delete) div.querySelector('.btn-del-note').addEventListener('click', deleteNote);
   return div;
 }
 
 async function loadNotes(url) {
-  const thread = document.getElementById('notes-thread');
+  var thread = document.getElementById('notes-thread');
   thread.innerHTML = '<div class="text-center text-muted py-3 small">Memuat...</div>';
-  const notes = await (await fetch(url)).json();
+  var notes = await (await fetch(url)).json();
   thread.innerHTML = '';
   if (!notes.length) {
     thread.innerHTML = '<div class="text-center text-muted py-3 small">Belum ada progress note.</div>';
     return;
   }
-  notes.forEach(n => thread.appendChild(renderNote(n)));
+  notes.forEach(function(n) { thread.appendChild(renderNote(n)); });
   thread.scrollTop = thread.scrollHeight;
 }
 
 async function deleteNote(e) {
   if (!confirm('Hapus note ini?')) return;
-  const noteId = e.currentTarget.dataset.noteId;
-  const d = await (await fetch(`${_currentDeleteBase}/${noteId}/delete`, { method:'POST' })).json();
+  var noteId = e.currentTarget.dataset.noteId;
+  var d = await (await fetch(_currentDeleteBase + '/' + noteId + '/delete', { method:'POST' })).json();
   if (d.success) {
     e.currentTarget.closest('[data-noteid]').remove();
     if (d.note_count !== undefined) updateNoteBadge(_currentTlId, d.note_count);
   } else alert(d.message || 'Gagal hapus');
 }
 
-document.querySelectorAll('.btn-notes').forEach(btn => {
-  btn.addEventListener('click', function () {
+document.querySelectorAll('.btn-notes').forEach(function(btn) {
+  btn.addEventListener('click', function() {
     _currentTlId       = parseInt(this.dataset.id);
     _currentNoteUrl    = this.dataset.urlPost;
     _currentStatusUrl  = this.dataset.urlStatus;
     _currentDeleteBase = this.dataset.deleteBase;
     document.getElementById('notes-desc').textContent = this.dataset.desc;
     document.getElementById('note-input').value = '';
-    // Tampilkan/sembunyikan tombol Tandai Selesai
-    const doneBar = document.getElementById('done-bar');
+    var doneBar = document.getElementById('done-bar');
     doneBar.style.display = this.dataset.canDone === '1' ? '' : 'none';
     loadNotes(this.dataset.urlGet);
   });
 });
 
-// Tombol Tandai Selesai
-document.getElementById('btn-mark-done')?.addEventListener('click', async function () {
+document.getElementById('btn-mark-done') && document.getElementById('btn-mark-done').addEventListener('click', async function() {
   if (!confirm('Tandai tugas ini sebagai Selesai?')) return;
   this.disabled = true;
-  const d = await postStatus(_currentStatusUrl, 'done');
+  var d = await postStatus(_currentStatusUrl, 'done');
   this.disabled = false;
   if (!d.success) { alert(d.message || 'Gagal'); return; }
   updateStatCards(d.summary);
-  // Update card kanban
-  const kcard = document.getElementById('kcard-' + _currentTlId);
+  var kcard = document.getElementById('kcard-' + _currentTlId);
   if (kcard) {
-    const oldCol = kcard.closest('.kanban-col');
-    const newCol = document.getElementById('kanban-col-done');
-    if (oldCol && newCol && oldCol !== newCol) {
-      newCol.appendChild(kcard);
-      updateColCount(oldCol); updateColCount(newCol);
-    }
+    var oldCol = kcard.closest('.kanban-col');
+    var newCol = document.getElementById('kanban-col-done');
+    if (oldCol && newCol && oldCol !== newCol) { newCol.appendChild(kcard); updateColCount(oldCol); updateColCount(newCol); }
     kcard.style.opacity = '0.7';
     kcard.dataset.status = 'done';
-    const nb = kcard.querySelector('.btn-notes');
+    var nb = kcard.querySelector('.btn-notes');
     if (nb) { nb.dataset.status = 'done'; nb.dataset.canDone = '0'; }
   }
-  // Update baris tabel
-  const trow = document.getElementById('trow-' + _currentTlId);
-  if (trow) {
-    const sel = trow.querySelector('.status-select');
-    if (sel) sel.value = 'done';
-    trow.style.opacity = '0.5';
-  }
+  var trow = document.getElementById('trow-' + _currentTlId);
+  if (trow) { var sel = trow.querySelector('.status-select'); if (sel) sel.value = 'done'; trow.style.opacity = '0.5'; }
   document.getElementById('done-bar').style.display = 'none';
   bootstrap.Modal.getOrCreateInstance(document.getElementById('modalNotes')).hide();
 });
 
-document.getElementById('btn-send-note')?.addEventListener('click', async function () {
-  const note = document.getElementById('note-input').value.trim();
+document.getElementById('btn-send-note') && document.getElementById('btn-send-note').addEventListener('click', async function() {
+  var note = document.getElementById('note-input').value.trim();
   if (!note) return;
   this.disabled = true;
-  const d = await (await fetch(_currentNoteUrl, {
+  var d = await (await fetch(_currentNoteUrl, {
     method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ note })
+    body: JSON.stringify({ note: note })
   })).json();
   this.disabled = false;
   if (!d.success) { alert(d.message || 'Gagal kirim'); return; }
   document.getElementById('note-input').value = '';
   hideMentionDropdown();
-  const thread = document.getElementById('notes-thread');
-  const empty  = thread.querySelector('.text-center');
+  var thread = document.getElementById('notes-thread');
+  var empty  = thread.querySelector('.text-center');
   if (empty) empty.remove();
   thread.appendChild(renderNote(d.note));
   thread.scrollTop = thread.scrollHeight;
   if (d.note_count !== undefined) updateNoteBadge(_currentTlId, d.note_count);
 });
 
-document.getElementById('note-input')?.addEventListener('keydown', e => {
+document.getElementById('note-input') && document.getElementById('note-input').addEventListener('keydown', function(e) {
   if (e.key === 'Escape') { hideMentionDropdown(); return; }
   if (e.key === 'ArrowDown') { moveMentionFocus(1); e.preventDefault(); return; }
   if (e.key === 'ArrowUp')   { moveMentionFocus(-1); e.preventDefault(); return; }
@@ -550,77 +539,77 @@ document.getElementById('note-input')?.addEventListener('keydown', e => {
   if (e.ctrlKey && e.key === 'Enter') { hideMentionDropdown(); document.getElementById('btn-send-note').click(); }
 });
 
-// ── @mention autocomplete ─────────────────────────────────────────────
-let _mentionStart = -1;
-const mentionDrop = document.getElementById('mention-dropdown');
+// ── @mention autocomplete
+var _mentionStart = -1;
+var mentionDrop   = document.getElementById('mention-dropdown');
 
-function isMentionOpen() { return mentionDrop.style.display !== 'none'; }
+function isMentionOpen() { return mentionDrop && mentionDrop.style.display !== 'none'; }
 
 function hideMentionDropdown() {
+  if (!mentionDrop) return;
   mentionDrop.style.display = 'none';
   mentionDrop.innerHTML = '';
   _mentionStart = -1;
 }
 
-function showMentionDropdown(items, query) {
+function showMentionDropdown(items) {
+  if (!mentionDrop) return;
   mentionDrop.innerHTML = '';
   if (!items.length) { hideMentionDropdown(); return; }
-  items.forEach((u, i) => {
-    const item = document.createElement('div');
+  items.forEach(function(u, i) {
+    var item = document.createElement('div');
     item.className = 'mention-item px-3 py-2';
     item.style.cssText = 'cursor:pointer;font-size:13px;';
     item.textContent = u.name;
     item.dataset.name = u.name;
-    item.addEventListener('mousedown', e => { e.preventDefault(); insertMention(u.name); });
-    item.addEventListener('mouseenter', () => setMentionFocus(i));
+    item.addEventListener('mousedown', function(e) { e.preventDefault(); insertMention(u.name); });
+    item.addEventListener('mouseenter', function() { setMentionFocus(i); });
     mentionDrop.appendChild(item);
   });
   mentionDrop.style.display = 'block';
 }
 
 function setMentionFocus(idx) {
-  mentionDrop.querySelectorAll('.mention-item').forEach((el, i) => {
+  mentionDrop.querySelectorAll('.mention-item').forEach(function(el, i) {
     el.style.background = i === idx ? '#e8f0fe' : '';
     el.dataset.focused  = i === idx ? '1' : '0';
   });
 }
 
 function moveMentionFocus(dir) {
-  const items = [...mentionDrop.querySelectorAll('.mention-item')];
-  const cur   = items.findIndex(el => el.dataset.focused === '1');
-  const next  = Math.max(0, Math.min(items.length - 1, cur + dir));
-  setMentionFocus(next);
+  var items = Array.from(mentionDrop.querySelectorAll('.mention-item'));
+  var cur   = items.findIndex(function(el) { return el.dataset.focused === '1'; });
+  setMentionFocus(Math.max(0, Math.min(items.length - 1, cur + dir)));
 }
 
 function selectFocusedMention() {
-  const focused = mentionDrop.querySelector('[data-focused="1"]');
+  var focused = mentionDrop.querySelector('[data-focused="1"]');
   if (focused) insertMention(focused.dataset.name);
-  else { const first = mentionDrop.querySelector('.mention-item'); if (first) insertMention(first.dataset.name); }
+  else { var first = mentionDrop.querySelector('.mention-item'); if (first) insertMention(first.dataset.name); }
 }
 
 function insertMention(name) {
-  const ta  = document.getElementById('note-input');
-  const val = ta.value;
-  const before = val.substring(0, _mentionStart);
-  const after  = val.substring(ta.selectionStart);
+  var ta  = document.getElementById('note-input');
+  var val = ta.value;
+  var before = val.substring(0, _mentionStart);
+  var after  = val.substring(ta.selectionStart);
   ta.value = before + '@' + name + ' ' + after;
-  const newPos = before.length + name.length + 2;
+  var newPos = before.length + name.length + 2;
   ta.setSelectionRange(newPos, newPos);
   hideMentionDropdown();
   ta.focus();
 }
 
-document.getElementById('note-input')?.addEventListener('input', function () {
-  const val = this.value;
-  const cur = this.selectionStart;
-  // Cari apakah kursor ada di belakang @...
-  const textBefore = val.substring(0, cur);
-  const match = textBefore.match(/@([\w ]*)$/);
+document.getElementById('note-input') && document.getElementById('note-input').addEventListener('input', function() {
+  var val = this.value;
+  var cur = this.selectionStart;
+  var textBefore = val.substring(0, cur);
+  var match = textBefore.match(/@([\w ]*)$/);
   if (!match) { hideMentionDropdown(); return; }
   _mentionStart = textBefore.lastIndexOf('@');
-  const query   = match[1].toLowerCase().trim();
-  const results = ALL_USERS.filter(u => u.name.toLowerCase().includes(query)).slice(0, 6);
-  showMentionDropdown(results, query);
+  var query   = match[1].toLowerCase().trim();
+  var results = ALL_USERS.filter(function(u) { return u.name.toLowerCase().indexOf(query) >= 0; }).slice(0, 6);
+  showMentionDropdown(results);
 });
 </script>
 
