@@ -4,7 +4,99 @@ declare(strict_types=1);
 class NotulisController
 {
     /* ------------------------------------------------------------------ */
-    /*  SHOW / EDITOR NOTULEN                                               */
+    /*  EDITOR NOTULEN  (GET /notulen/{id})                                */
+    /* ------------------------------------------------------------------ */
+    public static function editor(int $meetingId): void
+    {
+        Auth::requireLogin();
+        if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
+
+        $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
+
+        $notulen = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
+
+        // Ambil versi historis untuk counter badge
+        $historyCount = Database::queryOne(
+            "SELECT COUNT(*) AS cnt FROM notulen_history WHERE meeting_id=?",
+            [$meetingId]
+        )['cnt'] ?? 0;
+
+        // Peserta rapat
+        $participants = Database::query(
+            "SELECT u.name, u.avatar, u.jabatan
+             FROM meeting_participants mp
+             JOIN users u ON u.id = mp.user_id
+             WHERE mp.meeting_id = ?",
+            [$meetingId]
+        );
+
+        // Tindak lanjut terkait
+        $tindakLanjut = Database::query(
+            "SELECT tl.*, u.name AS pic_name
+             FROM tindak_lanjut tl
+             LEFT JOIN users u ON u.id = tl.pic_id
+             WHERE tl.meeting_id = ?
+             ORDER BY tl.due_date ASC",
+            [$meetingId]
+        );
+
+        View::layout('notulen/editor', [
+            'pageTitle'    => 'Editor Notulen — ' . $meeting['title'],
+            'meeting'      => $meeting,
+            'notulen'      => $notulen,
+            'historyCount' => (int)$historyCount,
+            'participants' => $participants ?: [],
+            'tindakLanjut' => $tindakLanjut ?: [],
+        ]);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  RIWAYAT NOTULEN  (GET /notulen/{id}/history)                       */
+    /* ------------------------------------------------------------------ */
+    public static function history(int $meetingId): void
+    {
+        Auth::requireLogin();
+        if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
+
+        $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
+
+        // Ambil semua versi dari tabel notulen_history (jika ada) + versi aktif
+        $historyRows = [];
+        try {
+            $historyRows = Database::query(
+                "SELECT nh.*, u.name AS editor_name, u.avatar AS editor_avatar
+                 FROM notulen_history nh
+                 LEFT JOIN users u ON u.id = nh.created_by
+                 WHERE nh.meeting_id = ?
+                 ORDER BY nh.created_at DESC",
+                [$meetingId]
+            ) ?: [];
+        } catch (\Throwable $e) {
+            // Tabel notulen_history belum ada — tampil halaman kosong
+            $historyRows = [];
+        }
+
+        // Versi aktif (dari tabel notulen)
+        $notulen = Database::queryOne(
+            "SELECT n.*, u.name AS editor_name, u.avatar AS editor_avatar
+             FROM notulen n
+             LEFT JOIN users u ON u.id = n.created_by
+             WHERE n.meeting_id = ?",
+            [$meetingId]
+        );
+
+        View::layout('notulen/history', [
+            'pageTitle'   => 'Riwayat Notulen — ' . $meeting['title'],
+            'meeting'     => $meeting,
+            'notulen'     => $notulen,
+            'historyRows' => $historyRows,
+        ]);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  SHOW / EDITOR NOTULEN  (alias lama — tetap dipertahankan)          */
     /* ------------------------------------------------------------------ */
     public static function show(): void
     {
@@ -42,7 +134,7 @@ class NotulisController
         $meeting = Database::queryOne("SELECT id FROM meetings WHERE id=?", [$meetingId]);
         if (!$meeting) { echo json_encode(['success'=>false,'message'=>'Meeting tidak ditemukan']); exit; }
 
-        // Build HTML dari blok editor — PHP 7.4 compat: ganti match() dengan if-elseif
+        // Build HTML dari blok editor
         $html = '';
         foreach ($blocks as $block) {
             $type    = $block['type']    ?? 'paragraph';
@@ -61,6 +153,18 @@ class NotulisController
         $db      = Database::getInstance();
         $existing = Database::queryOne("SELECT id FROM notulen WHERE meeting_id=?", [$meetingId]);
         if ($existing) {
+            // Simpan snapshot ke history sebelum overwrite
+            try {
+                $old = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
+                if ($old) {
+                    $db->prepare(
+                        "INSERT INTO notulen_history (meeting_id, content, blocks, created_by)
+                         VALUES (?, ?, ?, ?)"
+                    )->execute([$meetingId, $old['content'], $old['blocks'], Auth::id()]);
+                }
+            } catch (\Throwable $e) {
+                // notulen_history belum ada — skip saja
+            }
             $db->prepare("UPDATE notulen SET content=?, blocks=?, updated_at=NOW() WHERE meeting_id=?")
                ->execute([json_encode($blocks), $html, $meetingId]);
         } else {
@@ -82,7 +186,6 @@ class NotulisController
         foreach ($blocks as $block) {
             $type    = $block['type']    ?? 'paragraph';
             $content = $block['content'] ?? '';
-            // PHP 7.4 compat: if-elseif chain
             if ($type === 'heading') {
                 $html .= '<h3>' . htmlspecialchars($content) . '</h3>';
             } elseif ($type === 'paragraph') {
@@ -115,6 +218,21 @@ class NotulisController
 
         $blocks = json_decode($notulen['content'] ?? '[]', true) ?: [];
         echo json_encode(['success'=>true,'blocks'=>$blocks,'html'=>$notulen['blocks'] ?? '']);
+        exit;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  SYNC NOTULEN (GET /api/notulen/sync)                               */
+    /* ------------------------------------------------------------------ */
+    public static function sync(): void
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+        $meetingId = (int)($_GET['meeting_id'] ?? 0);
+        if (!$meetingId) { echo json_encode(['success'=>false]); exit; }
+
+        $notulen = Database::queryOne("SELECT updated_at FROM notulen WHERE meeting_id=?", [$meetingId]);
+        echo json_encode(['success'=>true,'updated_at'=>$notulen['updated_at'] ?? null]);
         exit;
     }
 }
