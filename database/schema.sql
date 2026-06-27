@@ -1,5 +1,5 @@
 -- ============================================================
--- Meeting Management App — Database Schema v1.7.0
+-- Meeting Management App — Database Schema v1.8.0
 -- MySQL 8+, charset utf8mb4
 --
 -- CATATAN: File ini dijalankan oleh installer SETELAH
@@ -9,6 +9,8 @@
 --   v1.7.0 — Gabungkan activity_logs, app_settings,
 --             departments hierarchy (parent_id, level)
 --             dari file migrasi sprint & standalone lama.
+--   v1.8.0 — Tambah tabel tindak_lanjut_notes
+--             (progress notes untuk setiap tindak lanjut).
 -- ============================================================
 
 -- ── Users ──────────────────────────────────────────────────────
@@ -153,6 +155,19 @@ CREATE TABLE IF NOT EXISTS tindak_lanjut (
     FOREIGN KEY (created_by)  REFERENCES users(id)
 );
 
+-- ── Tindak Lanjut Notes (Progress Notes) ────────────────────
+CREATE TABLE IF NOT EXISTS tindak_lanjut_notes (
+    id                INT       PRIMARY KEY AUTO_INCREMENT,
+    tindak_lanjut_id  INT       NOT NULL,
+    user_id           INT       NOT NULL,
+    note              TEXT      NOT NULL,
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tindak_lanjut_id) REFERENCES tindak_lanjut(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)          REFERENCES users(id),
+    INDEX idx_tln_tl   (tindak_lanjut_id),
+    INDEX idx_tln_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- ── Notifications ───────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS notifications (
     id         INT PRIMARY KEY AUTO_INCREMENT,
@@ -251,7 +266,7 @@ CREATE TABLE IF NOT EXISTS recurring_meetings (
     is_active      TINYINT(1) DEFAULT 1,
     last_generated DATE    DEFAULT NULL,
     created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+    FOREIGN KEY (department_id) REFERENCES recurring_meetings(id) ON DELETE SET NULL,
     FOREIGN KEY (created_by)    REFERENCES users(id)
 );
 
@@ -280,7 +295,6 @@ SET @sql2 = IF(@fk2_exists = 0,
 PREPARE stmt2 FROM @sql2; EXECUTE stmt2; DEALLOCATE PREPARE stmt2;
 
 -- ── Activity Log ─────────────────────────────────────────────
--- (digabung dari activity_log_migration.sql)
 CREATE TABLE IF NOT EXISTS activity_logs (
     id           INT PRIMARY KEY AUTO_INCREMENT,
     user_id      INT          DEFAULT NULL,
@@ -300,7 +314,6 @@ CREATE TABLE IF NOT EXISTS activity_logs (
 );
 
 -- ── App Settings ─────────────────────────────────────────────
--- (digabung dari migration_settings.sql)
 CREATE TABLE IF NOT EXISTS app_settings (
     id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `key`      VARCHAR(100) NOT NULL,
@@ -316,8 +329,6 @@ INSERT IGNORE INTO app_settings (`key`, `value`) VALUES
   ('app_name_custom', '');
 
 -- ── Notulen Templates ─────────────────────────────────────────
--- (sudah ada di 006_notulen_templates.sql — diduplikasi di sini
---  agar schema.sql tetap self-contained)
 CREATE TABLE IF NOT EXISTS notulen_templates (
     id             INT PRIMARY KEY AUTO_INCREMENT,
     name           VARCHAR(150) NOT NULL,
