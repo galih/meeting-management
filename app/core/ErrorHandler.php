@@ -298,6 +298,7 @@ pre.trace .frame{color:#e2e8f0}
     // ── Nama tipe error ───────────────────────────────────────────────
     private static function errorTypeName(int $type): string
     {
+        // Catatan: E_STRICT dihapus di PHP 8.4, tidak disertakan di sini.
         $map = [
             E_ERROR             => 'E_ERROR',
             E_WARNING           => 'E_WARNING',
@@ -310,7 +311,6 @@ pre.trace .frame{color:#e2e8f0}
             E_USER_ERROR        => 'E_USER_ERROR',
             E_USER_WARNING      => 'E_USER_WARNING',
             E_USER_NOTICE       => 'E_USER_NOTICE',
-            E_STRICT            => 'E_STRICT',
             E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR',
             E_DEPRECATED        => 'E_DEPRECATED',
             E_USER_DEPRECATED   => 'E_USER_DEPRECATED',

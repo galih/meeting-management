@@ -14,6 +14,12 @@ $meetingBadge  = ['scheduled'=>'kb-badge-blue','ongoing'=>'kb-badge-gold','done'
 $meetingStatusLabel = ['scheduled'=>'Terjadwal','ongoing'=>'Sedang Berlangsung','done'=>'Selesai','cancelled'=>'Dibatalkan'];
 $loc    = $meeting['location'] ?? '';
 $isLink = !empty($loc) && (strncmp($loc,'http://',7)===0 || strncmp($loc,'https://',8)===0);
+
+// Data yang akan di-inject ke JavaScript
+$initialContent = $notulen['content'] ?? '';
+$saveUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/save';
+$syncUrl   = $baseUrl . '/api/notulen/sync';
+$currentUserId = Auth::user()['id'] ?? 0;
 ?>
 
 <!-- ============================================================
@@ -773,3 +779,41 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
 });
 </script>
 <?php endif; ?>
+
+<?php
+// ============================================================
+// INJECT JS GLOBALS + LOAD QUILL + LOAD notulen-editor.js
+// via variabel $scripts yang dibaca oleh base.php layout
+// ============================================================
+$quillVersion = '1.3.7';
+
+ob_start();
+?>
+<!-- Quill CSS (via headScripts — pastikan ini diload sebelum body) -->
+<?php
+$headScriptsExtra = ob_get_clean();
+// Append ke $headScripts jika sudah ada, atau inisiasi
+$headScripts = ($headScripts ?? '') . '
+<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
+';
+
+ob_start();
+?>
+<!-- Quill JS -->
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
+
+<!-- Inject variabel global yang dibutuhkan notulen-editor.js -->
+<script>
+const MEETING_ID       = <?= (int)$meeting['id'] ?>;
+const CURRENT_USER_ID  = <?= (int)$currentUserId ?>;
+const IS_EDITOR        = <?= $canEdit ? 'true' : 'false' ?>;
+const INITIAL_CONTENT  = <?= json_encode($initialContent) ?>;
+const SAVE_URL         = <?= json_encode($saveUrl) ?>;
+const SYNC_URL         = <?= json_encode($syncUrl) ?>;
+</script>
+
+<!-- Load editor script -->
+<script src="<?= BASE_URL ?>/assets/js/notulen-editor.js?v=<?= filemtime(ROOT_PATH . '/assets/js/notulen-editor.js') ?>"></script>
+<?php
+$scripts = ($scripts ?? '') . ob_get_clean();
+?>
