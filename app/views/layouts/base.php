@@ -12,10 +12,10 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 
   <!-- Tabler Core -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler.min.css"/>
-  <!-- FullCalendar v7 CSS (skeleton + theme monarch + palette blue) -->
+  <!-- FullCalendar v7 CSS (skeleton + theme forma + palette blue) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/skeleton.css"/>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/monarch/theme.css"/>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/monarch/palettes/blue.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/theme.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/palettes/blue.css"/>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css?v=<?= filemtime(ROOT_PATH . '/assets/css/custom.css') ?>">
 
@@ -260,8 +260,8 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
 <!-- FullCalendar v7 JS -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/all/global.js"></script>
-<!-- FullCalendar v7 Theme JS (monarch) -->
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/monarch/global.js"></script>
+<!-- FullCalendar v7 Theme JS (forma) -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/global.js"></script>
 <!-- FullCalendar v7 Locale Indonesia -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/locales/id/global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
