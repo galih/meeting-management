@@ -82,9 +82,7 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
   font-size: clamp(16px,2vw,22px); font-weight: 800;
   color: #fff; margin: 0; letter-spacing: -.02em;
 }
-.usr-hero-sub {
-  font-size: 12.5px; color: rgba(255,255,255,.65); margin-top: .15rem;
-}
+.usr-hero-sub { font-size: 12.5px; color: rgba(255,255,255,.65); margin-top: .15rem; }
 .usr-hero-bar {
   height: 3px;
   background: linear-gradient(90deg,var(--kb-gold) 0%,var(--kb-gold-dark) 60%,transparent 100%);
@@ -95,21 +93,23 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
   display: flex; align-items: center; justify-content: space-between;
   gap: .75rem; flex-wrap: wrap; margin-bottom: 1rem;
 }
-.usr-search-form { display:flex; gap:.4rem; align-items:center; }
+.usr-search-form { display:flex; gap:.4rem; align-items:center; position:relative; }
 .usr-search-input {
   border: 1.5px solid var(--kb-border); border-radius: var(--kb-radius-sm);
-  padding: .38rem .8rem; font-size: 13px; width: 240px;
+  padding: .38rem .8rem .38rem 2rem; font-size: 13px; width: 240px;
   outline: none; color: var(--kb-text); background: #fff;
   transition: border-color var(--kb-transition), box-shadow var(--kb-transition);
 }
-.usr-search-input:focus {
-  border-color: var(--kb-primary); box-shadow: 0 0 0 3px var(--kb-primary-ring);
+.usr-search-input:focus { border-color: var(--kb-primary); box-shadow: 0 0 0 3px var(--kb-primary-ring); }
+.usr-search-icon {
+  position:absolute; left:.6rem; top:50%; transform:translateY(-50%); pointer-events:none;
+  color: var(--kb-text-faint);
 }
 .usr-btn {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 12.5px; font-weight: 700; border-radius: var(--kb-radius-sm);
   padding: .38rem .9rem; cursor: pointer; transition: all var(--kb-transition);
-  border: 1.5px solid transparent;
+  border: 1.5px solid transparent; text-decoration: none;
 }
 .usr-btn-primary {
   background: linear-gradient(135deg,var(--kb-primary),#9B2020);
@@ -117,14 +117,9 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
   box-shadow: 0 2px 8px rgba(123,28,28,.25);
 }
 .usr-btn-primary:hover { background: linear-gradient(135deg,#9B2020,var(--kb-primary-dark)); color:#fff; }
-.usr-btn-outline {
-  background: #fff; color: var(--kb-text-muted);
-  border-color: var(--kb-border);
-}
+.usr-btn-outline { background: #fff; color: var(--kb-text-muted); border-color: var(--kb-border); }
 .usr-btn-outline:hover { border-color: var(--kb-primary); color: var(--kb-primary); }
-.usr-btn-ghost {
-  background: transparent; color: var(--kb-text-muted); border-color: transparent;
-}
+.usr-btn-ghost { background: transparent; color: var(--kb-text-muted); border-color: transparent; }
 .usr-btn-ghost:hover { background: var(--kb-primary-light); color: var(--kb-primary); }
 
 /* ── Stats Row ───────────────────────────────────────────────── */
@@ -182,12 +177,11 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
 .usr-badge-blue   { background: var(--kb-blue-bg);   color: var(--kb-blue); }
 .usr-badge-green  { background: var(--kb-green-bg);  color: var(--kb-green); }
 .usr-badge-gray   { background: var(--kb-gray-bg);   color: var(--kb-text-muted); }
-.usr-badge-gold   { background: var(--kb-gold-light); color: #7A5C00; }
 
 /* Status dot */
 .usr-dot { width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
-.usr-dot-green  { background: #2A6B3A; }
-.usr-dot-gray   { background: var(--kb-text-faint); }
+.usr-dot-green { background: #2A6B3A; }
+.usr-dot-gray  { background: var(--kb-text-faint); }
 
 /* Action buttons */
 .usr-actions { display:flex; gap:.35rem; flex-wrap:wrap; }
@@ -196,20 +190,17 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
   font-size: 11.5px; font-weight: 700; padding: .27rem .65rem;
   border-radius: var(--kb-radius-xs); cursor: pointer;
   transition: all var(--kb-transition); border: 1.5px solid transparent;
-  white-space: nowrap;
+  white-space: nowrap; background: none;
 }
-.ua-edit   { background: var(--kb-blue-bg); color: var(--kb-blue); border-color: rgba(27,79,130,.18); }
+.ua-edit { background: var(--kb-blue-bg); color: var(--kb-blue); border-color: rgba(27,79,130,.18); }
 .ua-edit:hover { background: var(--kb-blue); color: #fff; }
-.ua-off    { background: var(--kb-orange-bg); color: var(--kb-orange); border-color: rgba(192,86,33,.18); }
+.ua-off  { background: var(--kb-orange-bg); color: var(--kb-orange); border-color: rgba(192,86,33,.18); }
 .ua-off:hover { background: var(--kb-orange); color: #fff; }
-.ua-del    { background: var(--kb-red-bg); color: var(--kb-red); border-color: rgba(168,37,26,.18); }
+.ua-del  { background: var(--kb-red-bg); color: var(--kb-red); border-color: rgba(168,37,26,.18); }
 .ua-del:hover { background: var(--kb-red); color: #fff; }
 
 /* Empty state */
-.usr-empty {
-  padding: 3.5rem 1rem; text-align: center;
-  color: var(--kb-text-faint);
-}
+.usr-empty { padding: 3.5rem 1rem; text-align: center; color: var(--kb-text-faint); }
 .usr-empty-icon { margin: 0 auto .75rem; width:48px; height:48px; opacity:.45; }
 .usr-empty h4 { font-size: 15px; color: var(--kb-text-muted); margin: 0 0 .3rem; font-weight: 700; }
 .usr-empty p  { font-size: 13px; margin: 0; }
@@ -230,9 +221,7 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
   transition: all var(--kb-transition);
 }
 .usr-page-list a:hover { border-color: var(--kb-primary); color: var(--kb-primary); }
-.usr-page-list .active span {
-  background: var(--kb-primary); color: #fff; border-color: var(--kb-primary);
-}
+.usr-page-list .active span { background: var(--kb-primary); color: #fff; border-color: var(--kb-primary); }
 
 /* ── Modals ──────────────────────────────────────────────────── */
 .usr-modal .modal-content {
@@ -247,15 +236,12 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
   font-size: 15px; font-weight: 800; color: var(--kb-primary);
   display: flex; align-items: center; gap: .5rem;
 }
-.usr-modal .modal-body    { padding: 1.25rem; }
-.usr-modal .modal-footer  {
+.usr-modal .modal-body   { padding: 1.25rem; }
+.usr-modal .modal-footer {
   background: var(--kb-surface); border-top: 1px solid var(--kb-border-light);
   padding: .75rem 1.25rem; gap: .5rem;
 }
-.usr-form-label {
-  font-size: 12px; font-weight: 700; color: var(--kb-text);
-  display: block; margin-bottom: .3rem;
-}
+.usr-form-label { font-size: 12px; font-weight: 700; color: var(--kb-text); display: block; margin-bottom: .3rem; }
 .usr-form-label .req { color: var(--kb-red); margin-left: .15rem; }
 .usr-form-control {
   width: 100%; border: 1.5px solid var(--kb-border); border-radius: var(--kb-radius-sm);
@@ -263,14 +249,11 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
   background: #fff; outline: none;
   transition: border-color var(--kb-transition), box-shadow var(--kb-transition);
 }
-.usr-form-control:focus {
-  border-color: var(--kb-primary); box-shadow: 0 0 0 3px var(--kb-primary-ring);
-}
+.usr-form-control:focus { border-color: var(--kb-primary); box-shadow: 0 0 0 3px var(--kb-primary-ring); }
 select.usr-form-control { appearance: auto; }
 .usr-form-hint { font-size: 11px; color: var(--kb-text-faint); margin-top: .2rem; }
 .usr-form-check { display:flex; align-items:center; gap:.5rem; font-size:13.5px; cursor:pointer; }
 
-/* Danger confirm modal */
 .usr-modal-danger .modal-header { background: var(--kb-red-bg); border-color: rgba(168,37,26,.18); }
 .usr-modal-danger .modal-title  { color: var(--kb-red); }
 
@@ -278,15 +261,11 @@ select.usr-form-control { appearance: auto; }
 .usr-alert {
   display:flex; align-items:center; gap:.6rem;
   padding: .65rem 1rem; border-radius: var(--kb-radius-sm);
-  font-size: 13px; margin-bottom: .85rem;
-  border: 1px solid;
+  font-size: 13px; margin-bottom: .85rem; border: 1px solid;
 }
 .usr-alert-success { background: var(--kb-green-bg); color: var(--kb-green); border-color: rgba(42,107,58,.2); }
 .usr-alert-danger  { background: var(--kb-red-bg);   color: var(--kb-red);   border-color: rgba(168,37,26,.2); }
-.usr-alert-close {
-  margin-left: auto; cursor:pointer; background:none; border:none;
-  color: inherit; opacity:.6; font-size: 16px; line-height:1; padding:0;
-}
+.usr-alert-close { margin-left:auto; cursor:pointer; background:none; border:none; color:inherit; opacity:.6; font-size:16px; line-height:1; padding:0; }
 .usr-alert-close:hover { opacity:1; }
 
 /* Responsive */
@@ -295,11 +274,8 @@ select.usr-form-control { appearance: auto; }
   .usr-stats { grid-template-columns: repeat(2,1fr); }
   .usr-search-input { width: 160px; }
   .usr-table thead { display:none; }
-  .usr-table tbody tr { display:block; padding:.5rem; }
-  .usr-table td {
-    display:flex; justify-content:space-between; align-items:center;
-    padding:.35rem .5rem; border:none; font-size:13px;
-  }
+  .usr-table tbody tr { display:block; padding:.5rem; border-bottom: 1px solid var(--kb-border-light); }
+  .usr-table td { display:flex; justify-content:space-between; align-items:center; padding:.35rem .5rem; border:none; font-size:13px; }
   .usr-table td::before { content:attr(data-label); color:var(--kb-text-faint); font-size:11px; font-weight:700; }
 }
 </style>
@@ -310,7 +286,7 @@ select.usr-form-control { appearance: auto; }
 <div class="usr-alert usr-alert-success">
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
   <?= htmlspecialchars($_SESSION['flash_success']) ?>
-  <button class="usr-alert-close" onclick="this.closest('.usr-alert').remove()">×</button>
+  <button class="usr-alert-close" onclick="this.closest('.usr-alert').remove()">&times;</button>
 </div>
 <?php unset($_SESSION['flash_success']); endif; ?>
 
@@ -318,7 +294,7 @@ select.usr-form-control { appearance: auto; }
 <div class="usr-alert usr-alert-danger">
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
   <?= htmlspecialchars($_SESSION['flash_error']) ?>
-  <button class="usr-alert-close" onclick="this.closest('.usr-alert').remove()">×</button>
+  <button class="usr-alert-close" onclick="this.closest('.usr-alert').remove()">&times;</button>
 </div>
 <?php unset($_SESSION['flash_error']); endif; ?>
 
@@ -375,19 +351,16 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
 <!-- ── Toolbar ── -->
 <div class="usr-toolbar">
   <form method="GET" action="<?= $baseUrl ?>/users" class="usr-search-form">
-    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--kb-text-faint)" stroke-width="2" style="position:absolute;margin-left:.6rem;pointer-events:none">
-      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-    </svg>
+    <svg class="usr-search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input type="text" name="q" value="<?= htmlspecialchars($search ?? '') ?>"
-           class="usr-search-input" style="padding-left:2rem;"
-           placeholder="Cari nama, username, email…">
+           class="usr-search-input" placeholder="Cari nama, username, email&hellip;">
     <button type="submit" class="usr-btn usr-btn-outline">Cari</button>
     <?php if (!empty($search)): ?>
     <a href="<?= $baseUrl ?>/users" class="usr-btn usr-btn-ghost">Reset</a>
     <?php endif; ?>
   </form>
   <div style="font-size:12.5px;color:var(--kb-text-muted);">
-    Menampilkan <strong><?= count($users) ?></strong><?php if (!empty($search)): ?> hasil untuk "<em><?= htmlspecialchars($search) ?></em>"<?php endif; ?>
+    Menampilkan <strong><?= count($users) ?></strong><?php if (!empty($search)): ?> hasil untuk &ldquo;<em><?= htmlspecialchars($search) ?></em>&rdquo;<?php endif; ?>
   </div>
 </div>
 
@@ -405,31 +378,28 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           <th>Role</th>
           <th>Status</th>
           <th>Bergabung</th>
-          <th style="width:160px;">Aksi</th>
+          <th style="width:165px;">Aksi</th>
         </tr>
       </thead>
       <tbody>
         <?php if (empty($users)): ?>
-        <tr>
-          <td colspan="9">
-            <div class="usr-empty">
-              <div class="usr-empty-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-              </div>
-              <h4>Tidak ada pengguna ditemukan</h4>
-              <p><?= !empty($search) ? 'Coba ubah kata kunci pencarian.' : 'Mulai dengan menambahkan pengguna baru.' ?></p>
+        <tr><td colspan="9">
+          <div class="usr-empty">
+            <div class="usr-empty-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
-          </td>
-        </tr>
+            <h4>Tidak ada pengguna ditemukan</h4>
+            <p><?= !empty($search) ? 'Coba ubah kata kunci pencarian.' : 'Mulai dengan menambahkan pengguna baru.' ?></p>
+          </div>
+        </td></tr>
         <?php endif; ?>
         <?php
         $avatarColors = ['#7B1C1C','#1B4F82','#2A6B3A','#C05621','#6B3A8A','#A8252A','#1A5E7A'];
         foreach ($users as $i => $u):
-          $idx     = $i % count($avatarColors);
-          $bgColor = $avatarColors[$idx];
+          $bgColor = $avatarColors[$i % count($avatarColors)];
           $roleBadge = match($u['role']) {
             'admin'      => ['class'=>'usr-badge-red',    'label'=>'Admin'],
-            'sekretaris' => ['class'=>'usr-badge-orange',  'label'=>'Sekretaris'],
+            'sekretaris' => ['class'=>'usr-badge-orange', 'label'=>'Sekretaris'],
             default      => ['class'=>'usr-badge-blue',   'label'=>'Peserta'],
           };
           $uJson = htmlspecialchars(json_encode($u, JSON_HEX_QUOT|JSON_HEX_APOS|JSON_HEX_TAG|JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
@@ -452,7 +422,7 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           <td class="muted" data-label="Email"><?= htmlspecialchars($u['email']) ?></td>
           <td class="muted" data-label="Unit Kerja" style="max-width:160px;">
             <span style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
-              <?= htmlspecialchars($u['dept_name'] ?? '—') ?>
+              <?= htmlspecialchars($u['dept_name'] ?? '&mdash;') ?>
             </span>
           </td>
           <td data-label="Role">
@@ -460,13 +430,9 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           </td>
           <td data-label="Status">
             <?php if ($u['is_active']): ?>
-            <span class="usr-badge usr-badge-green">
-              <span class="usr-dot usr-dot-green"></span>Aktif
-            </span>
+            <span class="usr-badge usr-badge-green"><span class="usr-dot usr-dot-green"></span>Aktif</span>
             <?php else: ?>
-            <span class="usr-badge usr-badge-gray">
-              <span class="usr-dot usr-dot-gray"></span>Nonaktif
-            </span>
+            <span class="usr-badge usr-badge-gray"><span class="usr-dot usr-dot-gray"></span>Nonaktif</span>
             <?php endif; ?>
           </td>
           <td class="muted" data-label="Bergabung" style="font-size:12.5px;">
@@ -474,6 +440,7 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           </td>
           <td data-label="Aksi">
             <div class="usr-actions">
+              <!-- Edit: set data lalu buka modal lewat JS -->
               <button class="usr-action-btn ua-edit btn-edit" data-user="<?= $uJson ?>">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
@@ -507,7 +474,7 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
   <div class="usr-pagination">
     <span class="usr-page-info">
       Halaman <strong><?= $page ?></strong> dari <strong><?= $totalPage ?></strong>
-      &nbsp;·&nbsp; <?= $total ?> pengguna
+      &nbsp;&middot;&nbsp; <?= $total ?> pengguna
     </span>
     <ul class="usr-page-list">
       <?php for ($p = 1; $p <= $totalPage; $p++): ?>
@@ -541,7 +508,7 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
       </div>
       <div class="modal-body" style="font-size:13.5px;color:var(--kb-text);padding:1.25rem;">
         Yakin ingin menghapus <strong id="hapus-nama"></strong> secara permanen?
-        <div style="margin-top:.5rem;font-size:12px;color:var(--kb-red);">⚠ Tindakan ini tidak dapat dibatalkan.</div>
+        <div style="margin-top:.5rem;font-size:12px;color:var(--kb-red);">&#9888; Tindakan ini tidak dapat dibatalkan.</div>
       </div>
       <div class="modal-footer">
         <button type="button" class="usr-btn usr-btn-ghost" data-bs-dismiss="modal">Batal</button>
@@ -577,8 +544,9 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
             </div>
             <div>
               <label class="usr-form-label">Username <span class="req">*</span></label>
+              <!-- FIX: dash di-escape agar valid di semua mode regex browser -->
               <input type="text" name="username" class="usr-form-control" required
-                     placeholder="contoh: john.doe" pattern="[a-zA-Z0-9._-]+">
+                     placeholder="contoh: john.doe" pattern="[a-zA-Z0-9._\-]+">
               <div class="usr-form-hint">Tanpa spasi, hanya huruf/angka/titik/strip</div>
             </div>
             <div>
@@ -598,28 +566,21 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
               <input type="password" name="password" class="usr-form-control" required minlength="8" placeholder="Minimal 8 karakter">
             </div>
           </div>
-
           <div style="margin-top:.9rem;">
             <label class="usr-form-label">Unit Kerja</label>
             <div style="display:flex;flex-direction:column;gap:.45rem;">
-              <div>
-                <select id="add-u1" class="usr-form-control" onchange="cascadeUser('add',1)">
-                  <option value="">— Pilih Unit Kerja (Level 1) —</option>
-                  <?php foreach ($deptL1 as $d): ?>
-                  <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div>
-                <select id="add-u2" class="usr-form-control" disabled onchange="cascadeUser('add',2)">
-                  <option value="">— Pilih Bidang / Bagian (Level 2) —</option>
-                </select>
-              </div>
-              <div>
-                <select id="add-u3" class="usr-form-control" disabled onchange="cascadeUser('add',3)">
-                  <option value="">— Pilih Sub Bidang (Level 3) —</option>
-                </select>
-              </div>
+              <select id="add-u1" class="usr-form-control" onchange="cascadeUser('add',1)">
+                <option value="">&mdash; Pilih Unit Kerja (Level 1) &mdash;</option>
+                <?php foreach ($deptL1 as $d): ?>
+                <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <select id="add-u2" class="usr-form-control" disabled onchange="cascadeUser('add',2)">
+                <option value="">&mdash; Pilih Bidang / Bagian (Level 2) &mdash;</option>
+              </select>
+              <select id="add-u3" class="usr-form-control" disabled onchange="cascadeUser('add',3)">
+                <option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>
+              </select>
             </div>
             <input type="hidden" id="add-dept-id" name="department_id" value="">
           </div>
@@ -656,7 +617,8 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
             </div>
             <div>
               <label class="usr-form-label">Username <span class="req">*</span></label>
-              <input type="text" name="username" id="edit-username" class="usr-form-control" required pattern="[a-zA-Z0-9._-]+">
+              <!-- FIX: dash di-escape agar valid di semua mode regex browser -->
+              <input type="text" name="username" id="edit-username" class="usr-form-control" required pattern="[a-zA-Z0-9._\-]+">
             </div>
             <div>
               <label class="usr-form-label">Role <span class="req">*</span></label>
@@ -672,35 +634,27 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
             </div>
             <div style="grid-column:1/-1;">
               <label class="usr-form-label">Password Baru <small style="font-weight:400;color:var(--kb-text-faint);">(kosongkan jika tidak berubah)</small></label>
-              <input type="password" name="password" class="usr-form-control" minlength="8" placeholder="••••••••">
+              <input type="password" name="password" class="usr-form-control" minlength="8" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;">
             </div>
           </div>
-
           <div style="margin-top:.9rem;">
             <label class="usr-form-label">Unit Kerja</label>
             <div style="display:flex;flex-direction:column;gap:.45rem;">
-              <div>
-                <select id="edit-u1" class="usr-form-control" onchange="cascadeUser('edit',1)">
-                  <option value="">— Pilih Unit Kerja (Level 1) —</option>
-                  <?php foreach ($deptL1 as $d): ?>
-                  <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div>
-                <select id="edit-u2" class="usr-form-control" disabled onchange="cascadeUser('edit',2)">
-                  <option value="">— Pilih Bidang / Bagian (Level 2) —</option>
-                </select>
-              </div>
-              <div>
-                <select id="edit-u3" class="usr-form-control" disabled onchange="cascadeUser('edit',3)">
-                  <option value="">— Pilih Sub Bidang (Level 3) —</option>
-                </select>
-              </div>
+              <select id="edit-u1" class="usr-form-control" onchange="cascadeUser('edit',1)">
+                <option value="">&mdash; Pilih Unit Kerja (Level 1) &mdash;</option>
+                <?php foreach ($deptL1 as $d): ?>
+                <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <select id="edit-u2" class="usr-form-control" disabled onchange="cascadeUser('edit',2)">
+                <option value="">&mdash; Pilih Bidang / Bagian (Level 2) &mdash;</option>
+              </select>
+              <select id="edit-u3" class="usr-form-control" disabled onchange="cascadeUser('edit',3)">
+                <option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>
+              </select>
             </div>
             <input type="hidden" id="edit-dept-id" name="department_id" value="">
           </div>
-
           <div style="margin-top:.85rem;">
             <label class="usr-form-check">
               <input type="checkbox" name="is_active" id="edit-active" value="1"
@@ -723,6 +677,22 @@ const baseUrl         = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
 const deptChildrenUrl = baseUrl + '/api/departments/children';
 const allDepts        = <?= json_encode(array_values($departments)) ?>;
 
+/* ── Safe Bootstrap Modal helper ─────────────────────────────────
+   Gunakan window.bootstrap jika tersedia; fallback ke data-bs-toggle
+   agar tidak throw ReferenceError saat bootstrap belum dimuat. */
+function bsModal(el) {
+  const BS = window.bootstrap;
+  if (BS && BS.Modal) return new BS.Modal(el);
+  // fallback: trigger klik elemen trigger jika ada
+  return { show() { el.classList.add('show'); el.style.display = 'block'; document.body.classList.add('modal-open'); },
+           hide() { el.classList.remove('show'); el.style.display = ''; document.body.classList.remove('modal-open'); } };
+}
+function bsModalGet(el) {
+  const BS = window.bootstrap;
+  if (BS && BS.Modal) return BS.Modal.getInstance(el);
+  return { hide() { el.classList.remove('show'); el.style.display = ''; document.body.classList.remove('modal-open'); } };
+}
+
 async function fetchDeptChildren(parentId) {
   try {
     const res = await fetch(deptChildrenUrl + '?parent_id=' + parentId);
@@ -742,26 +712,26 @@ async function cascadeUser(prefix, level) {
   const s2 = document.getElementById(prefix + '-u2');
   const s3 = document.getElementById(prefix + '-u3');
   if (level === 1) {
-    s2.innerHTML = '<option value="">— Pilih Bidang / Bagian (Level 2) —</option>';
-    s3.innerHTML = '<option value="">— Pilih Sub Bidang (Level 3) —</option>';
+    s2.innerHTML = '<option value="">&mdash; Pilih Bidang / Bagian (Level 2) &mdash;</option>';
+    s3.innerHTML = '<option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>';
     s2.disabled = s3.disabled = true;
     syncHidden(prefix);
     if (!s1.value) return;
     const kids = await fetchDeptChildren(s1.value);
     if (kids.length) {
-      s2.innerHTML = '<option value="">— Semua Bidang —</option>' +
+      s2.innerHTML = '<option value="">&mdash; Semua Bidang &mdash;</option>' +
         kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
       s2.disabled = false;
     }
     syncHidden(prefix);
   } else if (level === 2) {
-    s3.innerHTML = '<option value="">— Pilih Sub Bidang (Level 3) —</option>';
+    s3.innerHTML = '<option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>';
     s3.disabled = true;
     syncHidden(prefix);
     if (!s2.value) return;
     const kids = await fetchDeptChildren(s2.value);
     if (kids.length) {
-      s3.innerHTML = '<option value="">— Semua Sub Bidang —</option>' +
+      s3.innerHTML = '<option value="">&mdash; Semua Sub Bidang &mdash;</option>' +
         kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
       s3.disabled = false;
     }
@@ -772,13 +742,13 @@ async function cascadeUser(prefix, level) {
 }
 
 async function setEditCascade(deptId) {
-  const s1 = document.getElementById('edit-u1');
-  const s2 = document.getElementById('edit-u2');
-  const s3 = document.getElementById('edit-u3');
+  const s1  = document.getElementById('edit-u1');
+  const s2  = document.getElementById('edit-u2');
+  const s3  = document.getElementById('edit-u3');
   const hid = document.getElementById('edit-dept-id');
-  s1.value = '';
-  s2.innerHTML = '<option value="">— Pilih Bidang / Bagian (Level 2) —</option>';
-  s3.innerHTML = '<option value="">— Pilih Sub Bidang (Level 3) —</option>';
+  s1.value  = '';
+  s2.innerHTML = '<option value="">&mdash; Pilih Bidang / Bagian (Level 2) &mdash;</option>';
+  s3.innerHTML = '<option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>';
   s2.disabled = s3.disabled = true;
   hid.value = deptId || '';
   if (!deptId) return;
@@ -789,7 +759,7 @@ async function setEditCascade(deptId) {
   } else if (node.level == 2) {
     s1.value = node.parent_id;
     const c2 = await fetchDeptChildren(node.parent_id);
-    s2.innerHTML = '<option value="">— Semua Bidang —</option>' +
+    s2.innerHTML = '<option value="">&mdash; Semua Bidang &mdash;</option>' +
       c2.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
     s2.disabled = false; s2.value = node.id;
   } else if (node.level == 3) {
@@ -797,11 +767,11 @@ async function setEditCascade(deptId) {
     if (p2) {
       s1.value = p2.parent_id;
       const c2 = await fetchDeptChildren(p2.parent_id);
-      s2.innerHTML = '<option value="">— Semua Bidang —</option>' +
+      s2.innerHTML = '<option value="">&mdash; Semua Bidang &mdash;</option>' +
         c2.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
       s2.disabled = false; s2.value = p2.id;
       const c3 = await fetchDeptChildren(p2.id);
-      s3.innerHTML = '<option value="">— Semua Sub Bidang —</option>' +
+      s3.innerHTML = '<option value="">&mdash; Semua Sub Bidang &mdash;</option>' +
         c3.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
       s3.disabled = false; s3.value = node.id;
     }
@@ -822,7 +792,7 @@ document.querySelectorAll('.btn-edit').forEach(btn => {
     document.getElementById('edit-active').checked = u.is_active == 1;
     document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
     setEditCascade(u.department_id);
-    new bootstrap.Modal(document.getElementById('modalEditUser')).show();
+    bsModal(document.getElementById('modalEditUser')).show();
   });
 });
 
@@ -852,15 +822,15 @@ document.querySelectorAll('.btn-hapus').forEach(btn => {
     hapusUrl = this.dataset.url;
     hapusId  = this.dataset.id;
     document.getElementById('hapus-nama').textContent = this.dataset.name;
-    new bootstrap.Modal(document.getElementById('modalHapusUser')).show();
+    bsModal(document.getElementById('modalHapusUser')).show();
   });
 });
 document.getElementById('btn-konfirmasi-hapus').addEventListener('click', async () => {
   const btn = document.getElementById('btn-konfirmasi-hapus');
-  btn.disabled = true; btn.textContent = 'Menghapus…';
+  btn.disabled = true; btn.textContent = 'Menghapus\u2026';
   const res = await fetch(hapusUrl, { method: 'POST' });
   const d   = await res.json();
-  bootstrap.Modal.getInstance(document.getElementById('modalHapusUser')).hide();
+  bsModalGet(document.getElementById('modalHapusUser')).hide();
   btn.disabled = false; btn.textContent = 'Ya, Hapus';
   if (d.success) { document.getElementById('row-' + hapusId)?.remove(); }
   else alert(d.message || 'Gagal menghapus pengguna');
