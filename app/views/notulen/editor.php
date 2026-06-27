@@ -15,11 +15,13 @@ $meetingStatusLabel = ['scheduled'=>'Terjadwal','ongoing'=>'Sedang Berlangsung',
 $loc    = $meeting['location'] ?? '';
 $isLink = !empty($loc) && (strncmp($loc,'http://',7)===0 || strncmp($loc,'https://',8)===0);
 
-// Data yang akan di-inject ke JavaScript
 $initialContent = $notulen['content'] ?? '';
-$saveUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/save';
-$syncUrl   = $baseUrl . '/api/notulen/sync';
-$currentUserId = Auth::user()['id'] ?? 0;
+$saveUrl        = $baseUrl . '/notulen/' . $meeting['id'] . '/save';
+$syncUrl        = $baseUrl . '/api/notulen/sync';
+$currentUserId  = Auth::user()['id'] ?? 0;
+
+// Quill CSS – inject ke $headScripts agar dimuat di <head>
+$headScripts = ($headScripts ?? '') . '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css">';
 ?>
 
 <!-- ============================================================
@@ -169,7 +171,10 @@ $currentUserId = Auth::user()['id'] ?? 0;
   border:1px solid var(--kb-border-light); border-radius:var(--kb-radius);
   overflow:hidden; box-shadow:var(--kb-shadow-md); background:#fff;
 }
-.ned-quill-area { min-height:490px; font-size:15px; border:none; padding:.25rem; }
+/* Paksa tinggi minimal & hilangkan border bawaan Quill */
+.ned-editor-card .ql-container.ql-snow { border:none; }
+.ned-editor-card .ql-toolbar.ql-snow   { border:none; border-bottom:1px solid var(--kb-border-light); }
+.ned-quill-area { min-height:490px; font-size:15px; }
 
 /* ── Comment card ────────────────────────────────────────────── */
 .ned-comment-card {
@@ -720,11 +725,28 @@ $currentUserId = Auth::user()['id'] ?? 0;
 </div>
 <?php endif; ?>
 
-<?php if ($canEdit): ?>
+<!-- ============================================================
+     INJECT GLOBALS + QUILL + EDITOR SCRIPT
+     Semua JS diletakkan inline di sini, setelah seluruh DOM
+     siap, sehingga tidak bergantung pada mekanisme $scripts
+     di layout yang mungkin belum tentu di-echo dengan benar.
+============================================================ -->
+<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 <script>
-const TPL_API_URL    = <?= json_encode(rtrim(BASE_URL, '/') . '/api/notulen-templates') ?>;
-const TPL_MANAGE_URL = <?= json_encode(rtrim(BASE_URL, '/') . '/notulen-templates') ?>;
-let tplListLoaded = false;
+/* Global variables untuk notulen-editor.js & template picker */
+const BASE_URL       = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+const MEETING_ID     = <?= (int)$meeting['id'] ?>;
+const CURRENT_USER_ID= <?= (int)$currentUserId ?>;
+const IS_EDITOR      = <?= $canEdit ? 'true' : 'false' ?>;
+const INITIAL_CONTENT= <?= json_encode($initialContent) ?>;
+const SAVE_URL       = <?= json_encode($saveUrl) ?>;
+const SYNC_URL       = <?= json_encode($syncUrl) ?>;
+
+<?php if ($canEdit): ?>
+/* ── Template picker ─────────────────────────────────────────── */
+const TPL_API_URL    = BASE_URL + '/api/notulen-templates';
+const TPL_MANAGE_URL = BASE_URL + '/notulen-templates';
+let tplListLoaded    = false;
 
 document.getElementById('btn-pick-template')?.addEventListener('click', () => {
   const modal = new bootstrap.Modal(document.getElementById('modalPickTemplate'));
@@ -739,7 +761,9 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
       loading.style.display = 'none';
       container.style.display = '';
       if (!data.templates || !data.templates.length) {
-        container.innerHTML = `<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">Belum ada template. <a href="${TPL_MANAGE_URL}" target="_blank" style="color:var(--kb-primary);">Buat template</a></div>`;
+        container.innerHTML = `<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">
+          Belum ada template. <a href="${TPL_MANAGE_URL}" target="_blank" style="color:var(--kb-primary);">Buat template</a>
+        </div>`;
         return;
       }
       data.templates.forEach(tpl => {
@@ -766,7 +790,7 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
           const d   = await res.json();
           if (!d.success) { alert(d.message || 'Gagal memuat template.'); return; }
           if (!window.quill) { alert('Editor belum siap.'); return; }
-          window.quill.root.innerHTML = d.template.content;
+          window.quill.clipboard.dangerouslyPasteHTML(d.template.content);
           bootstrap.Modal.getInstance(document.getElementById('modalPickTemplate')).hide();
           const ss = document.getElementById('save-status');
           if (ss) { ss.textContent = '● Belum disimpan'; ss.style.color = 'rgba(255,200,50,.9)'; }
@@ -777,43 +801,8 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
       document.getElementById('tpl-list-loading').innerHTML = '<p class="text-danger small">Gagal memuat template.</p>';
     });
 });
-</script>
 <?php endif; ?>
-
-<?php
-// ============================================================
-// INJECT JS GLOBALS + LOAD QUILL + LOAD notulen-editor.js
-// via variabel $scripts yang dibaca oleh base.php layout
-// ============================================================
-$quillVersion = '1.3.7';
-
-ob_start();
-?>
-<!-- Quill CSS (via headScripts — pastikan ini diload sebelum body) -->
-<?php
-$headScriptsExtra = ob_get_clean();
-// Append ke $headScripts jika sudah ada, atau inisiasi
-$headScripts = ($headScripts ?? '') . '
-<link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
-';
-
-ob_start();
-?>
-<!-- Quill JS -->
-<script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
-
-<!-- Inject variabel global yang dibutuhkan notulen-editor.js -->
-<script>
-const MEETING_ID       = <?= (int)$meeting['id'] ?>;
-const CURRENT_USER_ID  = <?= (int)$currentUserId ?>;
-const IS_EDITOR        = <?= $canEdit ? 'true' : 'false' ?>;
-const INITIAL_CONTENT  = <?= json_encode($initialContent) ?>;
-const SAVE_URL         = <?= json_encode($saveUrl) ?>;
-const SYNC_URL         = <?= json_encode($syncUrl) ?>;
 </script>
 
-<!-- Load editor script -->
-<script src="<?= BASE_URL ?>/assets/js/notulen-editor.js?v=<?= filemtime(ROOT_PATH . '/assets/js/notulen-editor.js') ?>"></script>
-<?php
-$scripts = ($scripts ?? '') . ob_get_clean();
-?>
+<!-- Load editor script SETELAH globals di-inject -->
+<script src="<?= rtrim(BASE_URL, '/') ?>/assets/js/notulen-editor.js?v=<?= filemtime(ROOT_PATH . '/assets/js/notulen-editor.js') ?>"></script>
