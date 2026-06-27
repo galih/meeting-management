@@ -7,7 +7,6 @@ class Mailer
 {
     private static function config(): array
     {
-        // Prioritas 1: baca dari DB (diset via /settings)
         try {
             $host = SettingController::get('smtp_host');
             if (!empty($host)) {
@@ -22,15 +21,13 @@ class Mailer
                     'from_name'   => SettingController::get('smtp_from_name', APP_NAME),
                 ];
             }
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // DB belum siap, lanjut ke fallback
         }
 
-        // Prioritas 2: file config
         $cfgFile = APP_PATH . '/config/mail.php';
         if (file_exists($cfgFile)) return require $cfgFile;
 
-        // Prioritas 3: default (mail() native)
         return [
             'driver'     => 'mail',
             'from_email' => 'noreply@' . ($_SERVER['HTTP_HOST'] ?? 'localhost'),
@@ -38,9 +35,6 @@ class Mailer
         ];
     }
 
-    /**
-     * Kirim email langsung
-     */
     public static function send(string $to, string $toName, string $subject, string $htmlBody): bool
     {
         $cfg = self::config();
@@ -93,9 +87,6 @@ class Mailer
         return mail($to, $subject, $body, $headers);
     }
 
-    /**
-     * Antri email ke tabel email_queue
-     */
     public static function queue(string $to, string $name, string $subject, string $body, string $type = 'invitation', ?string $scheduledAt = null): int
     {
         $db   = Database::getInstance();
@@ -107,19 +98,15 @@ class Mailer
         return (int) $db->lastInsertId();
     }
 
-    /**
-     * Proses antrian email pending
-     * Fix: gunakan (int) cast untuk LIMIT, hindari interpolasi langsung
-     */
     public static function processQueue(int $limit = 20): array
     {
-        $limit = max(1, min(500, $limit)); // clamp 1–500
+        $limit = max(1, min(500, $limit));
         $db    = Database::getInstance();
         $rows  = Database::query(
             "SELECT * FROM email_queue
              WHERE status='pending' AND attempts < 3 AND scheduled_at <= NOW()
              ORDER BY scheduled_at ASC
-             LIMIT " . $limit  // (int) sudah dijamin oleh type-hint + clamp
+             LIMIT " . $limit
         );
         $result = ['sent' => 0, 'failed' => 0];
         foreach ($rows as $row) {

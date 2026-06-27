@@ -8,7 +8,7 @@ class SettingController
         try {
             $row = Database::queryOne("SELECT value FROM app_settings WHERE `key`=?", [$key]);
             return ($row && $row['value'] !== null) ? $row['value'] : $default;
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             return $default;
         }
     }
@@ -36,7 +36,6 @@ class SettingController
             'app_logo'        => self::getSetting('app_logo'),
             'login_bg'        => self::getSetting('login_bg'),
             'app_name_custom' => self::getSetting('app_name_custom', APP_NAME),
-            // SMTP
             'smtp_host'       => self::getSetting('smtp_host'),
             'smtp_port'       => self::getSetting('smtp_port', '587'),
             'smtp_encryption' => self::getSetting('smtp_encryption', 'tls'),
@@ -63,7 +62,6 @@ class SettingController
         foreach ($fields as $f) {
             self::setSetting($f, trim($_POST[$f] ?? ''));
         }
-        // Password: hanya update jika diisi (kosong = tidak ubah)
         $pass = trim($_POST['smtp_password'] ?? '');
         if ($pass !== '') {
             self::setSetting('smtp_password', $pass);
@@ -97,7 +95,6 @@ class SettingController
             exit;
         }
 
-        // Kirim via PHPMailer jika tersedia, fallback ke socket check
         if (class_exists('PHPMailer\PHPMailer\PHPMailer')) {
             try {
                 $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
@@ -118,7 +115,6 @@ class SettingController
                 echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);
             }
         } else {
-            // Fallback: cek koneksi socket ke SMTP host:port
             $conn = @fsockopen(
                 ($encryption === 'ssl' ? 'ssl://' : '') . $host,
                 $port, $errno, $errstr, 5
@@ -189,7 +185,6 @@ class SettingController
         echo json_encode(['success' => true]); exit;
     }
 
-    // ── Helper ───────────────────────────────────────────────────────────
     private static function handleUpload(array $file, string $prefix): array
     {
         $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
@@ -216,7 +211,8 @@ class SettingController
         $baseUrl  = rtrim(BASE_URL, '/');
         $relative = ltrim(str_replace($baseUrl, '', $url), '/');
         $path     = ROOT_PATH . '/' . $relative;
-        if (file_exists($path) && str_contains($path, DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR)) {
+        $needle   = DIRECTORY_SEPARATOR . 'assets' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR;
+        if (file_exists($path) && strpos($path, $needle) !== false) {
             @unlink($path);
         }
     }

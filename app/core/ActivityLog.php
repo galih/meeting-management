@@ -7,14 +7,6 @@
  */
 class ActivityLog
 {
-    /**
-     * Catat satu baris log.
-     *
-     * @param string      $action       Kode aksi, format: <modul>.<verb>  (contoh: meeting.delete)
-     * @param string      $description  Keterangan bebas yang ditampilkan di UI
-     * @param string|null $subjectType  Tipe objek terkait (meeting / user / auth / dll)
-     * @param int|null    $subjectId    ID objek terkait
-     */
     public static function record(
         string  $action,
         string  $description,
@@ -31,7 +23,7 @@ class ActivityLog
                 ?? $_SERVER['REMOTE_ADDR']
                 ?? null;
             // Ambil IP pertama jika ada proxy chain
-            if ($ip && str_contains($ip, ',')) {
+            if ($ip && strpos($ip, ',') !== false) {
                 $ip = trim(explode(',', $ip)[0]);
             }
 
@@ -49,8 +41,7 @@ class ActivityLog
                 $subjectType, $subjectId,
                 $ip, $ua,
             ]);
-        } catch (Throwable $e) {
-            // Jangan sampai error log mengganggu flow utama aplikasi
+        } catch (\Throwable $e) {
             error_log('[ActivityLog] ' . $e->getMessage());
         }
     }
@@ -58,16 +49,21 @@ class ActivityLog
     /** Label & badge-color untuk kode aksi */
     public static function badge(string $action): array
     {
-        return match(true) {
-            str_ends_with($action, '.login')   => ['Login',   'bg-green-lt',  'text-green'],
-            str_ends_with($action, '.logout')  => ['Logout',  'bg-secondary-lt', 'text-secondary'],
-            str_ends_with($action, '.failed')  => ['Gagal Login', 'bg-red-lt','text-danger'],
-            str_ends_with($action, '.create')  => ['Dibuat',  'bg-blue-lt',   'text-blue'],
-            str_ends_with($action, '.update')  => ['Diubah',  'bg-yellow-lt', 'text-yellow'],
-            str_ends_with($action, '.delete')  => ['Dihapus', 'bg-red-lt',    'text-danger'],
-            str_ends_with($action, '.status')  => ['Status',  'bg-purple-lt', 'text-purple'],
-            default                            => ['Lainnya', 'bg-secondary-lt','text-secondary'],
-        };
+        $suffixes = [
+            '.login'  => ['Login',       'bg-green-lt',     'text-green'],
+            '.logout' => ['Logout',      'bg-secondary-lt', 'text-secondary'],
+            '.failed' => ['Gagal Login', 'bg-red-lt',       'text-danger'],
+            '.create' => ['Dibuat',      'bg-blue-lt',      'text-blue'],
+            '.update' => ['Diubah',      'bg-yellow-lt',    'text-yellow'],
+            '.delete' => ['Dihapus',     'bg-red-lt',       'text-danger'],
+            '.status' => ['Status',      'bg-purple-lt',    'text-purple'],
+        ];
+        foreach ($suffixes as $suffix => $badge) {
+            if (substr($action, -strlen($suffix)) === $suffix) {
+                return $badge;
+            }
+        }
+        return ['Lainnya', 'bg-secondary-lt', 'text-secondary'];
     }
 
     /** Ambil daftar log dengan filter & paginasi */

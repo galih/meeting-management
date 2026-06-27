@@ -1,7 +1,6 @@
 <?php
 /**
  * EmailTemplate — template HTML email yang konsisten
- * Tema oranye sesuai dengan UI aplikasi
  */
 class EmailTemplate
 {
@@ -45,7 +44,7 @@ class EmailTemplate
 <body>
   <div class="wrapper">
     <div class="header">
-      <h1>📅 {$appName}</h1>
+      <h1>&#128197; {$appName}</h1>
     </div>
     <div class="body">{$content}</div>
     <div class="footer">
@@ -57,9 +56,6 @@ class EmailTemplate
 HTML;
     }
 
-    /**
-     * Template undangan meeting
-     */
     public static function invitation(array $meeting, array $user): string
     {
         $appUrl   = defined('APP_URL') ? APP_URL : '';
@@ -76,9 +72,9 @@ HTML;
 <p>Halo <strong>{$name}</strong>,</p>
 <p>Anda diundang untuk menghadiri meeting berikut:</p>
 <div class="info-box">
-  <div class="info-row"><span class="info-label">📋 Judul</span><span class="info-value">{$title}</span></div>
-  <div class="info-row"><span class="info-label">🕐 Waktu</span><span class="info-value">{$start} &ndash; {$end}</span></div>
-  <div class="info-row"><span class="info-label">📍 Lokasi</span><span class="info-value">{$location}</span></div>
+  <div class="info-row"><span class="info-label">&#128203; Judul</span><span class="info-value">{$title}</span></div>
+  <div class="info-row"><span class="info-label">&#128336; Waktu</span><span class="info-value">{$start} &ndash; {$end}</span></div>
+  <div class="info-row"><span class="info-label">&#128205; Lokasi</span><span class="info-value">{$location}</span></div>
 </div>
 {$desc}
 <a href="{$link}" class="btn">Lihat Detail Meeting &rarr;</a>
@@ -86,40 +82,37 @@ HTML;
 HTML);
     }
 
-    /**
-     * Template reminder deadline tindak lanjut
-     */
     public static function deadlineReminder(array $tl, array $user): string
     {
         $appUrl   = defined('APP_URL') ? APP_URL : '';
         $deadline = date('d F Y', strtotime($tl['deadline']));
-        $priority = match($tl['priority']) {
-            'high'   => '<span class="badge badge-red">🔴 Tinggi</span>',
-            'medium' => '<span class="badge badge-orange">🟠 Sedang</span>',
-            default  => '<span class="badge badge-green">🟢 Rendah</span>',
-        };
-        $name   = htmlspecialchars($user['name']);
-        $desk   = htmlspecialchars($tl['deskripsi']);
+
+        // PHP 7.4 compat: ganti match() dengan array lookup
+        $priorityMap = [
+            'high'   => '<span class="badge badge-red">&#128308; Tinggi</span>',
+            'medium' => '<span class="badge badge-orange">&#128992; Sedang</span>',
+        ];
+        $priority = $priorityMap[$tl['priority']] ?? '<span class="badge badge-green">&#128994; Rendah</span>';
+
+        $name    = htmlspecialchars($user['name']);
+        $desk    = htmlspecialchars($tl['deskripsi']);
         $meeting = htmlspecialchars($tl['meeting_title'] ?? 'Meeting');
-        $link   = "{$appUrl}/tindak-lanjut";
+        $link    = "{$appUrl}/tindak-lanjut";
 
         return self::wrap(<<<HTML
-<h2>⏰ Reminder Deadline Tindak Lanjut</h2>
+<h2>&#9200; Reminder Deadline Tindak Lanjut</h2>
 <p>Halo <strong>{$name}</strong>,</p>
 <p>Tindak lanjut berikut memiliki <strong>deadline besok</strong>:</p>
 <div class="info-box">
-  <div class="info-row"><span class="info-label">📝 Tugas</span><span class="info-value">{$desk}</span></div>
-  <div class="info-row"><span class="info-label">📅 Meeting</span><span class="info-value">{$meeting}</span></div>
-  <div class="info-row"><span class="info-label">⏳ Deadline</span><span class="info-value">{$deadline}</span></div>
-  <div class="info-row"><span class="info-label">🚦 Prioritas</span><span class="info-value">{$priority}</span></div>
+  <div class="info-row"><span class="info-label">&#128221; Tugas</span><span class="info-value">{$desk}</span></div>
+  <div class="info-row"><span class="info-label">&#128197; Meeting</span><span class="info-value">{$meeting}</span></div>
+  <div class="info-row"><span class="info-label">&#9203; Deadline</span><span class="info-value">{$deadline}</span></div>
+  <div class="info-row"><span class="info-label">&#128678; Prioritas</span><span class="info-value">{$priority}</span></div>
 </div>
 <a href="{$link}" class="btn">Update Status Sekarang &rarr;</a>
 HTML);
     }
 
-    /**
-     * Template ringkasan notulen setelah meeting selesai
-     */
     public static function meetingSummary(array $meeting, array $notulenText, array $tindakLanjutList, array $user): string
     {
         $appUrl  = defined('APP_URL') ? APP_URL : '';
@@ -128,7 +121,6 @@ HTML);
         $tanggal = date('d F Y', strtotime($meeting['start_datetime']));
         $link    = "{$appUrl}/notulen/{$meeting['id']}";
 
-        // Render tindak lanjut list
         $tlRows = '';
         foreach ($tindakLanjutList as $tl) {
             $desk     = htmlspecialchars($tl['deskripsi']);
@@ -139,7 +131,7 @@ HTML);
                       . "<td style='padding:6px 8px;border-bottom:1px solid #f3f4f6;color:#6b7280;'>{$dl}</td></tr>";
         }
         $tlSection = $tlRows ? <<<HTML
-<h3 style="font-size:15px;color:#374151;margin:24px 0 8px;">✅ Tindak Lanjut</h3>
+<h3 style="font-size:15px;color:#374151;margin:24px 0 8px;">&#9989; Tindak Lanjut</h3>
 <table width="100%" style="border-collapse:collapse;font-size:13px;">
   <thead><tr style="background:#fff7ed;">
     <th style="padding:8px;text-align:left;">Deskripsi</th>
@@ -151,7 +143,7 @@ HTML);
 HTML : '<p style="color:#6b7280;">Tidak ada tindak lanjut.</p>';
 
         return self::wrap(<<<HTML
-<h2>📋 Ringkasan Meeting</h2>
+<h2>&#128203; Ringkasan Meeting</h2>
 <p>Halo <strong>{$name}</strong>,</p>
 <p>Berikut ringkasan meeting <strong>{$title}</strong> tanggal <strong>{$tanggal}</strong>:</p>
 {$tlSection}
