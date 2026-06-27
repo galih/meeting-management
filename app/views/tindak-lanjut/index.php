@@ -774,7 +774,7 @@ $allUsersJson = json_encode(array_values(array_map(
 .tli-mention-item:hover,
 .tli-mention-item.focused { background: var(--brand-light); color: var(--brand); }
 
-/* Tabler bg-brand-lt shim (jika belum ada di custom.css) */
+/* Tabler bg-brand-lt shim */
 .bg-brand-lt { background-color: rgba(123,28,28,.1) !important; color: var(--brand) !important; }
 </style>
 
@@ -787,7 +787,6 @@ $allUsersJson = json_encode(array_values(array_map(
 var BASE          = <?= json_encode($baseUrl) ?>;
 var ALL_USERS     = <?= $allUsersJson ?>;
 var IS_ADMIN_LIKE = <?= $isAdminLike ? 'true' : 'false' ?>;
-var ACTIVE_UID    = <?= (int)($user_id ?? 0) ?>;
 
 /* ── helpers ──────────────────────────────────────────── */
 function esc(s) {
@@ -853,6 +852,17 @@ document.querySelectorAll('.status-select').forEach(function(sel) {
   });
 });
 
+/* ── Kanban col count ─────────────────────────────────── */
+function updateColCount(col) {
+  if (!col) return;
+  var status = col.dataset.status;
+  var count  = col.querySelectorAll('.tli-kcard').length;
+  var badge  = document.getElementById('kanban-count-' + status);
+  if (badge) badge.textContent = count;
+  var empty = col.querySelector('.kanban-empty');
+  if (empty) empty.style.display = count > 0 ? 'none' : '';
+}
+
 /* ── Delete ───────────────────────────────────────────── */
 function bindDel() {
   document.querySelectorAll('.btn-del').forEach(function(btn) {
@@ -867,19 +877,278 @@ function bindDel() {
       var trow  = document.getElementById('trow-' + id);
       var kcard = document.getElementById('kcard-' + id);
       if (trow)  trow.remove();
-      if (kcard) { var col = kcard.closest('.kanban-col'); kcard.remove(); updateColCount(col); }
+      if (kcard) {
+        var kcol = kcard.closest('.kanban-col');
+        kcard.remove();
+        updateColCount(kcol);
+      }
       updateStatCards(d.summary);
     });
   });
 }
 bindDel();
 
-/* ── Kanban col count ─────────────────────────────────── */
-function updateColCount(cry);
+/* ── Kanban drag-and-drop (SortableJS) ────────────────── */
+if (IS_ADMIN_LIKE) {
+  document.querySelectorAll('.kanban-col').forEach(function(col) {
+    Sortable.create(col, {
+      group:     'kanban',
+      animation: 150,
+      ghostClass:  'sortable-ghost',
+      dragClass:   'sortable-drag',
+      onEnd: async function(evt) {
+        var card      = evt.item;
+        var newCol    = evt.to;
+        var oldCol    = evt.from;
+        var newStatus = newCol.dataset.status;
+        var id        = card.dataset.id;
+
+        if (newStatus === card.dataset.status) {
+          updateColCount(newCol);
+          return;
+        }
+
+        card.dataset.status = newStatus;
+        var d = await postJSON(card.dataset.url, { status: newStatus });
+        if (!d.success) {
+          alert(d.message || 'Gagal update status');
+          oldCol.appendChild(card);
+          card.dataset.status = oldCol.dataset.status;
+          updateColCount(oldCol);
+          updateColCount(newCol);
+          return;
+        }
+        updateColCount(oldCol);
+        updateColCount(newCol);
+        updateStatCards(d.summary);
+      }
     });
   });
 }
-bindDel();
 
-/* ── Kanban col count ─────────────────────────────────── */
-function updateColCount(c
+/* ── Modal: Progress Notes ────────────────────────────── */
+var _notesCtx = {};
+
+var modalNotesEl = document.getElementById('modalNotes');
+modalNotesEl.addEventListener('show.bs.modal', function(e) {
+  var btn = e.relatedTarget;
+  if (!btn) return;
+  _notesCtx = {
+    id:        btn.dataset.id,
+    status:    btn.dataset.status,
+    canDone:   btn.dataset.canDone === '1',
+    urlGet:    btn.dataset.urlGet,
+    urlPost:   btn.dataset.urlPost,
+    urlStatus: btn.dataset.urlStatus,
+    delBase:   btn.dataset.deleteBase,
+  };
+  document.getElementById('notes-desc').textContent = btn.dataset.desc || '';
+  document.getElementById('note-input').value = '';
+  document.getElementById('done-bar').style.display = _notesCtx.canDone ? '' : 'none';
+  loadNotes();
+});
+
+async function loadNotes() {
+  var thread = document.getElementById('notes-thread');
+  thread.innerHTML = '<div class="text-center text-muted py-4" style="font-size:13px;">Memuat…</div>';
+  try {
+    var r = await fetch(_notesCtx.urlGet);
+    var d = await r.json();
+    renderNotes(d.notes || []);
+    updateNoteBubble(_notesCtx.id, (d.notes || []).length);
+  } catch(e) {
+    thread.innerHTML = '<div class="text-center text-muted py-3">Gagal memuat notes.</div>';
+  }
+}
+
+function renderNotes(notes) {
+  var thread = document.getElementById('notes-thread');
+  if (!notes.length) {
+    thread.innerHTML = '<div class="text-center text-muted py-4" style="font-size:13px;">Belum ada progress note.</div>';
+    return;
+  }
+  thread.innerHTML = notes.map(function(n) {
+    var initials = (n.author_name || '?').charAt(0).toUpperCase();
+    var canDel   = n.can_delete ? '<button class="tli-nt-del" data-note-id="' + n.id + '" title="Hapus">×</button>' : '';
+    var txt      = esc(n.note || '').replace(/@(\w+)/g, '<strong>@$1</strong>');
+    return '<div class="tli-nt-item" id="note-item-' + n.id + '">' +
+      '<span class="tli-avatar tli-avatar-xs flex-shrink-0">' + initials + '</span>' +
+      '<div class="tli-nt-body">' +
+        '<div class="tli-nt-meta">' +
+          '<span class="tli-nt-name">' + esc(n.author_name || '') + '</span>' +
+          '<div class="d-flex align-items-center gap-2">' +
+            '<span class="tli-nt-time">' + esc(n.created_at_human || '') + '</span>' +
+            canDel +
+          '</div>' +
+        '</div>' +
+        '<div class="tli-nt-text">' + txt + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  thread.querySelectorAll('.tli-nt-del').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      if (!confirm('Hapus note ini?')) return;
+      var nid = this.dataset.noteId;
+      var r   = await fetch(_notesCtx.delBase + '/' + nid + '/delete', { method: 'POST' });
+      var d   = await r.json();
+      if (!d.success) { alert(d.message || 'Gagal hapus'); return; }
+      document.getElementById('note-item-' + nid)?.remove();
+      updateNoteBubble(_notesCtx.id, d.note_count ?? 0);
+    });
+  });
+
+  thread.scrollTop = thread.scrollHeight;
+}
+
+async function sendNote() {
+  var inp  = document.getElementById('note-input');
+  var text = inp.value.trim();
+  if (!text) return;
+  var btn = document.getElementById('btn-send-note');
+  btn.disabled = true;
+  var d = await postJSON(_notesCtx.urlPost, { note: text });
+  btn.disabled = false;
+  if (!d.success) { alert(d.message || 'Gagal kirim'); return; }
+  inp.value = '';
+  hideMentionDrop();
+  loadNotes();
+}
+
+document.getElementById('btn-send-note').addEventListener('click', sendNote);
+document.getElementById('note-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && e.ctrlKey) { e.preventDefault(); sendNote(); }
+});
+
+/* Tandai selesai */
+document.getElementById('btn-mark-done').addEventListener('click', async function() {
+  var d = await postJSON(_notesCtx.urlStatus, { status: 'done' });
+  if (!d.success) { alert(d.message || 'Gagal'); return; }
+  document.getElementById('done-bar').style.display = 'none';
+  _notesCtx.canDone = false;
+  var kcard = document.getElementById('kcard-' + _notesCtx.id);
+  if (kcard) {
+    var oldCol = kcard.closest('.kanban-col');
+    var newCol = document.getElementById('kanban-col-done');
+    if (newCol && oldCol !== newCol) {
+      newCol.appendChild(kcard);
+      kcard.dataset.status = 'done';
+      updateColCount(oldCol);
+      updateColCount(newCol);
+    }
+    kcard.classList.add('tli-kcard-faded');
+  }
+  var trow = document.getElementById('trow-' + _notesCtx.id);
+  if (trow) trow.style.opacity = '.55';
+  updateStatCards(d.summary);
+});
+
+/* ── @mention autocomplete ────────────────────────────── */
+var _mentionFocusIdx = -1;
+
+function hideMentionDrop() {
+  document.getElementById('mention-dropdown').style.display = 'none';
+  _mentionFocusIdx = -1;
+}
+
+document.getElementById('note-input').addEventListener('input', function() {
+  var val   = this.value;
+  var pos   = this.selectionStart;
+  var chunk = val.slice(0, pos);
+  var m     = chunk.match(/@(\w*)$/);
+  var drop  = document.getElementById('mention-dropdown');
+
+  if (!m) { hideMentionDrop(); return; }
+
+  var q       = m[1].toLowerCase();
+  var matches = ALL_USERS.filter(function(u) {
+    return u.name.toLowerCase().includes(q);
+  }).slice(0, 6);
+
+  if (!matches.length) { hideMentionDrop(); return; }
+
+  drop.innerHTML = matches.map(function(u, i) {
+    return '<div class="tli-mention-item" data-name="' + esc(u.name) + '" data-idx="' + i + '">' + esc(u.name) + '</div>';
+  }).join('');
+  drop.style.display = '';
+  _mentionFocusIdx = -1;
+
+  drop.querySelectorAll('.tli-mention-item').forEach(function(item) {
+    item.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      insertMention(this.dataset.name);
+    });
+  });
+});
+
+document.getElementById('note-input').addEventListener('keydown', function(e) {
+  var drop  = document.getElementById('mention-dropdown');
+  var items = drop.querySelectorAll('.tli-mention-item');
+  if (!items.length || drop.style.display === 'none') return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _mentionFocusIdx = Math.min(_mentionFocusIdx + 1, items.length - 1);
+    items.forEach(function(el, i) { el.classList.toggle('focused', i === _mentionFocusIdx); });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _mentionFocusIdx = Math.max(_mentionFocusIdx - 1, 0);
+    items.forEach(function(el, i) { el.classList.toggle('focused', i === _mentionFocusIdx); });
+  } else if (e.key === 'Enter' && _mentionFocusIdx >= 0) {
+    e.preventDefault();
+    insertMention(items[_mentionFocusIdx].dataset.name);
+  } else if (e.key === 'Escape') {
+    hideMentionDrop();
+  }
+});
+
+function insertMention(name) {
+  var inp   = document.getElementById('note-input');
+  var pos   = inp.selectionStart;
+  var val   = inp.value;
+  var chunk = val.slice(0, pos);
+  var before = chunk.replace(/@(\w*)$/, '@' + name + ' ');
+  inp.value  = before + val.slice(pos);
+  inp.selectionStart = inp.selectionEnd = before.length;
+  inp.focus();
+  hideMentionDrop();
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#mention-dropdown') && !e.target.closest('#note-input')) {
+    hideMentionDrop();
+  }
+});
+
+/* ── Modal: Tambah Tindak Lanjut ──────────────────────── */
+var formTambah = document.getElementById('formTambahTL');
+if (formTambah) {
+  formTambah.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    var alertEl = document.getElementById('tl-form-alert');
+    var saveBtn = document.getElementById('btn-save-tl');
+    alertEl.classList.add('d-none');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Menyimpan…';
+
+    var data = Object.fromEntries(new FormData(this));
+    var d    = await postJSON(BASE + '/tindak-lanjut/store', data);
+
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Simpan';
+
+    if (!d.success) {
+      alertEl.textContent = d.message || 'Gagal menyimpan.';
+      alertEl.classList.remove('d-none');
+      return;
+    }
+
+    bootstrap.Modal.getInstance(document.getElementById('modalTambahTL')).hide();
+    formTambah.reset();
+    updateStatCards(d.summary);
+    window.location.reload();
+  });
+}
+
+})();
+</script>
