@@ -1,21 +1,20 @@
 /* globals Quill, MEETING_ID, CURRENT_USER_ID, IS_EDITOR,
    INITIAL_CONTENT, SAVE_URL, SYNC_URL, BASE_URL */
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // STATE
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 window.quill   = null;
 let currentVersion = 0;
 let isSyncing      = false;
 let saveTimer      = null;
-let replyToId      = null;      // ID komentar yang sedang di-reply
-let showResolved   = false;     // toggle tampilkan komentar selesai
-let mentionQuery   = '';        // teks setelah @
-let allUsers       = [];        // cache daftar user untuk mention
+let replyToId      = null;
+let showResolved   = false;
+let allUsers       = [];
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // TOAST
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 function showToast(msg, type = 'info') {
   const el = document.createElement('div');
   el.className = `alert alert-${type} alert-dismissible position-fixed bottom-0 end-0 m-3 shadow`;
@@ -25,9 +24,9 @@ function showToast(msg, type = 'info') {
   setTimeout(() => el.remove(), 4500);
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // SAVE STATUS
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 function setSaveStatus(msg, color) {
   const el = document.getElementById('save-status');
   if (!el) return;
@@ -35,9 +34,9 @@ function setSaveStatus(msg, color) {
   el.style.color = color || 'rgba(255,255,255,.65)';
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // AUTO-SAVE
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 function debouncedSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(doSave, 1500);
@@ -57,37 +56,37 @@ async function doSave() {
         body:    JSON.stringify({ meeting_id: MEETING_ID, content: html })
       });
     } catch {
-      setSaveStatus('\u2717 Tidak ada koneksi', 'rgba(255,100,100,.9)');
+      setSaveStatus('✗ Tidak ada koneksi', 'rgba(255,100,100,.9)');
       return;
     }
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch {
       console.error('Response bukan JSON:', text.substring(0, 500));
-      setSaveStatus('\u2717 Server error', 'rgba(255,100,100,.9)');
-      showToast('\u26a0\ufe0f Gagal menyimpan notulen. Periksa log server.', 'danger');
+      setSaveStatus('✗ Server error', 'rgba(255,100,100,.9)');
+      showToast('⚠️ Gagal menyimpan notulen. Periksa log server.', 'danger');
       return;
     }
     if (data.success) {
       if (data.version) currentVersion = data.version;
-      setSaveStatus('\u2713 Tersimpan ' + new Date().toLocaleTimeString('id-ID'));
+      setSaveStatus('✓ Tersimpan ' + new Date().toLocaleTimeString('id-ID'));
     } else {
-      setSaveStatus('\u2717 Gagal: ' + (data.message || 'error'), 'rgba(255,100,100,.9)');
+      setSaveStatus('✗ Gagal: ' + (data.message || 'error'), 'rgba(255,100,100,.9)');
       if (res.status === 403) {
-        showToast('\u26a0\ufe0f Sesi kadaluarsa. <a href="/logout" class="alert-link">Login ulang</a>', 'warning');
+        showToast('⚠️ Sesi kadaluarsa. <a href="/logout" class="alert-link">Login ulang</a>', 'warning');
       } else {
-        showToast('\u2717 Gagal simpan: ' + (data.message || 'error'), 'danger');
+        showToast('✗ Gagal simpan: ' + (data.message || 'error'), 'danger');
       }
     }
   } catch (e) {
     console.error('Save error:', e);
-    setSaveStatus('\u2717 Gagal simpan', 'rgba(255,100,100,.9)');
+    setSaveStatus('✗ Gagal simpan', 'rgba(255,100,100,.9)');
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // LIVE SYNC (polling)
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 async function pollNotulen() {
   if (isSyncing || !window.quill) return;
   isSyncing = true;
@@ -104,47 +103,48 @@ async function pollNotulen() {
       currentVersion = parseInt(data.version);
       if (data.content) {
         window.quill.clipboard.dangerouslyPasteHTML(data.content);
-        showToast(`\u270f\ufe0f <strong>${data.editor_name || 'Pengguna lain'}</strong> memperbarui notulen`);
+        showToast(`✏️ <strong>${data.editor_name || 'Pengguna lain'}</strong> memperbarui notulen`);
       }
     }
     const syncEl = document.getElementById('sync-status');
     if (syncEl) syncEl.innerHTML = '<span class="ned-live-dot"></span>Live';
   } catch {
     const syncEl = document.getElementById('sync-status');
-    if (syncEl) syncEl.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:#f87171;display:inline-block;"></span>\u00a0Offline';
+    if (syncEl) syncEl.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:#f87171;display:inline-block;"></span> Offline';
   } finally {
     isSyncing = false;
     setTimeout(pollNotulen, 5000);
   }
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // ATTACHMENT
-// ─────────────────────────────────────────────────────────────────
+// URL sesuai route: GET|POST /api/meetings/{id}/attachments
+//                  GET  /attachments/{id}/download
+//                  POST /api/attachments/{id}/delete
+// ─────────────────────────────────────────────────────────────────────
 function initAttachment() {
   const panel = document.getElementById('attachment-panel');
   if (!panel) return;
-  const meetingId  = panel.dataset.meetingId;
-  const listEl     = document.getElementById('attachment-list');
-  const countEl    = document.getElementById('attach-count');
-  const uploadUrl  = `${BASE_URL}/notulen/${meetingId}/attachments`;
+  const meetingId = panel.dataset.meetingId;
+  const listEl    = document.getElementById('attachment-list');
+  const countEl   = document.getElementById('attach-count');
+  const apiBase   = `${BASE_URL}/api/meetings/${meetingId}/attachments`;
 
-  // Toggle upload form
   document.getElementById('btn-show-upload-form')?.addEventListener('click', () => {
-    const wrapper = document.getElementById('upload-form-wrapper');
-    if (wrapper) wrapper.style.display = wrapper.style.display === 'none' ? '' : 'none';
+    const w = document.getElementById('upload-form-wrapper');
+    if (w) w.style.display = w.style.display === 'none' ? '' : 'none';
   });
   document.getElementById('btn-cancel-upload')?.addEventListener('click', () => {
-    const wrapper = document.getElementById('upload-form-wrapper');
-    if (wrapper) wrapper.style.display = 'none';
+    const w = document.getElementById('upload-form-wrapper');
+    if (w) w.style.display = 'none';
     document.getElementById('form-upload-attachment')?.reset();
   });
 
-  // Load lampiran
   function loadAttachments() {
     if (!listEl) return;
-    listEl.innerHTML = '<div class="ned-attach-loading"><span class="spinner-border spinner-border-sm"></span> Memuat\u2026</div>';
-    fetch(uploadUrl)
+    listEl.innerHTML = '<div class="ned-attach-loading"><span class="spinner-border spinner-border-sm"></span> Memuat…</div>';
+    fetch(apiBase)
       .then(r => r.json())
       .then(data => {
         const items = data.attachments || [];
@@ -157,35 +157,29 @@ function initAttachment() {
         listEl.querySelectorAll('.btn-del-attach').forEach(btn => {
           btn.addEventListener('click', function () {
             if (!confirm('Hapus lampiran ini?')) return;
-            fetch(`${BASE_URL}/notulen/attachment/${this.dataset.id}/delete`, { method: 'POST' })
+            fetch(`${BASE_URL}/api/attachments/${this.dataset.id}/delete`, { method: 'POST' })
               .then(r => r.json())
-              .then(d => {
-                if (d.success) loadAttachments();
-                else alert(d.message || 'Gagal menghapus');
-              })
+              .then(d => { if (d.success) loadAttachments(); else alert(d.message || 'Gagal menghapus'); })
               .catch(() => alert('Terjadi kesalahan.'));
           });
         });
       })
-      .catch(() => {
-        if (listEl) listEl.innerHTML = '<div class="ned-tl-empty">Gagal memuat lampiran</div>';
-      });
+      .catch(() => { if (listEl) listEl.innerHTML = '<div class="ned-tl-empty">Gagal memuat lampiran</div>'; });
   }
 
   function renderAttachItem(a) {
-    const icons = { pdf: '\ud83d\udcc4', doc: '\ud83d\udcdd', docx: '\ud83d\udcdd', xls: '\ud83d\udcca', xlsx: '\ud83d\udcca',
-                    ppt: '\ud83d\udcf9', pptx: '\ud83d\udcf9', jpg: '\ud83d\uddbc\ufe0f', jpeg: '\ud83d\uddbc\ufe0f',
-                    png: '\ud83d\uddbc\ufe0f', zip: '\ud83d\uddc2\ufe0f', rar: '\ud83d\uddc2\ufe0f' };
+    const icons = { pdf:'📄', doc:'📝', docx:'📝', xls:'📊', xlsx:'📊',
+                    ppt:'📹', pptx:'📹', jpg:'🖼️', jpeg:'🖼️', png:'🖼️', zip:'🗂️', rar:'🗂️' };
     const ext  = (a.filename || '').split('.').pop().toLowerCase();
-    const icon = icons[ext] || '\ud83d\udcc1';
+    const icon = icons[ext] || '📁';
     const size = a.file_size ? formatBytes(a.file_size) : '';
     return `
       <div class="ned-tl-item" style="padding:.5rem .9rem;">
         <div class="d-flex align-items-center gap-2">
           <span style="font-size:18px;flex-shrink:0;">${icon}</span>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:12.5px;font-weight:600;color:var(--kb-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-              <a href="${BASE_URL}/notulen/attachment/${a.id}/download" target="_blank" style="color:var(--kb-primary);text-decoration:none;">${escHtml(a.original_name || a.filename)}</a>
+            <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              <a href="${BASE_URL}/attachments/${a.id}/download" target="_blank" style="color:var(--kb-primary);text-decoration:none;">${escHtml(a.original_name || a.filename)}</a>
             </div>
             <div style="font-size:11px;color:var(--kb-text-muted);">${escHtml(a.category || '')}${size ? ' &middot; ' + size : ''}</div>
           </div>
@@ -196,7 +190,6 @@ function initAttachment() {
       </div>`;
   }
 
-  // Upload
   document.getElementById('form-upload-attachment')?.addEventListener('submit', async function (e) {
     e.preventDefault();
     const fileInput = document.getElementById('attach-file');
@@ -205,36 +198,29 @@ function initAttachment() {
     const spinner   = document.getElementById('upload-spinner');
     const btnUpload = document.getElementById('btn-do-upload');
     if (!fileInput?.files?.length) return;
-
-    const maxSize = 10 * 1024 * 1024;
-    if (fileInput.files[0].size > maxSize) {
-      showAlert(alertEl, 'danger', 'File terlalu besar (maks. 10 MB)');
-      return;
+    if (fileInput.files[0].size > 10 * 1024 * 1024) {
+      showAlert(alertEl, 'danger', 'File terlalu besar (maks. 10 MB)'); return;
     }
-
     const fd = new FormData();
     fd.append('file', fileInput.files[0]);
     fd.append('category', category);
     fd.append('meeting_id', meetingId);
-
     if (spinner)   spinner.classList.remove('d-none');
     if (btnUpload) btnUpload.disabled = true;
     if (alertEl)   alertEl.classList.add('d-none');
-
     try {
-      const res  = await fetch(uploadUrl, { method: 'POST', body: fd });
+      const res  = await fetch(apiBase, { method: 'POST', body: fd });
       const data = await res.json();
       if (data.success) {
         this.reset();
         document.getElementById('upload-form-wrapper').style.display = 'none';
         loadAttachments();
-        showToast('\u2713 Lampiran berhasil diupload', 'success');
+        showToast('✓ Lampiran berhasil diupload', 'success');
       } else {
         showAlert(alertEl, 'danger', data.message || 'Gagal upload');
       }
-    } catch {
-      showAlert(alertEl, 'danger', 'Terjadi kesalahan jaringan.');
-    } finally {
+    } catch { showAlert(alertEl, 'danger', 'Terjadi kesalahan jaringan.'); }
+    finally {
       if (spinner)   spinner.classList.add('d-none');
       if (btnUpload) btnUpload.disabled = false;
     }
@@ -243,9 +229,12 @@ function initAttachment() {
   loadAttachments();
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // KOMENTAR / DISKUSI
-// ─────────────────────────────────────────────────────────────────
+// URL sesuai route: GET|POST /api/notulen/{id}/comments
+//                  POST /api/comments/{id}/resolve
+//                  POST /api/comments/{id}/delete
+// ─────────────────────────────────────────────────────────────────────
 function initComments() {
   const commentList  = document.getElementById('comment-list');
   const commentInput = document.getElementById('comment-input');
@@ -255,7 +244,7 @@ function initComments() {
   const mentionDD    = document.getElementById('mention-dropdown');
   if (!commentList) return;
 
-  const commentsUrl = `${BASE_URL}/notulen/${MEETING_ID}/comments`;
+  const commentsUrl = `${BASE_URL}/api/notulen/${MEETING_ID}/comments`;
 
   // Load users untuk mention autocomplete
   fetch(`${BASE_URL}/api/users`)
@@ -294,13 +283,13 @@ function initComments() {
               <span style="font-size:12.5px;font-weight:700;color:var(--kb-text);">${escHtml(c.user_name || 'Anonim')}</span>
               <span style="font-size:11px;color:var(--kb-text-faint);">${time}</span>
             </div>
-            ${c.parent_id ? `<div style="font-size:11px;color:var(--kb-text-muted);margin-bottom:.15rem;">\u21b3 Membalas komentar</div>` : ''}
+            ${c.parent_id ? `<div style="font-size:11px;color:var(--kb-text-muted);margin-bottom:.15rem;">↳ Membalas komentar</div>` : ''}
             <div style="font-size:13px;color:var(--kb-text);line-height:1.5;word-break:break-word;">${escHtml(c.content)}</div>
             <div class="d-flex gap-2 mt-1 flex-wrap">
               <button class="btn-comment-reply" data-id="${c.id}" data-name="${escHtml(c.user_name || '')}" style="background:none;border:none;font-size:11px;color:var(--kb-text-muted);cursor:pointer;padding:0;">Balas</button>
               ${IS_EDITOR || c.user_id == CURRENT_USER_ID ? `
               <button class="btn-comment-resolve" data-id="${c.id}" data-resolved="${resolved ? 1 : 0}" style="background:none;border:none;font-size:11px;color:var(--kb-text-muted);cursor:pointer;padding:0;">${resolved ? 'Buka kembali' : 'Selesai'}</button>
-              <button class="btn-comment-del" data-id="${c.id}" style="background:none;border:none;font-size:11px;color:var(--kb-red);cursor:pointer;padding:0;">Hapus</button>
+              <button class="btn-comment-del" data-id="${c.id}" style="background:none;border:none;font-size:11px;color:var(--kb-red,#dc3545);cursor:pointer;padding:0;">Hapus</button>
               ` : ''}
             </div>
           </div>
@@ -312,7 +301,7 @@ function initComments() {
     commentList.querySelectorAll('.btn-comment-reply').forEach(btn => {
       btn.addEventListener('click', function () {
         replyToId = this.dataset.id;
-        if (replyIndic) replyIndic.textContent = `\u21b3 Membalas ${this.dataset.name}`;
+        if (replyIndic) replyIndic.textContent = `↳ Membalas ${this.dataset.name}`;
         commentInput?.focus();
       });
     });
@@ -321,7 +310,7 @@ function initComments() {
         const id  = this.dataset.id;
         const cur = parseInt(this.dataset.resolved);
         try {
-          const res  = await fetch(`${commentsUrl}/${id}/resolve`, {
+          const res  = await fetch(`${BASE_URL}/api/comments/${id}/resolve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ resolved: cur ? 0 : 1 })
@@ -335,9 +324,8 @@ function initComments() {
     commentList.querySelectorAll('.btn-comment-del').forEach(btn => {
       btn.addEventListener('click', async function () {
         if (!confirm('Hapus komentar ini?')) return;
-        const id = this.dataset.id;
         try {
-          const res  = await fetch(`${commentsUrl}/${id}/delete`, { method: 'POST' });
+          const res  = await fetch(`${BASE_URL}/api/comments/${this.dataset.id}/delete`, { method: 'POST' });
           const data = await res.json();
           if (data.success) loadComments();
           else alert(data.message || 'Gagal menghapus');
@@ -346,12 +334,8 @@ function initComments() {
     });
   }
 
-  // Submit komentar (Enter kirim, Shift+Enter newline)
   commentInput?.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      submitComment();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); }
   });
   btnSubmit?.addEventListener('click', submitComment);
 
@@ -376,7 +360,6 @@ function initComments() {
     } catch { alert('Terjadi kesalahan.'); }
   }
 
-  // Toggle resolved
   document.getElementById('btn-toggle-resolved')?.addEventListener('click', function () {
     showResolved = !showResolved;
     this.textContent = showResolved ? 'Sembunyikan Selesai' : 'Tampilkan Selesai';
@@ -389,10 +372,10 @@ function initComments() {
     const cursor = this.selectionStart;
     const before = val.substring(0, cursor);
     const match  = before.match(/@([\w.]*)$/);
-    if (match) {
-      mentionQuery = match[1].toLowerCase();
-      const filtered = allUsers.filter(u => u.name.toLowerCase().includes(mentionQuery)).slice(0, 6);
-      if (filtered.length && mentionDD) {
+    if (match && mentionDD) {
+      const q        = match[1].toLowerCase();
+      const filtered = allUsers.filter(u => u.name.toLowerCase().includes(q)).slice(0, 6);
+      if (filtered.length) {
         mentionDD.innerHTML = filtered.map(u =>
           `<li><a class="dropdown-item mention-item" href="#" data-name="${escHtml(u.name)}" style="font-size:13px;">${escHtml(u.name)}</a></li>`
         ).join('');
@@ -400,7 +383,7 @@ function initComments() {
         mentionDD.querySelectorAll('.mention-item').forEach(a => {
           a.addEventListener('click', function (e) {
             e.preventDefault();
-            const name = this.dataset.name;
+            const name   = this.dataset.name;
             const newVal = val.substring(0, before.lastIndexOf('@')) + '@' + name + ' ' + val.substring(cursor);
             commentInput.value = newVal;
             mentionDD.classList.remove('show');
@@ -408,7 +391,7 @@ function initComments() {
             commentInput.focus();
           });
         });
-      } else if (mentionDD) {
+      } else {
         mentionDD.classList.remove('show');
         mentionDD.innerHTML = '';
       }
@@ -417,7 +400,7 @@ function initComments() {
       mentionDD.innerHTML = '';
     }
   });
-  document.addEventListener('click', (e) => {
+  document.addEventListener('click', e => {
     if (!e.target.closest('#mention-dropdown') && !e.target.closest('#comment-input') && mentionDD) {
       mentionDD.classList.remove('show');
       mentionDD.innerHTML = '';
@@ -427,32 +410,27 @@ function initComments() {
   loadComments();
 }
 
-// ─────────────────────────────────────────────────────────────────
-// TINDAK LANJUT — delete handler
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
+// TINDAK LANJUT
+// ─────────────────────────────────────────────────────────────────────
 function initTindakLanjut() {
   document.querySelectorAll('.btn-tl-del').forEach(btn => {
     btn.addEventListener('click', async function () {
       if (!confirm('Hapus tindak lanjut ini?')) return;
-      const url = this.dataset.url;
-      const id  = this.dataset.id;
       try {
-        const res  = await fetch(url, { method: 'POST' });
+        const res  = await fetch(this.dataset.url, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
-          document.getElementById('tl-item-' + id)?.remove();
+          document.getElementById('tl-item-' + this.dataset.id)?.remove();
           if (!document.querySelectorAll('[id^="tl-item-"]').length) {
             const empty = document.getElementById('tl-empty');
             if (empty) empty.style.display = '';
           }
-        } else {
-          alert(data.message || 'Gagal menghapus');
-        }
+        } else { alert(data.message || 'Gagal menghapus'); }
       } catch { alert('Terjadi kesalahan.'); }
     });
   });
 
-  // Tambah TL via modal
   document.getElementById('btn-tl2-save')?.addEventListener('click', async function () {
     const desc     = document.getElementById('tl2-desk')?.value.trim();
     const assignTo = document.getElementById('tl2-assign')?.value;
@@ -471,17 +449,15 @@ function initTindakLanjut() {
       if (data.success) {
         bootstrap.Modal.getOrCreateInstance(document.getElementById('modalTL')).hide();
         location.reload();
-      } else {
-        alert(data.message || 'Gagal menyimpan tindak lanjut');
-      }
+      } else { alert(data.message || 'Gagal menyimpan tindak lanjut'); }
     } catch { alert('Terjadi kesalahan. Coba lagi.'); }
     finally { this.disabled = false; }
   });
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // INIT QUILL
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 function initQuill() {
   const container = document.getElementById('quill-editor');
   if (!container) return;
@@ -509,7 +485,6 @@ function initQuill() {
     modules:     { toolbar: toolbarOptions }
   });
 
-  // Load konten awal dari DB
   if (INITIAL_CONTENT && INITIAL_CONTENT.trim() !== '') {
     window.quill.clipboard.dangerouslyPasteHTML(INITIAL_CONTENT);
     window.quill.history.clear();
@@ -519,23 +494,21 @@ function initQuill() {
     window.quill.on('text-change', debouncedSave);
   }
 
-  // Tombol simpan manual
   document.getElementById('btn-save-manual')?.addEventListener('click', async function () {
     this.disabled = true;
     await doSave();
     this.disabled = false;
   });
 
-  // Mulai semua sub-fitur
   initTindakLanjut();
   initAttachment();
   initComments();
   pollNotulen();
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // HELPERS
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 function escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -546,8 +519,8 @@ function escHtml(str) {
 }
 
 function formatBytes(bytes) {
-  if (bytes < 1024)      return bytes + ' B';
-  if (bytes < 1048576)   return (bytes / 1024).toFixed(1) + ' KB';
+  if (bytes < 1024)    return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
@@ -558,9 +531,9 @@ function showAlert(el, type, msg) {
   el.classList.remove('d-none');
 }
 
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 // BOOT
-// ─────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initQuill);
 } else {

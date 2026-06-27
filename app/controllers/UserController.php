@@ -48,6 +48,36 @@ class UserController
         ]);
     }
 
+    /**
+     * GET /api/users
+     * Mengembalikan daftar user aktif untuk keperluan mention autocomplete,
+     * assignment tindak lanjut, dll.
+     * Bisa difilter dengan query param ?q=nama
+     */
+    public static function apiList(): void
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+
+        $q      = trim($_GET['q'] ?? '');
+        $params = [1]; // is_active = 1
+        $where  = 'is_active = ?';
+
+        if ($q !== '') {
+            $where   .= ' AND (name LIKE ? OR username LIKE ?)';
+            $params[] = "%{$q}%";
+            $params[] = "%{$q}%";
+        }
+
+        $rows = Database::query(
+            "SELECT id, name, username, role FROM users WHERE {$where} ORDER BY name LIMIT 50",
+            $params
+        );
+
+        echo json_encode(['success' => true, 'users' => $rows]);
+        exit;
+    }
+
     public static function store(): void
     {
         Auth::requireRole('admin');

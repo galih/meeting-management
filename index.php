@@ -24,12 +24,11 @@ spl_autoload_register(function(string $class): void {
 require_once APP_PATH . '/config/app.php';
 
 // ── Global Error Handler ─────────────────────────────────────────────
-// Harus di-register SETELAH config di-load (butuh APP_DEBUG & ROOT_PATH)
 ErrorHandler::register();
 
-// === AUTH ===
 $router = new Router();
 
+// === AUTH ===
 $router->get('/login',           [AuthController::class, 'loginForm']);
 $router->post('/login',          [AuthController::class, 'login']);
 $router->get('/logout',          [AuthController::class, 'logout']);
@@ -90,6 +89,7 @@ $router->post('/users',               [UserController::class, 'store']);
 $router->post('/users/{id}/update',   [UserController::class, 'update']);
 $router->post('/users/{id}/delete',   [UserController::class, 'delete']);
 $router->post('/users/{id}/destroy',  [UserController::class, 'destroy']);
+$router->get('/api/users',            [UserController::class, 'apiList']);  // mention autocomplete, dll
 
 // === UNIT KERJA (departments) ===
 $router->get('/departments',                     [DepartmentController::class, 'index']);
