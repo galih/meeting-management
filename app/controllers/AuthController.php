@@ -36,7 +36,6 @@ class AuthController
         );
 
         if (!$user || !password_verify($password, $user['password'])) {
-            // Log login gagal
             ActivityLog::record(
                 'auth.failed',
                 "Login gagal untuk username: {$username}",
@@ -60,7 +59,6 @@ class AuthController
             "UPDATE users SET last_login=NOW() WHERE id=?"
         )->execute([$user['id']]);
 
-        // Log login berhasil
         ActivityLog::record(
             'auth.login',
             "Login berhasil: {$user['name']} ({$user['username']})",
@@ -77,7 +75,6 @@ class AuthController
     {
         $user = Auth::user();
 
-        // Log logout sebelum session di-destroy
         if ($user) {
             ActivityLog::record(
                 'auth.logout',
@@ -113,7 +110,9 @@ class AuthController
                         "Halo {$user['name']},\n\nKlik link berikut untuk reset password:\n"
                         . BASE_URL . "/reset-password?token={$token}\n\nLink berlaku 1 jam."
                     );
-                } catch (\Throwable) {}
+                } catch (\Throwable $e) {
+                    // silent — email gagal tidak menghentikan flow
+                }
             }
             $_SESSION['flash_success'] = 'Jika username terdaftar, link reset akan dikirim ke email Anda.';
             header('Location: ' . BASE_URL . '/forgot-password'); exit;
