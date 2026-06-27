@@ -9,6 +9,13 @@ $statusLabel = [
   'done'      => 'Selesai',
   'cancelled' => 'Dibatalkan',
 ];
+// PHP 7.4 compat: array lookup menggantikan match()
+$meetingStatusColor = [
+  'scheduled' => 'blue',
+  'ongoing'   => 'orange',
+  'done'      => 'green',
+  'cancelled' => 'red',
+];
 ?>
 
 <?php if (!empty($_SESSION['flash_success'])): ?>
@@ -79,7 +86,9 @@ $statusLabel = [
             <?php if (empty($meetings)): ?>
             <tr><td colspan="7" class="text-center text-muted py-5">Belum ada kegiatan</td></tr>
             <?php endif; ?>
-            <?php foreach ($meetings as $m): ?>
+            <?php foreach ($meetings as $m):
+              $sc = $meetingStatusColor[$m['status']] ?? 'secondary';
+            ?>
             <tr>
               <td>
                 <div class="fw-semibold"><?= htmlspecialchars($m['title']) ?></div>
@@ -92,13 +101,7 @@ $statusLabel = [
                   <small class="text-muted"><?= date('H:i', strtotime($m['end_datetime'])) ?></small></td>
               <td><span class="badge bg-blue-lt"><?= $m['total_peserta'] ?> orang</span></td>
               <td>
-                <span class="badge bg-<?= match($m['status']) {
-                  'scheduled' => 'blue',
-                  'ongoing'   => 'orange',
-                  'done'      => 'green',
-                  'cancelled' => 'red',
-                  default     => 'secondary'
-                } ?>"><?= $statusLabel[$m['status']] ?? ucfirst($m['status']) ?></span>
+                <span class="badge bg-<?= $sc ?>"><?= $statusLabel[$m['status']] ?? ucfirst($m['status']) ?></span>
               </td>
               <td>
                 <div class="d-flex gap-1 align-items-center">
@@ -267,9 +270,6 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   const calendarEl = document.getElementById('calendar');
-
-  // FullCalendar v7: inisialisasi tetap menggunakan FullCalendar.Calendar
-  // Locale 'id' sudah di-load via CDN di base.php
   const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView:  'dayGridMonth',
     locale:       'id',

@@ -1,6 +1,6 @@
 <?php
 $baseUrl    = rtrim(BASE_URL, '/');
-$bulanIni   = date('F Y'); // contoh: May 2026
+$bulanIni   = date('F Y');
 $statConfig = [
     ['key'=>'total_meetings',  'label'=>'Total Kegiatan',       'color'=>'blue',   'icon'=>'📅'],
     ['key'=>'meeting_today',   'label'=>'Kegiatan Hari Ini',    'color'=>'orange', 'icon'=>'🗓️'],
@@ -15,6 +15,8 @@ if ($user['role'] === 'admin') {
         ['key'=>'total_users','label'=>'User Aktif','color'=>'teal','icon'=>'👥'],
     ]);
 }
+// PHP 7.4 compat: array lookup menggantikan match()
+$tlPriorityColor = ['high'=>'red','medium'=>'orange','low'=>'green'];
 ?>
 
 <!-- Stat Cards -->
@@ -129,6 +131,7 @@ if ($user['role'] === 'admin') {
         <?php endif; ?>
         <?php foreach ($tlDeadline as $tl):
           $isOverdue = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d');
+          $pc = $tlPriorityColor[$tl['priority'] ?? ''] ?? 'secondary';
         ?>
         <div class="list-group-item <?= $isOverdue ? 'bg-red-lt' : '' ?>">
           <div class="d-flex justify-content-between align-items-start gap-2">
@@ -148,9 +151,7 @@ if ($user['role'] === 'admin') {
                 <?= date('d M', strtotime($tl['due_date'])) ?><?= $isOverdue ? ' ⚠️' : '' ?>
               </div>
               <?php endif; ?>
-              <span class="badge bg-<?= match($tl['priority'] ?? '') {
-                'high'=>'red','medium'=>'orange','low'=>'green',default=>'secondary'
-              } ?>-lt"><?= ucfirst($tl['priority'] ?? '-') ?></span>
+              <span class="badge bg-<?= $pc ?>-lt"><?= ucfirst($tl['priority'] ?? '-') ?></span>
             </div>
           </div>
         </div>
