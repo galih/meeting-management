@@ -4,109 +4,55 @@ declare(strict_types=1);
 class ExportController
 {
     // -------------------------------------------------------------------------
-    // Route handlers — dipanggil dari Router dengan {id} sebagai parameter
+    // Route handlers — dipanggil Router dengan {id} dari URL
     // GET /notulen/{id}/export-docx
+    // GET /notulen/{id}/export-pdf
     // -------------------------------------------------------------------------
+
     public function exportDocx(int $id): void
     {
         Auth::requireLogin();
-        $this->handleDocx($id);
+        [$meeting, $notulen, $participants, $tindakLanjut] = $this->fetchMeetingData($id);
+        $user = Auth::user();
+        DocxExporter::export($meeting, $notulen, $participants, $tindakLanjut, $user);
     }
 
-    // GET /notulen/{id}/export-pdf
     public function exportPdf(int $id): void
     {
         Auth::requireLogin();
-        $this->handlePdf($id);
-    }
+        [$meeting, $notulen, $participants, $tindakLanjut] = $this->fetchMeetingData($id);
+        $user   = Auth::user();
+        $result = PdfExporter::export($meeting, $notulen, $participants, $tindakLanjut, $user);
 
-    // -------------------------------------------------------------------------
-    // Legacy static handlers — dipanggil via ?meeting_id=
-    // Dipertahankan untuk backward compatibility
-    // -------------------------------------------------------------------------
-    public static function downloadPdf(): void
-    {
-        Auth::requireLogin();
-        $meetingId = (int)($_GET['meeting_id'] ?? 0);
-        if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
-        (new self())->handlePdf($meetingId);
-    }
+        // PdfExporter::export() mengembalikan path file (/exports/...) jika mPDF
+        // tersedia, atau string HTML jika fallback. Tangani keduanya.
+        if (strncmp((string)$result, '/exports/', 9) === 0) {
+            // File tersimpan — redirect ke serve route
+            $baseUrl = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
+            header('Location: ' . $baseUrl . $result);
+            exit;
+        }
 
-    public static function downloadDocx(): void
-    {
-        Auth::requireLogin();
-        $meetingId = (int)($_GET['meeting_id'] ?? 0);
-        if (!$meetingId) { http_response_code(400); echo 'Meeting ID diperlukan.'; exit; }
-        (new self())->handleDocx($meetingId);
-    }
-
-    // -------------------------------------------------------------------------
-    // Core logic
-    // -------------------------------------------------------------------------
-    private function handlePdf(int $meetingId): void
-    {
-        $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
-        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
-
-        $notulen      = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
-        $participants = Database::query(
-            "SELECT u.name, u.email, mp.status
-             FROM meeting_participants mp
-             JOIN users u ON u.id = mp.user_id
-             WHERE mp.meeting_id=? ORDER BY u.name",
-            [$meetingId]
-        );
-        $tindakLanjut = Database::query(
-            "SELECT tl.*, u.name AS assigned_name
-             FROM tindak_lanjut tl
-             LEFT JOIN users u ON u.id = tl.assigned_to
-             WHERE tl.meeting_id=? ORDER BY tl.created_at",
-            [$meetingId]
-        );
-
-        $exporter = new PdfExporter();
-        $exporter->download($meeting, $notulen, $participants, $tindakLanjut);
-    }
-
-    private function handleDocx(int $meetingId): void
-    {
-        $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
-        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
-
-        $notulen      = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
-        $participants = Database::query(
-            "SELECT u.name, u.email, mp.status
-             FROM meeting_participants mp
-             JOIN users u ON u.id = mp.user_id
-             WHERE mp.meeting_id=? ORDER BY u.name",
-            [$meetingId]
-        );
-        $tindakLanjut = Database::query(
-            "SELECT tl.*, u.name AS assigned_name
-             FROM tindak_lanjut tl
-             LEFT JOIN users u ON u.id = tl.assigned_to
-             WHERE tl.meeting_id=? ORDER BY tl.created_at",
-            [$meetingId]
-        );
-
-        $exporter = new DocxExporter();
-        $exporter->download($meeting, $notulen, $participants, $tindakLanjut);
+        // Fallback: tampilkan HTML langsung di browser agar bisa dicetak
+        header('Content-Type: text/html; charset=UTF-8');
+        echo $result;
+        exit;
     }
 
     // -------------------------------------------------------------------------
     // Serve static export file yang sudah tersimpan di /exports/
-    // GET /exports/{filename}
+    // GET /exports?file=/exports/{filename}
     // -------------------------------------------------------------------------
     public static function serveFile(): void
     {
         Auth::requireLogin();
-        $html = $_GET['file'] ?? '';
+        $file = $_GET['file'] ?? '';
 
-        if (strncmp($html, '/exports/', 9) !== 0) {
+        if (strncmp($file, '/exports/', 9) !== 0) {
             http_response_code(400); echo 'Path tidak valid.'; exit;
         }
 
-        $path = ROOT_PATH . $html;
+        $path = ROOT_PATH . $file;
         if (!file_exists($path)) { http_response_code(404); echo 'File tidak ditemukan.'; exit; }
 
         $ext  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
@@ -122,5 +68,48 @@ class ExportController
         header('Content-Length: ' . filesize($path));
         readfile($path);
         exit;
+    }
+
+    // -------------------------------------------------------------------------
+    // Helper — ambil semua data yang dibutuhkan exporter
+    // -------------------------------------------------------------------------
+    private function fetchMeetingData(int $meetingId): array
+    {
+        $meeting = Database::queryOne(
+            "SELECT m.*, u.name AS created_by_name, d.name AS dept_name
+             FROM meetings m
+             LEFT JOIN users u ON u.id = m.created_by
+             LEFT JOIN departments d ON d.id = m.department_id
+             WHERE m.id = ?",
+            [$meetingId]
+        );
+        if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
+
+        $notulen = Database::queryOne(
+            "SELECT n.*, u.name AS editor_name
+             FROM notulen n
+             LEFT JOIN users u ON u.id = n.updated_by
+             WHERE n.meeting_id = ?",
+            [$meetingId]
+        ) ?? [];
+
+        $participants = Database::query(
+            "SELECT u.name, u.email, mp.status, d.name AS dept_name
+             FROM meeting_participants mp
+             JOIN users u ON u.id = mp.user_id
+             LEFT JOIN departments d ON d.id = u.department_id
+             WHERE mp.meeting_id = ? ORDER BY u.name",
+            [$meetingId]
+        );
+
+        $tindakLanjut = Database::query(
+            "SELECT tl.*, u.name AS assigned_name
+             FROM tindak_lanjut tl
+             LEFT JOIN users u ON u.id = tl.assigned_to
+             WHERE tl.meeting_id = ? ORDER BY tl.created_at",
+            [$meetingId]
+        );
+
+        return [$meeting, $notulen, $participants, $tindakLanjut];
     }
 }
