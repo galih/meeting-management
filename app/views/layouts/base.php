@@ -12,8 +12,10 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 
   <!-- Tabler Core -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler.min.css"/>
-  <!-- FullCalendar v7 CSS - wajib di-load terpisah (breaking change dari v6) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/all/global.min.css"/>
+  <!-- FullCalendar v7 CSS (3 file wajib: skeleton + theme + palette) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/skeleton.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/standard/theme.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/standard/palettes/blue.css"/>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css?v=<?= filemtime(ROOT_PATH . '/assets/css/custom.css') ?>">
 
@@ -256,8 +258,10 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
-<!-- FullCalendar v7 - global bundle (includes all plugins) -->
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/all/global.min.js"></script>
+<!-- FullCalendar v7 - JS bundle -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/all/global.js"></script>
+<!-- FullCalendar v7 - theme JS (wajib untuk render) -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/standard/global.js"></script>
 <!-- FullCalendar v7 - locale Indonesia -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/locales/id/global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
@@ -269,7 +273,6 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
   window.fetch = function(url, opts = {}) {
     if (!opts.method || opts.method.toUpperCase() === 'GET') return _origFetch(url, opts);
     opts.headers = Object.assign({ 'X-CSRF-Token': CSRF_TOKEN }, opts.headers || {});
-    // Juga inject ke FormData jika body adalah FormData
     if (opts.body instanceof FormData && !opts.body.has('_csrf')) {
       opts.body.append('_csrf', CSRF_TOKEN);
     }
