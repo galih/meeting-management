@@ -35,6 +35,8 @@ class NotulisController
         ) ?: [];
 
         // Tindak lanjut terkait
+        // FIX: nama variable sekarang 'tindakLanjutList' konsisten dengan view
+        // FIX: kolom alias 'assigned_name' sesuai yang dipakai di editor.php
         $tindakLanjutList = Database::query(
             "SELECT tl.*, u.name AS assigned_name
              FROM tindak_lanjut tl
@@ -44,7 +46,7 @@ class NotulisController
             [$meetingId]
         ) ?: [];
 
-        // Daftar user aktif untuk dropdown assignee di modal TL
+        // FIX: kirim $users untuk dropdown assignee di modal Tambah TL
         $users = Database::query(
             "SELECT id, name FROM users WHERE is_active=1 ORDER BY name"
         ) ?: [];
@@ -121,10 +123,9 @@ class NotulisController
 
     /* ------------------------------------------------------------------ */
     /*  SAVE NOTULEN (POST /api/notulen/save)                              */
-    /*  Payload JSON: { meeting_id, content }                             */
-    /*  Kolom DB:                                                          */
-    /*    - html_content  = HTML mentah dari Quill (untuk display/export)  */
-    /*    - content       = sama, HTML (legacy compat)                     */
+    /*                                                                      */
+    /*  Payload JSON: { meeting_id: int, content: string (HTML Quill) }   */
+    /*  Kolom DB  :   content = HTML string                                */
     /* ------------------------------------------------------------------ */
     public static function save(): void
     {
@@ -135,9 +136,9 @@ class NotulisController
         $body = json_decode($raw, true);
         if (!$body) { echo json_encode(['success'=>false,'message'=>'Payload tidak valid']); exit; }
 
-        $meetingId = (int)($body['meeting_id'] ?? 0);
-        // JS mengirim key 'content' berisi HTML dari Quill
-        $htmlContent = trim($body['content'] ?? '');
+        $meetingId   = (int)($body['meeting_id'] ?? 0);
+        // FIX: JS mengirim key 'content' berisi HTML dari quill.root.innerHTML
+        $htmlContent = $body['content'] ?? '';
 
         if (!$meetingId) { echo json_encode(['success'=>false,'message'=>'meeting_id diperlukan']); exit; }
         $meeting = Database::queryOne("SELECT id FROM meetings WHERE id=?", [$meetingId]);
@@ -195,4 +196,59 @@ class NotulisController
         $meetingId = (int)($_GET['meeting_id'] ?? 0);
         if (!$meetingId) { echo json_encode(['success'=>false,'message'=>'meeting_id diperlukan']); exit; }
 
-        $notulen = Database::queryOne("SELECT * FROM notul
+        $notulen = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
+        if (!$notulen) {
+            echo json_encode(['success'=>true,'content'=>'','html'=>'']);
+            exit;
+        }
+
+        // FIX: 'content' adalah HTML dari Quill, bukan JSON
+        echo json_encode([
+            'success' => true,
+            'content' => $notulen['content'] ?? '',
+            'html'    => $notulen['content'] ?? '',
+            'version' => (int)($notulen['version'] ?? 1),
+        ]);
+        exit;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  SYNC (API) — polling untuk deteksi perubahan oleh user lain        */
+    /*  Response: { success, updated_at, version, content,                 */
+    /*             editor_name, editor_id }                                */
+    /* ------------------------------------------------------------------ */
+    public static function sync(): void
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+        $meetingId      = (int)($_GET['meeting_id'] ?? 0);
+        $clientVersion  = (int)($_GET['version']    ?? 0);
+        if (!$meetingId) { echo json_encode(['success'=>false]); exit; }
+
+        $notulen = Database::queryOne(
+            "SELECT n.*, u.name AS editor_name, n.updated_by AS editor_id
+             FROM notulen n
+             LEFT JOIN users u ON u.id = n.updated_by
+             WHERE n.meeting_id = ?",
+            [$meetingId]
+        );
+
+        if (!$notulen) {
+            echo json_encode(['success'=>true,'version'=>0,'updated_at'=>null]);
+            exit;
+        }
+
+        $serverVersion = (int)($notulen['version'] ?? 1);
+
+        echo json_encode([
+            'success'     => true,
+            'updated_at'  => $notulen['updated_at'] ?? null,
+            'version'     => $serverVersion,
+            // Hanya kirim content jika ada versi baru (hemat bandwidth)
+            'content'     => ($serverVersion > $clientVersion) ? ($notulen['content'] ?? '') : null,
+            'editor_name' => $notulen['editor_name'] ?? null,
+            'editor_id'   => $notulen['editor_id']   ?? null,
+        ]);
+        exit;
+    }
+}

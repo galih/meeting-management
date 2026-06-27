@@ -16,9 +16,12 @@ function showToast(msg, type = 'info') {
   setTimeout(() => el.remove(), 4000);
 }
 
-function setSaveStatus(msg) {
+function setSaveStatus(msg, color) {
   const el = document.getElementById('save-status');
-  if (el) el.textContent = msg;
+  if (!el) return;
+  el.textContent = msg;
+  if (color) el.style.color = color;
+  else el.style.color = '';
 }
 
 function debouncedSave() {
@@ -31,6 +34,7 @@ async function doSave() {
   setSaveStatus('Menyimpan...');
   try {
     const isEmpty = window.quill.getText().trim().length === 0;
+    // Kirim HTML dari Quill sebagai key 'content' sesuai yang dibaca controller
     const html    = isEmpty ? '' : window.quill.root.innerHTML;
 
     let res;
@@ -41,7 +45,7 @@ async function doSave() {
         body:    JSON.stringify({ meeting_id: MEETING_ID, content: html })
       });
     } catch (networkErr) {
-      setSaveStatus('✗ Tidak ada koneksi');
+      setSaveStatus('✗ Tidak ada koneksi', 'rgba(255,100,100,.9)');
       return;
     }
 
@@ -51,16 +55,16 @@ async function doSave() {
       data = JSON.parse(text);
     } catch (e) {
       console.error('Response bukan JSON:', text.substring(0, 500));
-      setSaveStatus('✗ Server error (response tidak valid)');
+      setSaveStatus('✗ Server error (response tidak valid)', 'rgba(255,100,100,.9)');
       showToast('⚠️ Gagal menyimpan notulen. Periksa log server.', 'danger');
       return;
     }
 
     if (data.success) {
       if (data.version) currentVersion = data.version;
-      setSaveStatus('✓ Tersimpan ' + new Date().toLocaleTimeString('id-ID'));
+      setSaveStatus('✓ Tersimpan ' + new Date().toLocaleTimeString('id-ID'), 'rgba(255,255,255,.65)');
     } else {
-      setSaveStatus('✗ Gagal: ' + (data.message || 'error tidak diketahui'));
+      setSaveStatus('✗ Gagal: ' + (data.message || 'error tidak diketahui'), 'rgba(255,100,100,.9)');
       if (res.status === 403) {
         showToast('⚠️ Sesi kadaluarsa. <a href="/logout" class="alert-link">Login ulang</a>', 'warning');
       } else {
@@ -69,7 +73,7 @@ async function doSave() {
     }
   } catch (e) {
     console.error('Save error:', e);
-    setSaveStatus('✗ Gagal simpan');
+    setSaveStatus('✗ Gagal simpan', 'rgba(255,100,100,.9)');
   }
 }
 
@@ -78,18 +82,30 @@ async function pollNotulen() {
   isSyncing = true;
   try {
     const res  = await fetch(`${SYNC_URL}?meeting_id=${MEETING_ID}&version=${currentVersion}`);
+    if (!res.ok) { throw new Error('HTTP ' + res.status); }
     const data = await res.json();
-    if (data.status === 'updated') {
-      currentVersion = data.data.version;
-      if (parseInt(data.data.last_edited_by_id) !== CURRENT_USER_ID) {
-        // Gunakan dangerouslyPasteHTML agar konten HTML ter-render dengan benar
-        window.quill.clipboard.dangerouslyPasteHTML(data.data.content || '');
-        showToast(`✏️ <strong>${data.data.editor_name}</strong> memperbarui notulen`);
+
+    // Format response dari sync(): { success, updated_at, version, content, editor_name, editor_id }
+    if (
+      data.success &&
+      data.version &&
+      parseInt(data.version) > currentVersion &&
+      parseInt(data.editor_id) !== CURRENT_USER_ID
+    ) {
+      currentVersion = parseInt(data.version);
+      if (data.content) {
+        window.quill.clipboard.dangerouslyPasteHTML(data.content);
+        showToast(`✏️ <strong>${data.editor_name || 'Pengguna lain'}</strong> memperbarui notulen`);
       }
+    }
+
+    const syncEl = document.getElementById('sync-status');
+    if (syncEl) {
+      syncEl.innerHTML = '<span class="ned-live-dot"></span>Live';
     }
   } catch (e) {
     const syncEl = document.getElementById('sync-status');
-    if (syncEl) syncEl.innerHTML = '<span class="status-dot bg-red d-inline-block me-1"></span>Offline';
+    if (syncEl) syncEl.innerHTML = '<span style="width:7px;height:7px;border-radius:50%;background:#f87171;display:inline-block;"></span> Offline';
   } finally {
     isSyncing = false;
     setTimeout(pollNotulen, 5000);
@@ -123,11 +139,9 @@ function initQuill() {
     modules: { toolbar: toolbarOptions }
   });
 
-  // FIX: gunakan dangerouslyPasteHTML agar karakter khusus & tag HTML
-  // ter-render dengan benar oleh Quill, bukan di-escape seperti pada innerHTML
+  // Load konten awal (HTML dari DB) ke Quill
   if (INITIAL_CONTENT && INITIAL_CONTENT.trim() !== '') {
     window.quill.clipboard.dangerouslyPasteHTML(INITIAL_CONTENT);
-    // Reset history agar konten awal tidak bisa di-undo
     window.quill.history.clear();
   }
 
@@ -169,9 +183,7 @@ function initQuill() {
         const data = await res.json();
         if (data.success) {
           const modalEl = document.getElementById('modalTL');
-          if (modalEl) {
-            bootstrap.Modal.getOrCreateInstance(modalEl).hide();
-          }
+          if (modalEl) bootstrap.Modal.getOrCreateInstance(modalEl).hide();
           location.reload();
         } else {
           alert(data.message || 'Gagal menyimpan tindak lanjut');
@@ -183,6 +195,32 @@ function initQuill() {
       }
     });
   }
+
+  // Hapus tindak lanjut
+  document.querySelectorAll('.btn-tl-del').forEach(btn => {
+    btn.addEventListener('click', async function () {
+      if (!confirm('Hapus tindak lanjut ini?')) return;
+      const url = this.dataset.url;
+      const id  = this.dataset.id;
+      try {
+        const res  = await fetch(url, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          const item = document.getElementById('tl-item-' + id);
+          if (item) item.remove();
+          const remaining = document.querySelectorAll('[id^="tl-item-"]');
+          if (!remaining.length) {
+            const empty = document.getElementById('tl-empty');
+            if (empty) empty.style.display = '';
+          }
+        } else {
+          alert(data.message || 'Gagal menghapus');
+        }
+      } catch (e) {
+        alert('Terjadi kesalahan.');
+      }
+    });
+  });
 
   pollNotulen();
 }
