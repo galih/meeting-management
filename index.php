@@ -23,24 +23,13 @@ spl_autoload_register(function(string $class): void {
 
 require_once APP_PATH . '/config/app.php';
 
-if (defined('APP_DEBUG') && APP_DEBUG === true) {
-    ini_set('display_errors', '1');
-    ini_set('display_startup_errors', '1');
-    error_reporting(E_ALL);
-} else {
-    ini_set('display_errors', '0');
-    ini_set('display_startup_errors', '0');
-    error_reporting(E_ALL);
-    $logDir = ROOT_PATH . '/logs';
-    if (!is_dir($logDir)) @mkdir($logDir, 0755, true);
-    ini_set('error_log', $logDir . '/php_errors.log');
-}
-
-AuthController::checkRememberToken();
-
-$router = new Router();
+// ── Global Error Handler ─────────────────────────────────────────────
+// Harus di-register SETELAH config di-load (butuh APP_DEBUG & ROOT_PATH)
+ErrorHandler::register();
 
 // === AUTH ===
+$router = new Router();
+
 $router->get('/login',           [AuthController::class, 'loginForm']);
 $router->post('/login',          [AuthController::class, 'login']);
 $router->get('/logout',          [AuthController::class, 'logout']);
@@ -157,7 +146,9 @@ $router->get('/api/notulen-templates/{id}',          [NotulenTemplateController:
 $router->get('/admin/activity-log',        [ActivityLogController::class, 'index']);
 $router->post('/admin/activity-log/purge', [ActivityLogController::class, 'purge']);
 
-// ── Dispatch ─────────────────────────────────────────────────────────────────────────────
+AuthController::checkRememberToken();
+
+// ── Dispatch ────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
