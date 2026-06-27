@@ -217,15 +217,27 @@ $meetingStatusLabel = [
       </div>
       <div class="list-group list-group-flush" id="tl-list">
         <?php if (empty($tindakLanjutList)): ?>
-        <div class="list-group-item text-muted text-center py-3 small">Belum ada tindak lanjut</div>
+        <div class="list-group-item text-muted text-center py-3 small" id="tl-empty">Belum ada tindak lanjut</div>
         <?php endif; ?>
         <?php foreach ($tindakLanjutList as $tl): ?>
-        <div class="list-group-item px-3 py-2">
-          <div class="d-flex justify-content-between align-items-start">
-            <span class="small fw-semibold"><?= htmlspecialchars($tl['description']) ?></span>
-            <?php $pc = $priorityBadge[$tl['priority']] ?? 'secondary'; ?>
-            <span class="badge bg-<?= $pc ?>-lt text-<?= $pc ?> ms-1"
-                  style="font-size:9px;"><?= ucfirst($tl['priority']) ?></span>
+        <?php
+          $pc = $priorityBadge[$tl['priority']] ?? 'secondary';
+          $sc = $statusBadge[$tl['status']] ?? 'secondary';
+        ?>
+        <div class="list-group-item px-3 py-2" id="tl-item-<?= (int)$tl['id'] ?>">
+          <div class="d-flex justify-content-between align-items-start gap-1">
+            <span class="small fw-semibold flex-fill"><?= htmlspecialchars($tl['description']) ?></span>
+            <div class="d-flex align-items-center gap-1 flex-shrink-0">
+              <span class="badge bg-<?= $pc ?>-lt text-<?= $pc ?>"
+                    style="font-size:9px;"><?= ucfirst($tl['priority']) ?></span>
+              <?php if ($canEdit): ?>
+              <button class="btn btn-sm btn-ghost-danger btn-tl-del p-0 lh-1"
+                      style="width:20px;height:20px;font-size:13px;line-height:1;"
+                      data-id="<?= (int)$tl['id'] ?>"
+                      data-url="<?= $baseUrl ?>/tindak-lanjut/<?= (int)$tl['id'] ?>/delete"
+                      title="Hapus tindak lanjut">✕</button>
+              <?php endif; ?>
+            </div>
           </div>
           <div class="text-muted" style="font-size:11px;">
             👤 <?= htmlspecialchars($tl['assigned_name'] ?? '-') ?>
@@ -233,8 +245,9 @@ $meetingStatusLabel = [
               | 📅 <?= date('d M Y', strtotime($tl['due_date'])) ?>
             <?php endif; ?>
           </div>
-          <span class="badge bg-<?= $statusBadge[$tl['status']] ?? 'secondary' ?>"
-                style="font-size:9px;"><?= ucfirst(str_replace('_', ' ', $tl['status'])) ?></span>
+          <span class="badge bg-<?= $sc ?>" style="font-size:9px;">
+            <?= ucfirst(str_replace('_', ' ', $tl['status'])) ?>
+          </span>
         </div>
         <?php endforeach; ?>
       </div>
@@ -398,5 +411,42 @@ document.getElementById('btn-pick-template')?.addEventListener('click', () => {
         '<div class="text-danger">Gagal memuat daftar template.</div>';
     });
 });
+
+// ── Hapus Tindak Lanjut ──────────────────────────────────────────────────────
+function bindTlDelButtons() {
+  document.querySelectorAll('.btn-tl-del').forEach(btn => {
+    // Hindari duplikat event listener
+    if (btn.dataset.bound) return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', async function () {
+      if (!confirm('Hapus tindak lanjut ini?')) return;
+      this.disabled = true;
+      const res = await fetch(this.dataset.url, { method: 'POST' });
+      const d   = await res.json();
+      if (d.success) {
+        const item = document.getElementById('tl-item-' + this.dataset.id);
+        if (item) item.remove();
+        // Tampilkan placeholder jika list kosong
+        const list = document.getElementById('tl-list');
+        if (list && !list.querySelector('.list-group-item:not(#tl-empty)')) {
+          let empty = document.getElementById('tl-empty');
+          if (!empty) {
+            empty = document.createElement('div');
+            empty.id        = 'tl-empty';
+            empty.className = 'list-group-item text-muted text-center py-3 small';
+            empty.textContent = 'Belum ada tindak lanjut';
+            list.appendChild(empty);
+          }
+        }
+      } else {
+        alert(d.message || 'Gagal hapus');
+        this.disabled = false;
+      }
+    });
+  });
+}
+
+// Bind tombol hapus yang sudah ada saat page load
+bindTlDelButtons();
 </script>
 <?php endif; ?>
