@@ -4,11 +4,19 @@ declare(strict_types=1);
 class Router {
     private array $routes = [];
 
-    public function get(string $path, callable|array $handler): void {
+    /**
+     * @param string         $path
+     * @param callable|array $handler
+     */
+    public function get(string $path, $handler): void {
         $this->routes['GET'][$path] = $handler;
     }
 
-    public function post(string $path, callable|array $handler): void {
+    /**
+     * @param string         $path
+     * @param callable|array $handler
+     */
+    public function post(string $path, $handler): void {
         $this->routes['POST'][$path] = $handler;
     }
 
@@ -20,7 +28,6 @@ class Router {
             if (preg_match("#^{$pattern}$#", $uri, $matches)) {
                 array_shift($matches);
 
-                // Cast parameter numerik ke int agar cocok dengan type-hint int di controller
                 $params = array_map(
                     fn($v) => ctype_digit($v) ? (int)$v : $v,
                     $matches
