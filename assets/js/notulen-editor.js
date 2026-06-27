@@ -82,7 +82,8 @@ async function pollNotulen() {
     if (data.status === 'updated') {
       currentVersion = data.data.version;
       if (parseInt(data.data.last_edited_by_id) !== CURRENT_USER_ID) {
-        window.quill.root.innerHTML = data.data.content || '';
+        // Gunakan dangerouslyPasteHTML agar konten HTML ter-render dengan benar
+        window.quill.clipboard.dangerouslyPasteHTML(data.data.content || '');
         showToast(`✏️ <strong>${data.data.editor_name}</strong> memperbarui notulen`);
       }
     }
@@ -122,8 +123,12 @@ function initQuill() {
     modules: { toolbar: toolbarOptions }
   });
 
+  // FIX: gunakan dangerouslyPasteHTML agar karakter khusus & tag HTML
+  // ter-render dengan benar oleh Quill, bukan di-escape seperti pada innerHTML
   if (INITIAL_CONTENT && INITIAL_CONTENT.trim() !== '') {
-    window.quill.root.innerHTML = INITIAL_CONTENT;
+    window.quill.clipboard.dangerouslyPasteHTML(INITIAL_CONTENT);
+    // Reset history agar konten awal tidak bisa di-undo
+    window.quill.history.clear();
   }
 
   if (IS_EDITOR) {
@@ -163,7 +168,6 @@ function initQuill() {
         });
         const data = await res.json();
         if (data.success) {
-          // getOrCreateInstance aman meski modal belum pernah diinit secara programatik
           const modalEl = document.getElementById('modalTL');
           if (modalEl) {
             bootstrap.Modal.getOrCreateInstance(modalEl).hide();
