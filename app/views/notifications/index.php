@@ -15,10 +15,12 @@ $typeIcons = [
  * - Jika $raw sudah full URL (http/https) → pakai langsung
  * - Jika path relatif (misal /notulen/5) → prepend $baseUrl
  * - Kosong → '#'
+ * PHP 7.4 compat: ganti str_starts_with dengan strncmp
  */
 function buildLink(string $baseUrl, string $raw): string {
     if (empty($raw)) return '#';
-    if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) return $raw;
+    if (strncmp($raw, 'http://',  7) === 0) return $raw;
+    if (strncmp($raw, 'https://', 8) === 0) return $raw;
     return $baseUrl . '/' . ltrim($raw, '/');
 }
 ?>
@@ -58,8 +60,7 @@ function buildLink(string $baseUrl, string $raw): string {
         <div class="flex-fill">
           <div class="d-flex justify-content-between">
             <a href="<?= htmlspecialchars($link) ?>"
-               class="fw-semibold <?= $n['is_read'] ? 'text-muted' : 'text-dark' ?> text-decoration-none"
-               <?= $link !== '#' ? '' : '' ?>>
+               class="fw-semibold <?= $n['is_read'] ? 'text-muted' : 'text-dark' ?> text-decoration-none">
               <?= htmlspecialchars($n['message']) ?>
             </a>
             <small class="text-muted text-nowrap ms-3">

@@ -4,14 +4,16 @@ $baseUrl = rtrim(BASE_URL, '/');
 
 $scriptDir  = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
 $fullUri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$currentUri = ($scriptDir !== '' && str_starts_with($fullUri, $scriptDir))
+// PHP 7.4 compat: ganti str_starts_with dengan strncmp
+$currentUri = ($scriptDir !== '' && strncmp($fullUri, $scriptDir, strlen($scriptDir)) === 0)
     ? substr($fullUri, strlen($scriptDir))
     : $fullUri;
 $currentUri = $currentUri ?: '/';
 
 function isActive(string $path, string $current): string {
     if ($path === '/') return $current === '/' ? 'active' : '';
-    return str_starts_with($current, $path) ? 'active' : '';
+    // PHP 7.4 compat: ganti str_starts_with dengan strncmp
+    return strncmp($current, $path, strlen($path)) === 0 ? 'active' : '';
 }
 
 $appLogo = SettingController::get('app_logo');
