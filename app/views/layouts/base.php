@@ -256,7 +256,7 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
 <!-- FullCalendar v7 — CDN path berubah: /all/global.min.js (breaking change dari v6) -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/all/global.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
 <!-- Inject CSRF token ke semua fetch() POST secara global -->
 <script>
