@@ -254,8 +254,10 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
-<!-- FullCalendar v7 — CDN path berubah: /all/global.min.js (breaking change dari v6) -->
+<!-- FullCalendar v7 - global bundle (includes all plugins) -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/all/global.min.js"></script>
+<!-- FullCalendar v7 - locale Indonesia (path berubah di v7: /locales/id/global.js) -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/locales/id/global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
 <!-- Inject CSRF token ke semua fetch() POST secara global -->

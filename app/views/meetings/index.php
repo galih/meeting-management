@@ -267,7 +267,10 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   const calendarEl = document.getElementById('calendar');
-  const calendar   = new FullCalendar.Calendar(calendarEl, {
+
+  // FullCalendar v7: inisialisasi tetap menggunakan FullCalendar.Calendar
+  // Locale 'id' sudah di-load via CDN di base.php
+  const calendar = new FullCalendar.Calendar(calendarEl, {
     initialView:  'dayGridMonth',
     locale:       'id',
     height:       650,
@@ -289,6 +292,7 @@ document.addEventListener('DOMContentLoaded', function () {
       info.el.setAttribute('title', info.event.title + '\n\uD83D\uDCCD ' + loc);
     }
   });
+
   calendar.render();
 });
 
