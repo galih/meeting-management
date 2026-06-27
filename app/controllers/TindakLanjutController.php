@@ -59,7 +59,6 @@ class TindakLanjutController
         )['c'] ?? 0);
         $totalPages = max(1, (int)ceil($totalRows / self::PER_PAGE));
 
-        // Sertakan note_count agar badge bisa ditampilkan di view
         $tindakLanjutList = Database::query(
             "SELECT tl.*, m.title AS meeting_title,
                     u.name AS assignee_name,
@@ -79,7 +78,6 @@ class TindakLanjutController
             ? Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name")
             : [];
 
-        // Semua user aktif untuk keperluan @mention autocomplete
         $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
         View::layout('tindak-lanjut/index', [
@@ -104,7 +102,7 @@ class TindakLanjutController
         Auth::requireRole('admin', 'sekretaris');
 
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-        if (str_contains($contentType, 'application/json')) {
+        if (strpos($contentType, 'application/json') !== false) {
             $d = json_decode(file_get_contents('php://input'), true) ?? [];
         } else {
             $d = $_POST;
@@ -136,7 +134,7 @@ class TindakLanjutController
             );
         }
 
-        if (str_contains($contentType, 'application/json')) {
+        if (strpos($contentType, 'application/json') !== false) {
             header('Content-Type: application/json');
             echo json_encode(['success' => true]); exit;
         }
@@ -178,7 +176,7 @@ class TindakLanjutController
         echo json_encode(['success' => true, 'summary' => $summary, 'new_status' => $status]); exit;
     }
 
-    // ── Progress Notes ────────────────────────────────────────────────────────
+    // ── Progress Notes ────────────────────────────────────────────────
 
     public static function getNotes(int $id): void
     {
@@ -235,7 +233,6 @@ class TindakLanjutController
             "INSERT INTO tindak_lanjut_notes (tindak_lanjut_id, user_id, note) VALUES (?,?,?)"
         )->execute([$id, Auth::id(), $note]);
 
-        // Kirim notifikasi ke semua user yang di-mention (@nama)
         self::processMentions($note, $id, $tl['description']);
 
         $newNote = Database::queryOne(
@@ -248,7 +245,6 @@ class TindakLanjutController
         $newNote['can_delete'] = true;
         unset($newNote['user_id']);
 
-        // Hitung ulang note_count untuk update badge di frontend
         $noteCount = (int)(Database::queryOne(
             "SELECT COUNT(*) c FROM tindak_lanjut_notes WHERE tindak_lanjut_id=?", [$id]
         )['c'] ?? 0);
@@ -257,14 +253,8 @@ class TindakLanjutController
         echo json_encode(['success'=>true, 'note'=>$newNote, 'note_count'=>$noteCount]); exit;
     }
 
-    /**
-     * Parse @mention dari teks note, kirim notifikasi ke user yang disebut.
-     * Format: @NamaUser (case-insensitive, spasi diganti titik atau underscore tidak didukung —
-     * cukup cocokkan nama lengkap atau kata pertama).
-     */
     private static function processMentions(string $note, int $tlId, string $tlDesc): void
     {
-        // Cari semua @kata atau @"nama dengan spasi"
         preg_match_all('/@([\w]+(?:\s[\w]+)*)/u', $note, $matches);
         if (empty($matches[1])) return;
 
@@ -275,7 +265,6 @@ class TindakLanjutController
             $namePart = trim($namePart);
             if (!$namePart) continue;
 
-            // Cari user aktif dengan nama LIKE
             $user = Database::queryOne(
                 "SELECT id FROM users WHERE is_active=1 AND name LIKE ? LIMIT 1",
                 ["%{$namePart}%"]
