@@ -7,12 +7,6 @@ $statusLabel = [
   'done'      => 'Selesai',
   'cancelled' => 'Dibatalkan',
 ];
-$statusIcon = [
-  'scheduled' => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-  'ongoing'   => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
-  'done'      => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
-  'cancelled' => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
-];
 
 // ── Resolve departemen chain ──────────────────────────────────────
 $selDeptId = (int)($meeting['department_id'] ?? 0);
@@ -98,7 +92,6 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
   gap: 1rem; flex-wrap: wrap;
   padding: 1.35rem 1.75rem;
   border-radius: var(--ed-radius) var(--ed-radius) 0 0;
-  background: linear-gradient(135deg, var(--ed-maroon) 0%, var(--ed-maroon-mid) 55%, #A83218 100%);
   transition: background .3s ease;
 }
 .ed-hero-left { display:flex; align-items:center; gap: .85rem; min-width:0; }
@@ -212,7 +205,8 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
 }
 .ed-input::placeholder, .ed-textarea::placeholder { color: var(--ed-faint); }
 .ed-textarea { resize:vertical; min-height:90px; line-height:1.55; }
-.ed-select { appearance:none; cursor:pointer;
+.ed-select {
+  appearance:none; cursor:pointer;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238c7a6b' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:right .75rem center; padding-right:2rem;
 }
@@ -236,23 +230,17 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
 .invalid ~ .ed-errmsg { display:block; }
 .ed-hint { font-size:11.5px; color: var(--ed-muted); }
 
-/* ── Status pills for select ── */
-.ed-status-indicator {
-  display:inline-flex; align-items:center; gap:.3rem;
-  padding:.2rem .65rem; border-radius:999px;
-  font-size:11.5px; font-weight:600;
+/* ── Status pill (di bawah select) ── */
+.ed-status-pill-row {
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.2rem .6rem .2rem .45rem; border-radius:999px;
+  font-size:11.5px; font-weight:600; margin-top:.1rem; width:fit-content;
 }
+.ed-status-pill-row svg { flex-shrink:0; }
 .st-scheduled { background:#e8f0fb; color:#1a6e9b; }
 .st-ongoing   { background:#fef6e4; color:#8b5e00; }
 .st-done      { background:#e8f5e8; color:#2d7a2d; }
 .st-cancelled { background:#fde8e8; color:#a82515; }
-
-/* ── Status select wrapper ── */
-.ed-status-wrap { position:relative; }
-.ed-status-pill {
-  position:absolute; left:.65rem; top:50%; transform:translateY(-50%);
-  pointer-events:none; display:flex; align-items:center; gap:.3rem;
-}
 
 /* ── Dept cascade ── */
 .ed-dept-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.85rem; }
@@ -429,7 +417,7 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
 <?php endif; ?>
 
 <!-- ══ HERO ═══════════════════════════════════════════════════════════ -->
-<div class="ed-hero" id="edHero" style="background:linear-gradient(135deg,<?= htmlspecialchars($currentColor) ?> 0%,#9B2020 55%,#A83218 100%)">
+<div class="ed-hero" id="edHero">
   <div class="ed-hero-left">
     <div class="ed-hero-icon">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -522,13 +510,16 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
         <!-- Status -->
         <div class="ed-field">
           <label class="ed-lbl" for="fStatus">Status <span class="req">*</span></label>
-          <select id="fStatus" name="status" class="ed-select" required>
+          <select id="fStatus" name="status" class="ed-select" required onchange="edUpdateStatusPill()">
             <?php foreach ($statusLabel as $val => $lbl): ?>
             <option value="<?= $val ?>" <?= $curStatus === $val ? 'selected' : '' ?>>
-              <?= htmlspecialchars($statusIcon[$val] ?? '') ?> <?= htmlspecialchars($lbl) ?>
+              <?= htmlspecialchars($lbl) ?>
             </option>
             <?php endforeach; ?>
           </select>
+          <div id="edStatusPill" class="ed-status-pill-row st-<?= htmlspecialchars($curStatus) ?>">
+            <!-- icon & label injected by JS -->
+          </div>
           <span class="ed-errmsg">Status wajib dipilih.</span>
         </div>
 
@@ -729,9 +720,7 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
               <span class="ed-sum-val" id="sumLokasi">—</span>
             </div>
             <div class="ed-sum-row">
-              <span class="ed-sum-ico" id="sumStatusDot" style="width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block;background:#ccc;margin-top:2px"></span>
-              <span class="ed-sum-key">Status:&nbsp;</span>
-              <span class="ed-sum-val" id="sumStatus">—</span>
+              <span id="edSumStatusPill"></span>
             </div>
           </div>
         </div>
@@ -766,6 +755,49 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
 <script>
 (function () {
   'use strict';
+
+  /* ── Status pill config ── */
+  var STATUS_LABELS = <?= json_encode($statusLabel) ?>;
+  var STATUS_ICONS = {
+    scheduled: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    ongoing:   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+    done:      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>',
+    cancelled: '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
+  };
+  var STATUS_COLORS = {
+    scheduled: '#1a6e9b',
+    ongoing:   '#8b5e00',
+    done:      '#2d7a2d',
+    cancelled: '#a82515'
+  };
+
+  /* ── Update status pill below select ── */
+  window.edUpdateStatusPill = function() {
+    var sel  = document.getElementById('fStatus');
+    var pill = document.getElementById('edStatusPill');
+    if (!sel || !pill) return;
+    var val = sel.value;
+    pill.className = 'ed-status-pill-row st-' + val;
+    pill.innerHTML = (STATUS_ICONS[val] || '') + ' ' + (STATUS_LABELS[val] || val);
+  };
+
+  /* ── Hero gradient ── */
+  function edSetHeroGradient(hex) {
+    document.getElementById('edHero').style.background =
+      'linear-gradient(135deg,' + hex + ' 0%, ' +
+      shadeHex(hex, -15) + ' 50%, ' +
+      shadeHex(hex, -30) + ' 100%)';
+  }
+
+  /* Darken a hex color by `amount` (0-100) */
+  function shadeHex(hex, amount) {
+    var c = hex.replace('#','');
+    if (c.length === 3) c = c[0]+c[0]+c[1]+c[1]+c[2]+c[2];
+    var r = Math.max(0, Math.min(255, parseInt(c.slice(0,2),16) + amount));
+    var g = Math.max(0, Math.min(255, parseInt(c.slice(2,4),16) + amount));
+    var b = Math.max(0, Math.min(255, parseInt(c.slice(4,6),16) + amount));
+    return '#' + [r,g,b].map(function(v){ return ('0'+v.toString(16)).slice(-2); }).join('');
+  }
 
   /* ── Toast auto-dismiss ── */
   var toast = document.getElementById('edToast');
@@ -817,7 +849,6 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
     var s = document.getElementById('fStart');
     var e = document.getElementById('fEnd');
 
-    // required fields on page 1
     ['fTitle','fStart','fEnd','fStatus'].forEach(function(id) {
       var el = document.getElementById(id);
       if (!el) return;
@@ -825,7 +856,6 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
       if (!el.value.trim()) { el.classList.add('invalid'); ok = false; }
     });
 
-    // end > start
     if (s && e && s.value && e.value && e.value <= s.value) {
       e.classList.add('invalid'); ok = false;
     }
@@ -837,7 +867,6 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
     return ok;
   }
 
-  // Remove invalid on change
   document.querySelectorAll('.ed-input,.ed-select,.ed-textarea').forEach(function(el) {
     el.addEventListener('input',  function(){ el.classList.remove('invalid'); });
     el.addEventListener('change', function(){ el.classList.remove('invalid'); });
@@ -900,8 +929,7 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
     document.querySelectorAll('.ed-preset').forEach(function(b){
       b.classList.toggle('active', b.dataset.color.toLowerCase() === hex.toLowerCase());
     });
-    document.getElementById('edHero').style.background =
-      'linear-gradient(135deg,'+hex+' 0%,#9B2020 55%,#A83218 100%)';
+    edSetHeroGradient(hex);
   };
 
   /* ── Participant search & count ── */
@@ -948,9 +976,6 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
   });
 
   /* ── Build summary for step 3 ── */
-  var statusNames = <?= json_encode($statusLabel) ?>;
-  var statusColors = { scheduled:'#1a6e9b', ongoing:'#8b5e00', done:'#2d7a2d', cancelled:'#a82515' };
-
   function fmt(dtStr) {
     if (!dtStr) return '—';
     var d = new Date(dtStr);
@@ -960,19 +985,26 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
   }
 
   function buildSummary() {
-    var t = document.getElementById('fTitle');
-    var s = document.getElementById('fStart');
-    var e = document.getElementById('fEnd');
-    var l = document.getElementById('fLocation');
+    var t  = document.getElementById('fTitle');
+    var s  = document.getElementById('fStart');
+    var e  = document.getElementById('fEnd');
+    var l  = document.getElementById('fLocation');
     var st = document.getElementById('fStatus');
-    var n = pList ? pList.querySelectorAll('input[type=checkbox]:checked').length : 0;
+    var n  = pList ? pList.querySelectorAll('input[type=checkbox]:checked').length : 0;
     document.getElementById('sumTitle').textContent   = (t&&t.value) ? t.value : '—';
     document.getElementById('sumTime').textContent    = (s&&s.value) ? fmt(s.value)+' – '+fmt(e&&e.value) : '—';
     document.getElementById('sumPeserta').textContent = n + ' orang';
     document.getElementById('sumLokasi').textContent  = (l&&l.value) ? l.value : '—';
-    document.getElementById('sumStatus').textContent  = (st&&st.value) ? (statusNames[st.value]||st.value) : '—';
-    var dot = document.getElementById('sumStatusDot');
-    if (dot && st) dot.style.background = statusColors[st.value] || '#ccc';
+
+    /* Status pill in summary */
+    var sumPill = document.getElementById('edSumStatusPill');
+    if (sumPill && st && st.value) {
+      var v = st.value;
+      sumPill.innerHTML =
+        '<span class="ed-status-pill-row st-' + v + '">' +
+        (STATUS_ICONS[v]||'') + ' ' + (STATUS_LABELS[v]||v) +
+        '</span>';
+    }
   }
 
   /* ── Submit + spinner ── */
@@ -982,7 +1014,10 @@ $curStatus      = $meeting['status'] ?? 'scheduled';
     btnSave.innerHTML = '<span class="ed-spinner"></span> Menyimpan…';
   });
 
-  /* Init */
+  /* ── Init ── */
+  var initColor = <?= json_encode($currentColor) ?>;
+  edSetHeroGradient(initColor);
+  edUpdateStatusPill();
   goTo(1);
 
 }());
