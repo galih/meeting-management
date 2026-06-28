@@ -225,8 +225,11 @@ $total     = count($list);
   white-space:pre-wrap; word-break:break-word; margin:0;
   font-family: monospace;
 }
+/* FIX #1/#5: nhist-content-html tidak lagi me-render raw HTML;
+   konten ditampilkan sebagai teks biasa untuk mencegah XSS */
 .nhist-content-html {
   font-size:13.5px; color:var(--kb-text); line-height:1.75;
+  white-space:pre-wrap; word-break:break-word;
 }
 .nhist-content-box::-webkit-scrollbar { width:5px; }
 .nhist-content-box::-webkit-scrollbar-track { background:transparent; }
@@ -248,7 +251,6 @@ $total     = count($list);
 ============================================================ -->
 <div class="nhist-hero mb-4">
   <div class="nhist-hero-inner">
-    <!-- Breadcrumb -->
     <nav class="nhist-breadcrumb">
       <a href="<?= $backUrl ?>">Detail Kegiatan</a>
       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
@@ -257,7 +259,6 @@ $total     = count($list);
       <span>Riwayat</span>
     </nav>
 
-    <!-- Title row -->
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-1">
       <div style="flex:1; min-width:0;">
         <h1 class="nhist-title">
@@ -272,7 +273,6 @@ $total     = count($list);
       </a>
     </div>
 
-    <!-- Stat strip -->
     <div class="nhist-stat-strip">
       <div class="nhist-stat-item">
         <span class="nhist-stat-val"><?= $total ?></span>
@@ -300,7 +300,6 @@ $total     = count($list);
 ============================================================ -->
 <div class="nhist-main">
   <?php if (empty($list)): ?>
-  <!-- Empty state -->
   <div class="nhist-empty">
     <div class="nhist-empty-icon">
       <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.23"/></svg>
@@ -314,32 +313,30 @@ $total     = count($list);
   </div>
 
   <?php else: ?>
-  <!-- Timeline list -->
   <div class="nhist-timeline">
     <?php foreach ($list as $i => $h):
-      $vNum     = $h['version'] ?? ($total - $i);
+      /*
+       * FIX #6: Fallback version number menggunakan ($i + 1) bukan ($total - $i).
+       * ($total - $i) salah jika query diurutkan ASC; ($i + 1) selalu konsisten
+       * dan menunjukkan urutan tampil (1 = entri pertama yang ditampilkan).
+       * Jika kolom 'version' ada di DB, nilainya dipakai langsung.
+       */
+      $vNum     = $h['version'] ?? ($i + 1);
       $isLatest = ($i === 0);
       $raw      = $h['content'] ?? '';
       $decoded  = json_decode($raw, true);
       $uniqId   = 'nhist-body-' . $i;
     ?>
     <div class="nhist-entry <?= $isLatest ? 'nhist-entry-latest' : '' ?>">
-
-      <!-- Dot -->
       <div class="nhist-dot <?= $isLatest ? 'nhist-dot-latest' : '' ?>"></div>
 
-      <!-- Card -->
       <div class="nhist-card">
-
-        <!-- Card header -->
         <div class="nhist-card-head">
           <div class="d-flex align-items-center gap-2 flex-wrap">
-            <!-- Version badge -->
-            <span class="nhist-ver <?= $isLatest ? 'nhist-ver-latest' : '' ?>">v<?= $vNum ?></span>
+            <span class="nhist-ver <?= $isLatest ? 'nhist-ver-latest' : '' ?>">v<?= htmlspecialchars((string)$vNum) ?></span>
             <?php if ($isLatest): ?>
             <span class="nhist-latest-chip">Versi Terbaru</span>
             <?php endif; ?>
-            <!-- Editor info -->
             <div class="d-flex align-items-center gap-2" style="margin-left:.2rem;">
               <span class="nhist-avatar"><?= strtoupper(mb_substr($h['editor_name'] ?? 'S', 0, 1)) ?></span>
               <div>
@@ -348,24 +345,28 @@ $total     = count($list);
               </div>
             </div>
           </div>
-          <!-- Toggle button -->
           <button class="nhist-toggle" onclick="nhToggle('<?= $uniqId ?>', this)" aria-expanded="false">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             Lihat Konten
           </button>
         </div>
 
-        <!-- Collapsible content -->
         <div id="<?= $uniqId ?>" style="display:none;">
           <div class="nhist-content-box">
             <?php
               if ($decoded && isset($decoded['ops'])) {
+                /* Quill Delta: ambil teks dari setiap op, escape untuk XSS */
                 $texts = array_map(fn($op) => $op['insert'] ?? '', $decoded['ops']);
                 echo '<div class="nhist-content-text">' . nl2br(htmlspecialchars(implode('', $texts))) . '</div>';
               } elseif ($decoded !== null) {
+                /* JSON lain: tampilkan sebagai pretty-print, sudah di-escape htmlspecialchars */
                 echo '<pre class="nhist-content-json">' . htmlspecialchars(json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) . '</pre>';
               } else {
-                echo '<div class="nhist-content-html">' . $raw . '</div>';
+                /*
+                 * FIX #1/#5: raw string (bukan JSON) — TIDAK lagi di-echo mentah ke DOM.
+                 * htmlspecialchars() mencegah XSS apabila konten mengandung tag HTML/script.
+                 */
+                echo '<div class="nhist-content-html">' . nl2br(htmlspecialchars($raw)) . '</div>';
               }
             ?>
           </div>

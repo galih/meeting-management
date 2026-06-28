@@ -16,13 +16,10 @@ $loc    = $meeting['location'] ?? '';
 $isLink = !empty($loc) && (strncmp($loc,'http://',7)===0 || strncmp($loc,'https://',8)===0);
 
 $initialContent = $notulen['content'] ?? '';
-// FIX #1: route yang terdaftar di index.php adalah POST /api/notulen/save
-//         bukan /notulen/{id}/save — perbaiki agar JS fetch ke URL yang benar.
 $saveUrl        = $baseUrl . '/api/notulen/save';
+// SYNC_URL diinjek ke JS; pastikan endpoint /api/notulen/sync terdaftar di router
 $syncUrl        = $baseUrl . '/api/notulen/sync';
 $currentUserId  = Auth::user()['id'] ?? 0;
-
-// Quill CSS sudah dimuat global di base.php (quill@2.0.3) — tidak perlu inject ulang
 ?>
 
 <!-- ============================================================
@@ -158,7 +155,7 @@ $currentUserId  = Auth::user()['id'] ?? 0;
   background: linear-gradient(90deg, var(--kb-gold) 0%, var(--kb-gold-dark) 60%, transparent 100%);
 }
 
-/* Readonly alert */
+/* Readonly alert — FIX #4: tambah class 'alert' agar btn-close Bootstrap bekerja */
 .ned-readonly-alert {
   display:flex; align-items:center; gap:.6rem;
   background:#FBF6EC; border:1px solid var(--kb-border);
@@ -172,7 +169,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
   border:1px solid var(--kb-border-light); border-radius:var(--kb-radius);
   overflow:hidden; box-shadow:var(--kb-shadow-md); background:#fff;
 }
-/* Paksa tinggi minimal & hilangkan border bawaan Quill */
 .ned-editor-card .ql-container.ql-snow { border:none; }
 .ned-editor-card .ql-toolbar.ql-snow   { border:none; border-bottom:1px solid var(--kb-border-light); }
 .ned-quill-area { min-height:490px; font-size:15px; }
@@ -263,7 +259,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 }
 .ned-btn-back:hover { border-color:var(--kb-primary); color:var(--kb-primary); background:var(--kb-primary-light); }
 
-/* DL info */
 .ned-dl {
   display:grid; grid-template-columns:auto 1fr;
   gap:.25rem .8rem; margin:0; font-size:13px;
@@ -273,7 +268,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 .ned-link { color:var(--kb-primary); text-decoration:none; }
 .ned-link:hover { text-decoration:underline; }
 
-/* Upload form */
 .ned-upload-form {
   padding:.8rem .9rem; border-bottom:1px solid var(--kb-border-light); background:#fff;
 }
@@ -294,11 +288,9 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 }
 .ned-btn-cancel:hover { border-color:var(--kb-text-muted); }
 
-/* Attachment list */
 .ned-attachment-list { max-height:260px; overflow-y:auto; }
 .ned-attach-loading { padding:.9rem; text-align:center; font-size:12.5px; color:var(--kb-text-muted); }
 
-/* Tindak Lanjut list */
 .ned-tl-item {
   padding:.65rem .9rem; border-bottom:1px solid var(--kb-border-light);
   background:#fff; transition:background var(--kb-transition);
@@ -322,7 +314,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 .ned-tl-del:hover { background:var(--kb-red-bg); }
 .ned-tl-empty { padding:.9rem; text-align:center; font-size:12.5px; color:var(--kb-text-faint); }
 
-/* ── Badges ──────────────────────────────────────────────────── */
 .ned-badge {
   display:inline-flex; align-items:center;
   font-size:10.5px; font-weight:700; padding:.2em .65em;
@@ -334,7 +325,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 .kb-badge-blue   { background:var(--kb-blue-bg);   color:var(--kb-blue); }
 .kb-badge-gray   { background:var(--kb-gray-bg);   color:var(--kb-text-muted); }
 
-/* ── Modal ───────────────────────────────────────────────────── */
 .ned-modal-icon {
   width:32px; height:32px; background:var(--kb-primary-light);
   border-radius:var(--kb-radius-xs);
@@ -342,7 +332,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
   color:var(--kb-primary);
 }
 
-/* ── Dropdown mention ────────────────────────────────────────── */
 #mention-dropdown {
   position:absolute; z-index:1050; bottom:calc(100% + 4px); left:0;
   min-width:180px; max-height:180px; overflow-y:auto;
@@ -350,7 +339,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
   border-radius:var(--kb-radius-sm); box-shadow:var(--kb-shadow-md);
 }
 
-/* ── Responsive ─────────────────────────────────────────────── */
 @media(max-width:767.98px) {
   .ned-hero-inner { padding:1rem; }
   .ned-hero-title { font-size:14.5px; }
@@ -365,8 +353,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 <div class="ned-hero mb-1">
   <div class="ned-hero-inner">
     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-
-      <!-- Left: breadcrumb + title + meta -->
       <div style="flex:1; min-width:0;">
         <nav class="ned-breadcrumb">
           <a href="<?= $backUrl ?>">Detail Kegiatan</a>
@@ -398,7 +384,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
         </div>
       </div>
 
-      <!-- Right: action buttons -->
       <div class="ned-hero-actions">
         <?php if ($canEdit): ?>
         <button type="button" class="btn ned-btn-tpl" id="btn-pick-template">
@@ -439,10 +424,14 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 </div>
 
 <?php if (!$canEdit): ?>
-<div class="ned-readonly-alert mb-3">
+<!-- FIX #4: tambah class 'alert' agar data-bs-dismiss="alert" Bootstrap berfungsi -->
+<div class="ned-readonly-alert alert mb-3" role="alert">
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
   Anda hanya bisa membaca notulen ini. Edit tidak tersedia.
-  <button type="button" class="btn-close btn-close-sm ms-auto" data-bs-dismiss="alert"></button>
+  <button type="button" class="btn-close btn-close-sm ms-auto"
+          data-bs-dismiss="alert"
+          onclick="this.closest('.ned-readonly-alert')?.remove()"
+          aria-label="Tutup"></button>
 </div>
 <?php endif; ?>
 
@@ -453,15 +442,12 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 
   <!-- === EDITOR + DISKUSI === -->
   <div class="col-lg-8">
-
-    <!-- Editor Card -->
     <div class="card ned-editor-card">
       <div class="card-body p-0">
         <div id="quill-editor" class="ned-quill-area"></div>
       </div>
     </div>
 
-    <!-- Diskusi -->
     <div class="card ned-comment-card mt-3" id="comment-panel">
       <div class="ned-comment-header">
         <div class="d-flex align-items-center gap-2">
@@ -493,8 +479,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 
   <!-- === SIDEBAR KANAN === -->
   <div class="col-lg-4">
-
-    <!-- Info Kegiatan -->
     <div class="card ned-sidebar-card mb-3">
       <div class="ned-sidebar-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -529,7 +513,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
       </div>
     </div>
 
-    <!-- Lampiran -->
     <div class="card ned-sidebar-card mb-3" id="attachment-panel" data-meeting-id="<?= (int)$meeting['id'] ?>">
       <div class="ned-sidebar-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -580,7 +563,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
       </div>
     </div>
 
-    <!-- Tindak Lanjut -->
     <div class="card ned-sidebar-card">
       <div class="ned-sidebar-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -639,7 +621,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 ============================================================ -->
 <?php if ($canEdit): ?>
 
-<!-- Modal Template -->
 <div class="modal modal-blur fade" id="modalPickTemplate" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content">
@@ -669,7 +650,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
   </div>
 </div>
 
-<!-- Modal Tambah TL -->
 <div class="modal modal-blur fade" id="modalTL" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
@@ -727,83 +707,96 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 <?php endif; ?>
 
 <!-- ============================================================
-     INJECT GLOBALS + QUILL + EDITOR SCRIPT
-     Semua JS diletakkan inline di sini, setelah seluruh DOM
-     siap, sehingga tidak bergantung pada mekanisme $scripts
-     di layout yang mungkin belum tentu di-echo dengan benar.
+     INJECT GLOBALS + QUILL GUARD + EDITOR SCRIPT
+     FIX #3: Hapus load Quill tanpa kondisi.
+     Guard: load hanya jika window.Quill belum didefinisikan
+     (base.php sudah load quill@2.0.3 secara global).
 ============================================================ -->
-<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
 <script>
-/* Global variables untuk notulen-editor.js & template picker */
-const BASE_URL       = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
-const MEETING_ID     = <?= (int)$meeting['id'] ?>;
-const CURRENT_USER_ID= <?= (int)$currentUserId ?>;
-const IS_EDITOR      = <?= $canEdit ? 'true' : 'false' ?>;
-const INITIAL_CONTENT= <?= json_encode($initialContent) ?>;
-const SAVE_URL       = <?= json_encode($saveUrl) ?>;
-const SYNC_URL       = <?= json_encode($syncUrl) ?>;
+/* FIX #3 — Quill guard: skip jika sudah di-load oleh base.php */
+if (typeof window.Quill === 'undefined') {
+  var _qs = document.createElement('script');
+  _qs.src = 'https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js';
+  _qs.onload = initNotulenGlobals;
+  document.head.appendChild(_qs);
+} else {
+  initNotulenGlobals();
+}
+
+function initNotulenGlobals() {
+  /* Global variables untuk notulen-editor.js & template picker */
+  window.BASE_URL        = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+  window.MEETING_ID      = <?= (int)$meeting['id'] ?>;
+  window.CURRENT_USER_ID = <?= (int)$currentUserId ?>;
+  window.IS_EDITOR       = <?= $canEdit ? 'true' : 'false' ?>;
+  window.INITIAL_CONTENT = <?= json_encode($initialContent) ?>;
+  window.SAVE_URL        = <?= json_encode($saveUrl) ?>;
+  window.SYNC_URL        = <?= json_encode($syncUrl) ?>;
 
 <?php if ($canEdit): ?>
-/* ── Template picker ─────────────────────────────────────────── */
-const TPL_API_URL    = BASE_URL + '/api/notulen-templates';
-const TPL_MANAGE_URL = BASE_URL + '/notulen-templates';
-let tplListLoaded    = false;
+  /* ── Template picker ─────────────────────────────────────────── */
+  const TPL_API_URL    = window.BASE_URL + '/api/notulen-templates';
+  const TPL_MANAGE_URL = window.BASE_URL + '/notulen-templates';
+  let tplListLoaded    = false;
 
-document.getElementById('btn-pick-template')?.addEventListener('click', () => {
-  const modal = new bootstrap.Modal(document.getElementById('modalPickTemplate'));
-  modal.show();
-  if (tplListLoaded) return;
-  fetch(TPL_API_URL)
-    .then(r => r.json())
-    .then(data => {
-      tplListLoaded = true;
-      const loading   = document.getElementById('tpl-list-loading');
-      const container = document.getElementById('tpl-list-container');
-      loading.style.display = 'none';
-      container.style.display = '';
-      if (!data.templates || !data.templates.length) {
-        container.innerHTML = `<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">
-          Belum ada template. <a href="${TPL_MANAGE_URL}" target="_blank" style="color:var(--kb-primary);">Buat template</a>
-        </div>`;
-        return;
-      }
-      data.templates.forEach(tpl => {
-        const col = document.createElement('div');
-        col.className = 'col-md-6';
-        col.innerHTML = `
-          <div style="background:#fff;border:1px solid var(--kb-border-light);border-radius:var(--kb-radius);overflow:hidden;box-shadow:var(--kb-shadow-sm);height:100%;display:flex;flex-direction:column;">
-            <div style="padding:.8rem 1rem;flex:1;">
-              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.3rem;">
-                <span style="font-size:14px;font-weight:700;color:var(--kb-text);">${tpl.name}</span>
-                ${(tpl.is_default==1)?'<span class="ned-badge kb-badge-green">Default</span>':''}
-              </div>
-              <p style="font-size:12px;color:var(--kb-text-muted);margin:0;">${tpl.description||'—'}</p>
-            </div>
-            <div style="padding:.55rem 1rem;background:var(--kb-surface);border-top:1px solid var(--kb-border-light);">
-              <button style="width:100%;background:linear-gradient(135deg,var(--kb-primary),#9B2020);border:none;color:#fff;font-size:12.5px;font-weight:700;border-radius:7px;padding:.38rem .75rem;cursor:pointer;" class="btn-apply-tpl" data-tpl-id="${tpl.id}">Gunakan Template Ini</button>
-            </div>
+  document.getElementById('btn-pick-template')?.addEventListener('click', () => {
+    const modal = new bootstrap.Modal(document.getElementById('modalPickTemplate'));
+    modal.show();
+    if (tplListLoaded) return;
+    fetch(TPL_API_URL)
+      .then(r => r.json())
+      .then(data => {
+        tplListLoaded = true;
+        const loading   = document.getElementById('tpl-list-loading');
+        const container = document.getElementById('tpl-list-container');
+        loading.style.display = 'none';
+        container.style.display = '';
+        if (!data.templates || !data.templates.length) {
+          container.innerHTML = `<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">
+            Belum ada template. <a href="${TPL_MANAGE_URL}" target="_blank" style="color:var(--kb-primary);">Buat template</a>
           </div>`;
-        container.appendChild(col);
-      });
-      container.querySelectorAll('.btn-apply-tpl').forEach(btn => {
-        btn.addEventListener('click', async function () {
-          const res = await fetch(TPL_API_URL + '/' + this.dataset.tplId);
-          const d   = await res.json();
-          if (!d.success) { alert(d.message || 'Gagal memuat template.'); return; }
-          if (!window.quill) { alert('Editor belum siap.'); return; }
-          window.quill.clipboard.dangerouslyPasteHTML(d.template.content);
-          bootstrap.Modal.getInstance(document.getElementById('modalPickTemplate')).hide();
-          const ss = document.getElementById('save-status');
-          if (ss) { ss.textContent = '● Belum disimpan'; ss.style.color = 'rgba(255,200,50,.9)'; }
+          return;
+        }
+        data.templates.forEach(tpl => {
+          const col = document.createElement('div');
+          col.className = 'col-md-6';
+          col.innerHTML = `
+            <div style="background:#fff;border:1px solid var(--kb-border-light);border-radius:var(--kb-radius);overflow:hidden;box-shadow:var(--kb-shadow-sm);height:100%;display:flex;flex-direction:column;">
+              <div style="padding:.8rem 1rem;flex:1;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.3rem;">
+                  <span style="font-size:14px;font-weight:700;color:var(--kb-text);">${tpl.name}</span>
+                  ${(tpl.is_default==1)?'<span class="ned-badge kb-badge-green">Default</span>':''}
+                </div>
+                <p style="font-size:12px;color:var(--kb-text-muted);margin:0;">${tpl.description||'—'}</p>
+              </div>
+              <div style="padding:.55rem 1rem;background:var(--kb-surface);border-top:1px solid var(--kb-border-light);">
+                <button style="width:100%;background:linear-gradient(135deg,var(--kb-primary),#9B2020);border:none;color:#fff;font-size:12.5px;font-weight:700;border-radius:7px;padding:.38rem .75rem;cursor:pointer;" class="btn-apply-tpl" data-tpl-id="${tpl.id}">Gunakan Template Ini</button>
+              </div>
+            </div>`;
+          container.appendChild(col);
         });
+        container.querySelectorAll('.btn-apply-tpl').forEach(btn => {
+          btn.addEventListener('click', async function () {
+            const res = await fetch(TPL_API_URL + '/' + this.dataset.tplId);
+            const d   = await res.json();
+            if (!d.success) { alert(d.message || 'Gagal memuat template.'); return; }
+            if (!window.quill) { alert('Editor belum siap.'); return; }
+            window.quill.clipboard.dangerouslyPasteHTML(d.template.content);
+            bootstrap.Modal.getInstance(document.getElementById('modalPickTemplate')).hide();
+            const ss = document.getElementById('save-status');
+            if (ss) { ss.textContent = '● Belum disimpan'; ss.style.color = 'rgba(255,200,50,.9)'; }
+          });
+        });
+      })
+      .catch(() => {
+        document.getElementById('tpl-list-loading').innerHTML = '<p class="text-danger small">Gagal memuat template.</p>';
       });
-    })
-    .catch(() => {
-      document.getElementById('tpl-list-loading').innerHTML = '<p class="text-danger small">Gagal memuat template.</p>';
-    });
-});
+  });
 <?php endif; ?>
-</script>
 
-<!-- Load editor script SETELAH globals di-inject -->
-<script src="<?= rtrim(BASE_URL, '/') ?>/assets/js/notulen-editor.js?v=<?= filemtime(ROOT_PATH . '/assets/js/notulen-editor.js') ?>"></script>
+  /* Load editor script setelah globals tersedia */
+  var _es = document.createElement('script');
+  _es.src = <?= json_encode(rtrim(BASE_URL, '/') . '/assets/js/notulen-editor.js?v=' . filemtime(ROOT_PATH . '/assets/js/notulen-editor.js')) ?>;
+  document.body.appendChild(_es);
+}
+</script>
