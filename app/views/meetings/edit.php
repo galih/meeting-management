@@ -1,15 +1,15 @@
 <?php
 $baseUrl = rtrim(BASE_URL, '/');
 
-// ── Status labels ──────────────────────────────────────────────────────────
+// ── Status labels ──────────────────────────────────────────────
 $statusLabel = [
   'scheduled' => 'Terjadwal',
-  'ongoing'   => 'Sedang Berlangsung',
+  'ongoing'   => 'Berlangsung',
   'done'      => 'Selesai',
   'cancelled' => 'Dibatalkan',
 ];
 
-// ── Resolve departemen chain ───────────────────────────────────────────────
+// ── Resolve departemen chain ───────────────────────────────────
 $selDeptId = (int)($meeting['department_id'] ?? 0);
 $selDept   = $selDeptId
   ? Database::queryOne('SELECT id, name, level, parent_id FROM departments WHERE id = ?', [$selDeptId])
@@ -30,23 +30,25 @@ if ($selDept) {
   }
 }
 
-// ── Group departments by parent_id ────────────────────────────────────────
+// ── Group departments by parent_id ────────────────────────────
 $deptByParent = [];
 foreach (($departments ?? []) as $d) {
   $deptByParent[(int)($d['parent_id'] ?? 0)][] = $d;
 }
 
-// ── Warna & peserta ───────────────────────────────────────────────────────
-$colorPresets   = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a', '#b5530a', '#6b6b6b'];
-$currentColor   = strtolower(trim($meeting['color'] ?? '#7b1c1c'));
+// ── Color presets (palet Kemenbud) ────────────────────────────
+$colorPresets = ['#7B1C1C','#5E1212','#C9A84C','#A8882E','#2F6BC4','#1a7340','#7d3cb5','#6b6b6b'];
+$currentColor = strtolower(trim($meeting['color'] ?? '#7b1c1c'));
+
+// ── Participants ───────────────────────────────────────────────
 $participantIds = array_map('intval', $participantIds ?? []);
 $allUsers       = $allUsers ?? [];
-$avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
+$avPalette      = ['#7B1C1C','#2F6BC4','#1a7340','#7d3cb5','#C9A84C','#0d7a8a'];
 ?>
 
 <?php if (!empty($_SESSION['flash_error'])): ?>
 <div class="ed-alert" id="edAlertErr" role="alert" aria-live="polite">
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <?= htmlspecialchars($_SESSION['flash_error']) ?>
   <button type="button" class="ed-alert-close" onclick="document.getElementById('edAlertErr').remove()" aria-label="Tutup">&times;</button>
 </div>
@@ -57,20 +59,20 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
 ================================================================ */ ?>
 <div class="ed-hero mb-4" style="--mc:<?= htmlspecialchars($currentColor) ?>">
   <div class="ed-hero-inner">
-    <nav class="ed-breadcrumb" aria-label="Breadcrumb">
+    <nav class="ed-bc" aria-label="Breadcrumb">
       <a href="<?= $baseUrl ?>/meetings">Kegiatan</a>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>"><?= htmlspecialchars($meeting['title']) ?></a>
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
       <span>Edit</span>
     </nav>
     <div class="ed-hero-row">
       <h1 class="ed-hero-title">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Edit Kegiatan
       </h1>
       <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>" class="ed-back-btn">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         Kembali ke Detail
       </a>
     </div>
@@ -152,7 +154,7 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
         <div class="col-md-4">
           <label class="form-label" for="fU1">Unit Kerja</label>
           <select id="fU1" name="_u1" class="form-select" onchange="edCascade(1)">
-            <option value="">— Semua Unit Kerja —</option>
+            <option value="">&mdash; Semua Unit Kerja &mdash;</option>
             <?php foreach ($deptByParent[0] ?? [] as $d): ?>
             <option value="<?= (int)$d['id'] ?>" <?= $sel[1] === (int)$d['id'] ? 'selected' : '' ?>>
               <?= htmlspecialchars($d['name']) ?>
@@ -164,7 +166,7 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
           <label class="form-label" for="fU2">Bidang / Bagian</label>
           <select id="fU2" name="_u2" class="form-select" onchange="edCascade(2)"
                   <?= $sel[1] ? '' : 'disabled' ?>>
-            <option value="">— Semua Bidang —</option>
+            <option value="">&mdash; Semua Bidang &mdash;</option>
             <?php foreach ($deptByParent[$sel[1]] ?? [] as $d): ?>
             <option value="<?= (int)$d['id'] ?>" <?= $sel[2] === (int)$d['id'] ? 'selected' : '' ?>>
               <?= htmlspecialchars($d['name']) ?>
@@ -176,7 +178,7 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
           <label class="form-label" for="fU3">Sub Bidang <span class="ed-optional">(opsional)</span></label>
           <select id="fU3" name="_u3" class="form-select" onchange="edCascade(3)"
                   <?= $sel[2] ? '' : 'disabled' ?>>
-            <option value="">— Opsional —</option>
+            <option value="">&mdash; Opsional &mdash;</option>
             <?php foreach ($deptByParent[$sel[2]] ?? [] as $d): ?>
             <option value="<?= (int)$d['id'] ?>" <?= $sel[3] === (int)$d['id'] ? 'selected' : '' ?>>
               <?= htmlspecialchars($d['name']) ?>
@@ -194,16 +196,16 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
     <div class="ed-section">
       <div class="row g-4">
 
-        <?php /* Color picker */ ?>
+        <!-- Color picker -->
         <div class="col-md-4">
-          <p class="ed-section-title" style="margin-bottom:.75rem">Warna Kalender</p>
+          <p class="ed-section-title" style="margin-bottom:.7rem">Warna Kalender</p>
           <div class="ed-color-row">
             <?php foreach ($colorPresets as $hex):
               $isActive = strtolower($hex) === $currentColor;
             ?>
             <button type="button"
                     class="ed-swatch<?= $isActive ? ' active' : '' ?>"
-                    style="--sw:<?= $hex ?>; background:<?= $hex ?>"
+                    style="--sw:<?= $hex ?>;background:<?= $hex ?>"
                     data-color="<?= $hex ?>"
                     onclick="edPickColor('<?= $hex ?>')"
                     aria-label="Pilih warna <?= $hex ?>"
@@ -214,7 +216,7 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
                      value="<?= htmlspecialchars($currentColor) ?>"
                      onchange="edPickColor(this.value)"
                      aria-label="Pilih warna kustom">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.47-1.125"/><path d="M20 12c0-4.5-4-8-8-8"/></svg>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.47-1.125"/><path d="M20 12c0-4.5-4-8-8-8"/></svg>
             </label>
           </div>
           <input type="hidden" id="fColor" name="color" value="<?= htmlspecialchars($currentColor) ?>">
@@ -224,22 +226,22 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
           </div>
         </div>
 
-        <?php /* Participants */ ?>
+        <!-- Participants -->
         <div class="col-md-8">
-          <p class="ed-section-title" style="margin-bottom:.75rem">Peserta</p>
+          <p class="ed-section-title" style="margin-bottom:.7rem">Peserta</p>
           <div class="ed-p-wrap">
             <div class="ed-p-search">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input type="text" id="fPSearch" placeholder="Cari nama peserta…" autocomplete="off" aria-label="Cari peserta">
             </div>
             <div class="ed-p-list" id="fPList" role="group" aria-label="Daftar peserta">
               <?php foreach ($allUsers as $u):
-                $bg = $avPalette[abs(crc32($u['name'])) % count($avPalette)];
+                $avBg = $avPalette[abs(crc32($u['name'])) % count($avPalette)];
               ?>
               <label class="ed-p-item">
                 <input type="checkbox" name="participants[]" value="<?= (int)$u['id'] ?>"
                        <?= in_array((int)$u['id'], $participantIds) ? 'checked' : '' ?>>
-                <span class="ed-pav" style="background:<?= $bg ?>">
+                <span class="ed-pav" style="background:<?= $avBg ?>">
                   <?= strtoupper(mb_substr($u['name'], 0, 1)) ?>
                 </span>
                 <span class="ed-p-name"><?= htmlspecialchars($u['name']) ?></span>
@@ -249,7 +251,7 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
               </label>
               <?php endforeach; ?>
             </div>
-            <div class="ed-p-count" id="fPCount" aria-live="polite">
+            <div class="ed-p-count" aria-live="polite">
               <span id="fPCountNum"><?= count($participantIds) ?></span> peserta dipilih
             </div>
           </div>
@@ -258,13 +260,11 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
       </div>
     </div>
 
-    <?php /* ── Footer ── */ ?>
+    <!-- Footer -->
     <div class="ed-footer">
-      <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>" class="ed-btn-cancel">
-        Batal
-      </a>
+      <a href="<?= $baseUrl ?>/meetings/<?= (int)$meeting['id'] ?>" class="ed-btn-cancel">Batal</a>
       <button type="submit" class="ed-btn-submit" id="edSubmitBtn">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v14a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Simpan Perubahan
       </button>
     </div>
@@ -338,7 +338,7 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
 
   /* ── Color picker ── */
   window.edPickColor = function (hex) {
-    document.getElementById('fColor').value     = hex;
+    document.getElementById('fColor').value       = hex;
     document.getElementById('fColorPicker').value = hex;
     document.getElementById('edColorDot').style.background = hex;
     document.getElementById('edColorHex').textContent      = hex;
@@ -349,7 +349,7 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
     if (hero) hero.style.setProperty('--mc', hex);
   };
 
-  /* ── Participant search & count ── */
+  /* ── Participant search ── */
   var pSearch = document.getElementById('fPSearch');
   var pList   = document.getElementById('fPList');
   var pCount  = document.getElementById('fPCountNum');
@@ -397,25 +397,27 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
       }
 
       var btn = document.getElementById('edSubmitBtn');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Menyimpan…';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Menyimpan…';
+      }
     });
   }
 
   /* ── Auto-suggest end = start + 1h ── */
-  var startEl = document.getElementById('fStart');
-  var endEl   = document.getElementById('fEnd');
-  if (startEl && endEl) {
-    startEl.addEventListener('change', function () {
-      if (!endEl.value || endEl.value <= startEl.value) {
-        var d = new Date(startEl.value);
+  var startEl2 = document.getElementById('fStart');
+  var endEl2   = document.getElementById('fEnd');
+  if (startEl2 && endEl2) {
+    startEl2.addEventListener('change', function () {
+      if (!endEl2.value || endEl2.value <= startEl2.value) {
+        var d = new Date(startEl2.value);
         if (!isNaN(d.getTime())) {
           d.setHours(d.getHours() + 1);
           var pad = function (n) { return String(n).padStart(2, '0'); };
-          endEl.value = d.getFullYear() + '-'
+          endEl2.value = d.getFullYear() + '-'
             + pad(d.getMonth() + 1) + '-' + pad(d.getDate())
             + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
-          endEl.classList.remove('is-invalid');
+          endEl2.classList.remove('is-invalid');
         }
       }
     });
@@ -428,123 +430,102 @@ $avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a
 /* =============================================================
    EDIT.PHP — scoped styles
    Token dari custom.css:
-     --brand, --brand-dark, --brand-light, --brand-xlight
-     --gold,  --gold-dark
-     --bg-page, --bg-card, --text-main, --text-muted
-     --border, --border-light
+     --brand  --brand-dark  --brand-light  --brand-xlight
+     --gold   --gold-dark
+     --bg-page  --bg-card  --text-main  --text-muted
+     --border   --border-light
 ============================================================= */
 
-/* ── Alert ── */
+/* Alert */
 .ed-alert {
-  display: flex; align-items: center; gap: .5rem;
-  background: rgba(123,28,28,.07); color: var(--brand);
-  border: 1px solid rgba(123,28,28,.22); border-radius: 8px;
-  padding: .65rem 1rem; margin-bottom: 1rem;
-  font-size: 13px; font-weight: 500;
+  display:flex; align-items:center; gap:.5rem;
+  background:rgba(123,28,28,.07); color:var(--brand);
+  border:1px solid rgba(123,28,28,.22); border-radius:8px;
+  padding:.65rem 1rem; margin-bottom:1rem;
+  font-size:13px; font-weight:500;
 }
-.ed-alert-close { margin-left: auto; background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; opacity: .7; line-height: 1; }
-.ed-alert-close:hover { opacity: 1; }
+.ed-alert-close { margin-left:auto; background:none; border:none; font-size:18px; cursor:pointer; color:inherit; opacity:.7; line-height:1; }
+.ed-alert-close:hover { opacity:1; }
 
-/* ── Hero ── */
+/* Hero */
 .ed-hero {
   --mc: var(--brand);
   background: linear-gradient(135deg, var(--mc) 0%, var(--mc) 55%, #3d0a0a 100%);
-  border-radius: 14px;
-  box-shadow: 0 4px 24px rgba(0,0,0,.16);
+  border-radius:14px;
+  box-shadow:0 4px 24px rgba(0,0,0,.16);
 }
-.ed-hero-inner    { padding: 1.2rem 1.6rem; }
-.ed-breadcrumb    { display: flex; align-items: center; gap: .3rem; font-size: 12px; color: rgba(255,255,255,.60); margin-bottom: .55rem; }
-.ed-breadcrumb a  { color: rgba(255,255,255,.80); text-decoration: none; }
-.ed-breadcrumb a:hover { color: #fff; text-decoration: underline; }
-.ed-hero-row      { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
-.ed-hero-title    { display: flex; align-items: center; gap: .5rem; font-size: clamp(14px,2.2vw,20px); font-weight: 800; color: #fff; margin: 0; }
-.ed-back-btn      {
-  display: inline-flex; align-items: center; gap: .35rem;
-  font-size: 13px; font-weight: 600;
-  background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.28);
-  color: #fff; padding: .38rem .85rem; border-radius: 8px;
-  text-decoration: none; transition: background .18s; white-space: nowrap;
-}
-.ed-back-btn:hover { background: rgba(255,255,255,.24); color: #fff; }
+.ed-hero-inner { padding:1.2rem 1.6rem; }
+.ed-bc         { display:flex; align-items:center; gap:.3rem; font-size:12px; color:rgba(255,255,255,.58); margin-bottom:.5rem; }
+.ed-bc a       { color:rgba(255,255,255,.80); text-decoration:none; }
+.ed-bc a:hover { color:#fff; text-decoration:underline; }
+.ed-hero-row   { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; }
+.ed-hero-title { display:flex; align-items:center; gap:.5rem; font-size:clamp(14px,2.2vw,19px); font-weight:800; color:#fff; margin:0; }
+.ed-back-btn   { display:inline-flex; align-items:center; gap:.35rem; font-size:13px; font-weight:600; background:rgba(255,255,255,.14); border:1.5px solid rgba(255,255,255,.28); color:#fff; padding:.38rem .85rem; border-radius:8px; text-decoration:none; transition:background .18s; white-space:nowrap; }
+.ed-back-btn:hover { background:rgba(255,255,255,.24); color:#fff; }
 
-/* ── Card ── */
-.ed-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,.05); }
+/* Card */
+.ed-card { background:var(--bg-card); border:1px solid var(--border-light); border-radius:12px; overflow:hidden; box-shadow:0 1px 6px rgba(0,0,0,.05); }
 
-/* ── Sections ── */
-.ed-section       { padding: 1.4rem 1.6rem; }
-.ed-section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 1rem; }
-.ed-divider       { height: 1px; background: var(--border-light); }
-.ed-hint          { font-size: 12px; color: var(--text-muted); margin-top: .25rem; }
-.ed-optional      { font-weight: 400; color: var(--text-muted); font-size: 11px; }
+/* Sections */
+.ed-section       { padding:1.4rem 1.6rem; }
+.ed-section-title { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); margin-bottom:1rem; }
+.ed-divider       { height:1px; background:var(--border-light); }
+.ed-hint          { font-size:12px; color:var(--text-muted); margin-top:.25rem; }
+.ed-optional      { font-weight:400; color:var(--text-muted); font-size:11px; }
 
-/* ── Color picker ── */
-.ed-color-row  { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .5rem; }
+/* Color picker */
+.ed-color-row { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; margin-bottom:.5rem; }
 .ed-swatch {
-  width: 26px; height: 26px; border-radius: 50%;
-  border: 2.5px solid transparent;
-  outline: none; cursor: pointer;
-  transition: transform .15s, box-shadow .15s;
-  flex-shrink: 0; padding: 0;
+  width:26px; height:26px; border-radius:50%;
+  border:2.5px solid transparent;
+  outline:none; cursor:pointer;
+  transition:transform .15s,box-shadow .15s;
+  flex-shrink:0; padding:0;
 }
-.ed-swatch:hover { transform: scale(1.15); }
+.ed-swatch:hover { transform:scale(1.15); }
 .ed-swatch.active {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4.5px var(--sw, var(--brand));
-  transform: scale(1.1);
+  box-shadow:0 0 0 2px #fff, 0 0 0 4.5px var(--sw, var(--brand));
+  transform:scale(1.1);
 }
 .ed-swatch-custom {
-  display: flex; align-items: center; justify-content: center;
-  background: var(--bg-page); border: 1.5px dashed var(--border); color: var(--text-muted);
-  cursor: pointer; overflow: hidden; position: relative;
-  transition: border-color .15s, color .15s;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--bg-page); border:1.5px dashed var(--border); color:var(--text-muted);
+  cursor:pointer; overflow:hidden; position:relative;
+  transition:border-color .15s,color .15s;
 }
-.ed-swatch-custom:hover { border-color: var(--text-muted); color: var(--text-main); }
-.ed-swatch-custom input[type=color] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
-.ed-color-preview { display: flex; align-items: center; gap: .4rem; margin-top: .3rem; }
-.ed-color-dot     { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); flex-shrink: 0; }
-.ed-color-hex     { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+.ed-swatch-custom:hover { border-color:var(--text-muted); color:var(--text-main); }
+.ed-swatch-custom input[type=color] { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+.ed-color-preview { display:flex; align-items:center; gap:.4rem; margin-top:.3rem; }
+.ed-color-dot     { display:inline-block; width:14px; height:14px; border-radius:50%; border:1px solid var(--border); flex-shrink:0; }
+.ed-color-hex     { font-size:12px; color:var(--text-muted); font-family:monospace; }
 
-/* ── Participant box ── */
-.ed-p-wrap    { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.ed-p-search  { display: flex; align-items: center; gap: .4rem; padding: .5rem .8rem; border-bottom: 1px solid var(--border-light); background: var(--bg-page); }
-.ed-p-search svg   { flex-shrink: 0; color: var(--text-muted); }
-.ed-p-search input { border: none; background: none; outline: none; font-size: 13px; width: 100%; color: var(--text-main); }
-.ed-p-list    { max-height: 230px; overflow-y: auto; padding: .3rem 0; }
-.ed-p-item    { display: flex; align-items: center; gap: .5rem; padding: .4rem .8rem; cursor: pointer; transition: background .12s; }
-.ed-p-item:hover { background: var(--brand-xlight); }
-.ed-p-item input[type=checkbox] { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; accent-color: var(--brand); }
-.ed-pav       { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; }
-.ed-p-name    { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ed-p-dept    { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
-.ed-p-count   { padding: .35rem .8rem; font-size: 12px; font-weight: 600; color: var(--text-muted); background: var(--bg-page); border-top: 1px solid var(--border-light); }
+/* Participant box */
+.ed-p-wrap    { border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+.ed-p-search  { display:flex; align-items:center; gap:.4rem; padding:.5rem .8rem; border-bottom:1px solid var(--border-light); background:var(--bg-page); }
+.ed-p-search svg   { flex-shrink:0; color:var(--text-muted); }
+.ed-p-search input { border:none; background:none; outline:none; font-size:13px; width:100%; color:var(--text-main); }
+.ed-p-list    { max-height:230px; overflow-y:auto; padding:.3rem 0; }
+.ed-p-item    { display:flex; align-items:center; gap:.5rem; padding:.4rem .8rem; cursor:pointer; transition:background .12s; }
+.ed-p-item:hover { background:var(--brand-xlight); }
+.ed-p-item input[type=checkbox] { width:15px; height:15px; flex-shrink:0; cursor:pointer; accent-color:var(--brand); }
+.ed-pav       { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:50%; font-size:11px; font-weight:800; color:#fff; flex-shrink:0; }
+.ed-p-name    { font-size:13px; font-weight:500; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.ed-p-dept    { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+.ed-p-count   { padding:.35rem .8rem; font-size:12px; font-weight:600; color:var(--text-muted); background:var(--bg-page); border-top:1px solid var(--border-light); }
 
-/* ── Footer ── */
-.ed-footer {
-  display: flex; justify-content: flex-end; align-items: center; gap: .75rem;
-  padding: 1rem 1.6rem;
-  border-top: 1px solid var(--border-light);
-  background: var(--bg-page);
-}
-.ed-btn-cancel {
-  font-size: 13px; font-weight: 600; color: var(--text-muted);
-  text-decoration: none; padding: .45rem .9rem;
-  border-radius: 8px; transition: color .15s, background .15s;
-}
-.ed-btn-cancel:hover { color: var(--text-main); background: var(--border-light); }
-.ed-btn-submit {
-  display: inline-flex; align-items: center; gap: .4rem;
-  font-size: 13px; font-weight: 700;
-  background: var(--brand); color: #fff;
-  padding: .5rem 1.2rem; border: none; border-radius: 8px;
-  cursor: pointer; transition: background .18s;
-}
-.ed-btn-submit:hover:not(:disabled) { background: var(--brand-dark); }
-.ed-btn-submit:disabled { opacity: .6; cursor: not-allowed; }
+/* Footer */
+.ed-footer { display:flex; justify-content:flex-end; align-items:center; gap:.75rem; padding:1rem 1.6rem; border-top:1px solid var(--border-light); background:var(--bg-page); }
+.ed-btn-cancel { font-size:13px; font-weight:600; color:var(--text-muted); text-decoration:none; padding:.45rem .9rem; border-radius:8px; transition:color .15s,background .15s; }
+.ed-btn-cancel:hover { color:var(--text-main); background:var(--border-light); }
+.ed-btn-submit { display:inline-flex; align-items:center; gap:.4rem; font-size:13px; font-weight:700; background:var(--brand); color:#fff; padding:.5rem 1.2rem; border:none; border-radius:8px; cursor:pointer; transition:background .18s; }
+.ed-btn-submit:hover:not(:disabled) { background:var(--brand-dark); }
+.ed-btn-submit:disabled { opacity:.6; cursor:not-allowed; }
 
-/* ── Responsive ── */
-@media (max-width: 575px) {
-  .ed-hero-inner { padding: 1rem; }
-  .ed-section    { padding: 1rem; }
-  .ed-footer     { padding: .75rem 1rem; }
-  .ed-p-list     { max-height: 170px; }
+/* Responsive */
+@media (max-width:575px) {
+  .ed-hero-inner { padding:1rem; }
+  .ed-section    { padding:1rem; }
+  .ed-footer     { padding:.75rem 1rem; flex-wrap:wrap; }
+  .ed-p-list     { max-height:170px; }
 }
 </style>
