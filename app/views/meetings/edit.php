@@ -1,7 +1,7 @@
 <?php
 $baseUrl = rtrim(BASE_URL, '/');
 
-// ── Status labels ───────────────────────────────────────────────────────────
+// ── Status labels ──────────────────────────────────────────────────────────
 $statusLabel = [
   'scheduled' => 'Terjadwal',
   'ongoing'   => 'Sedang Berlangsung',
@@ -9,7 +9,7 @@ $statusLabel = [
   'cancelled' => 'Dibatalkan',
 ];
 
-// ── Resolve departemen chain yang sedang dipilih ────────────────────────────
+// ── Resolve departemen chain ───────────────────────────────────────────────
 $selDeptId = (int)($meeting['department_id'] ?? 0);
 $selDept   = $selDeptId
   ? Database::queryOne('SELECT id, name, level, parent_id FROM departments WHERE id = ?', [$selDeptId])
@@ -30,24 +30,22 @@ if ($selDept) {
   }
 }
 
-// ── Group departments by parent_id ─────────────────────────────────────────
+// ── Group departments by parent_id ────────────────────────────────────────
 $deptByParent = [];
 foreach (($departments ?? []) as $d) {
   $deptByParent[(int)($d['parent_id'] ?? 0)][] = $d;
 }
 
-// ── Warna preset & current ─────────────────────────────────────────────────
+// ── Warna & peserta ───────────────────────────────────────────────────────
 $colorPresets   = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a', '#b5530a', '#6b6b6b'];
-$currentColor   = strtolower(trim($meeting['color'] ?? '#7B1C1C'));
-$participantIds = $participantIds ?? [];
+$currentColor   = strtolower(trim($meeting['color'] ?? '#7b1c1c'));
+$participantIds = array_map('intval', $participantIds ?? []);
 $allUsers       = $allUsers ?? [];
-
-// ── Avatar palette ─────────────────────────────────────────────────────────
-$avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
+$avPalette      = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
 ?>
 
 <?php if (!empty($_SESSION['flash_error'])): ?>
-<div class="ed-alert" id="edAlertErr" role="alert">
+<div class="ed-alert" id="edAlertErr" role="alert" aria-live="polite">
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
   <?= htmlspecialchars($_SESSION['flash_error']) ?>
   <button type="button" class="ed-alert-close" onclick="document.getElementById('edAlertErr').remove()" aria-label="Tutup">&times;</button>
@@ -57,7 +55,7 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
 <?php /* ================================================================
    HERO
 ================================================================ */ ?>
-<div class="ed-hero mb-4" style="--meeting-color:<?= htmlspecialchars($currentColor) ?>">
+<div class="ed-hero mb-4" style="--mc:<?= htmlspecialchars($currentColor) ?>">
   <div class="ed-hero-inner">
     <nav class="ed-breadcrumb" aria-label="Breadcrumb">
       <a href="<?= $baseUrl ?>/meetings">Kegiatan</a>
@@ -116,18 +114,30 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
           <div class="invalid-feedback">Waktu selesai wajib diisi &amp; harus setelah waktu mulai.</div>
         </div>
 
-        <div class="col-12">
+        <div class="col-md-6">
+          <label class="form-label required" for="fStatus">Status</label>
+          <select id="fStatus" name="status" class="form-select" required>
+            <?php foreach ($statusLabel as $val => $lbl): ?>
+            <option value="<?= $val ?>" <?= ($meeting['status'] ?? 'scheduled') === $val ? 'selected' : '' ?>>
+              <?= htmlspecialchars($lbl) ?>
+            </option>
+            <?php endforeach; ?>
+          </select>
+          <div class="invalid-feedback">Status wajib dipilih.</div>
+        </div>
+
+        <div class="col-md-6">
           <label class="form-label" for="fLocation">Lokasi / Link Video</label>
           <input type="text" id="fLocation" name="location" class="form-control"
-                 placeholder="Ruang Rapat A, atau https://meet.google.com/…"
+                 placeholder="Ruang Rapat A, atau https://meet.google.com/&hellip;"
                  value="<?= htmlspecialchars($meeting['location'] ?? '') ?>">
-          <div class="ed-hint">Jika berupa URL, akan ditampilkan sebagai tautan pada halaman detail.</div>
+          <div class="ed-hint">Jika berupa URL, akan ditampilkan sebagai tautan di halaman detail.</div>
         </div>
 
         <div class="col-12">
           <label class="form-label" for="fDesc">Deskripsi / Agenda</label>
           <textarea id="fDesc" name="description" class="form-control" rows="4"
-                    placeholder="Tulis agenda kegiatan…"><?= htmlspecialchars($meeting['description'] ?? '') ?></textarea>
+                    placeholder="Tulis agenda kegiatan&hellip;"><?= htmlspecialchars($meeting['description'] ?? '') ?></textarea>
         </div>
 
       </div>
@@ -163,9 +173,7 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
           </select>
         </div>
         <div class="col-md-4">
-          <label class="form-label" for="fU3">
-            Sub Bidang <span class="ed-optional">(opsional)</span>
-          </label>
+          <label class="form-label" for="fU3">Sub Bidang <span class="ed-optional">(opsional)</span></label>
           <select id="fU3" name="_u3" class="form-select" onchange="edCascade(3)"
                   <?= $sel[2] ? '' : 'disabled' ?>>
             <option value="">— Opsional —</option>
@@ -194,8 +202,8 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
               $isActive = strtolower($hex) === $currentColor;
             ?>
             <button type="button"
-                    class="ed-swatch <?= $isActive ? 'active' : '' ?>"
-                    style="background:<?= $hex ?>"
+                    class="ed-swatch<?= $isActive ? ' active' : '' ?>"
+                    style="--sw:<?= $hex ?>; background:<?= $hex ?>"
                     data-color="<?= $hex ?>"
                     onclick="edPickColor('<?= $hex ?>')"
                     aria-label="Pilih warna <?= $hex ?>"
@@ -230,7 +238,7 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
               ?>
               <label class="ed-p-item">
                 <input type="checkbox" name="participants[]" value="<?= (int)$u['id'] ?>"
-                       <?= in_array((int)$u['id'], array_map('intval', $participantIds)) ? 'checked' : '' ?>>
+                       <?= in_array((int)$u['id'], $participantIds) ? 'checked' : '' ?>>
                 <span class="ed-pav" style="background:<?= $bg ?>">
                   <?= strtoupper(mb_substr($u['name'], 0, 1)) ?>
                 </span>
@@ -242,7 +250,7 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
               <?php endforeach; ?>
             </div>
             <div class="ed-p-count" id="fPCount" aria-live="polite">
-              <span id="fPCountNum"><?= count(array_map('intval', $participantIds)) ?></span> peserta dipilih
+              <span id="fPCountNum"><?= count($participantIds) ?></span> peserta dipilih
             </div>
           </div>
         </div>
@@ -275,12 +283,10 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
   var CHILD_URL = <?= json_encode($childrenUrl) ?>;
 
   /* ── Cascade dept dropdowns ── */
-  async function fetchKids(parentId) {
-    try {
-      var r = await fetch(CHILD_URL + '?parent_id=' + encodeURIComponent(parentId));
-      if (!r.ok) return [];
-      return await r.json();
-    } catch (e) { return []; }
+  function fetchKids(parentId) {
+    return fetch(CHILD_URL + '?parent_id=' + encodeURIComponent(parentId))
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .catch(function () { return []; });
   }
 
   function syncDept() {
@@ -300,29 +306,31 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
     });
   }
 
-  window.edCascade = async function (level) {
+  window.edCascade = function (level) {
     var s1 = document.getElementById('fU1');
     var s2 = document.getElementById('fU2');
     var s3 = document.getElementById('fU3');
 
     if (level === 1) {
-      buildOptions(s2, [], '— Semua Bidang —');
-      buildOptions(s3, [], '— Opsional —');
+      buildOptions(s2, [], '\u2014 Semua Bidang \u2014');
+      buildOptions(s3, [], '\u2014 Opsional \u2014');
       s2.disabled = true;
       s3.disabled = true;
       syncDept();
       if (!s1.value) return;
-      var kids = await fetchKids(s1.value);
-      if (kids.length) { buildOptions(s2, kids, '— Semua Bidang —'); s2.disabled = false; }
-      syncDept();
+      fetchKids(s1.value).then(function (kids) {
+        if (kids.length) { buildOptions(s2, kids, '\u2014 Semua Bidang \u2014'); s2.disabled = false; }
+        syncDept();
+      });
     } else if (level === 2) {
-      buildOptions(s3, [], '— Opsional —');
+      buildOptions(s3, [], '\u2014 Opsional \u2014');
       s3.disabled = true;
       syncDept();
       if (!s2.value) return;
-      var kids = await fetchKids(s2.value);
-      if (kids.length) { buildOptions(s3, kids, '— Opsional —'); s3.disabled = false; }
-      syncDept();
+      fetchKids(s2.value).then(function (kids) {
+        if (kids.length) { buildOptions(s3, kids, '\u2014 Opsional \u2014'); s3.disabled = false; }
+        syncDept();
+      });
     } else {
       syncDept();
     }
@@ -330,19 +338,18 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
 
   /* ── Color picker ── */
   window.edPickColor = function (hex) {
-    document.getElementById('fColor').value = hex;
+    document.getElementById('fColor').value     = hex;
     document.getElementById('fColorPicker').value = hex;
     document.getElementById('edColorDot').style.background = hex;
-    document.getElementById('edColorHex').textContent = hex;
+    document.getElementById('edColorHex').textContent      = hex;
     document.querySelectorAll('.ed-swatch[data-color]').forEach(function (s) {
       s.classList.toggle('active', s.dataset.color.toLowerCase() === hex.toLowerCase());
     });
-    /* live preview warna hero */
     var hero = document.querySelector('.ed-hero');
-    if (hero) hero.style.setProperty('--meeting-color', hex);
+    if (hero) hero.style.setProperty('--mc', hex);
   };
 
-  /* ── Participant search ── */
+  /* ── Participant search & count ── */
   var pSearch = document.getElementById('fPSearch');
   var pList   = document.getElementById('fPList');
   var pCount  = document.getElementById('fPCountNum');
@@ -368,24 +375,18 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
   var form = document.getElementById('editMeetingForm');
   if (form) {
     form.addEventListener('submit', function (e) {
-      var start = document.getElementById('fStart');
-      var end   = document.getElementById('fEnd');
-      var valid = true;
+      var startEl = document.getElementById('fStart');
+      var endEl   = document.getElementById('fEnd');
+      var valid   = true;
 
-      form.querySelectorAll('.is-invalid').forEach(function (el) {
-        el.classList.remove('is-invalid');
-      });
+      form.querySelectorAll('.is-invalid').forEach(function (el) { el.classList.remove('is-invalid'); });
 
       form.querySelectorAll('[required]').forEach(function (el) {
-        if (!el.value.trim()) {
-          el.classList.add('is-invalid');
-          valid = false;
-        }
+        if (!el.value.trim()) { el.classList.add('is-invalid'); valid = false; }
       });
 
-      if (start.value && end.value && end.value <= start.value) {
-        end.classList.add('is-invalid');
-        valid = false;
+      if (startEl.value && endEl.value && endEl.value <= startEl.value) {
+        endEl.classList.add('is-invalid'); valid = false;
       }
 
       if (!valid) {
@@ -423,78 +424,73 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
 }());
 </script>
 
-<?php /* ================================================================
-   STYLES — semua token dari palet Kemenbud di custom.css
-================================================================ */ ?>
 <style>
+/* =============================================================
+   EDIT.PHP — scoped styles
+   Token dari custom.css:
+     --brand, --brand-dark, --brand-light, --brand-xlight
+     --gold,  --gold-dark
+     --bg-page, --bg-card, --text-main, --text-muted
+     --border, --border-light
+============================================================= */
+
 /* ── Alert ── */
 .ed-alert {
   display: flex; align-items: center; gap: .5rem;
-  background: rgba(192,57,43,.08); color: var(--brand);
-  border: 1px solid rgba(192,57,43,.25); border-radius: 8px;
+  background: rgba(123,28,28,.07); color: var(--brand);
+  border: 1px solid rgba(123,28,28,.22); border-radius: 8px;
   padding: .65rem 1rem; margin-bottom: 1rem;
   font-size: 13px; font-weight: 500;
 }
-.ed-alert-close {
-  margin-left: auto; background: none; border: none;
-  font-size: 18px; cursor: pointer; color: inherit; opacity: .7; line-height: 1;
-}
+.ed-alert-close { margin-left: auto; background: none; border: none; font-size: 18px; cursor: pointer; color: inherit; opacity: .7; line-height: 1; }
 .ed-alert-close:hover { opacity: 1; }
 
 /* ── Hero ── */
 .ed-hero {
-  --meeting-color: var(--brand);
-  background: linear-gradient(135deg, var(--meeting-color) 0%, color-mix(in srgb, var(--meeting-color) 75%, #1a0000 25%) 100%);
+  --mc: var(--brand);
+  background: linear-gradient(135deg, var(--mc) 0%, var(--mc) 55%, #3d0a0a 100%);
   border-radius: 14px;
   box-shadow: 0 4px 24px rgba(0,0,0,.16);
 }
-.ed-hero-inner   { padding: 1.2rem 1.6rem; }
-.ed-breadcrumb   { display: flex; align-items: center; gap: .3rem; font-size: 12px; color: rgba(255,255,255,.62); margin-bottom: .55rem; }
-.ed-breadcrumb a { color: rgba(255,255,255,.8); text-decoration: none; }
+.ed-hero-inner    { padding: 1.2rem 1.6rem; }
+.ed-breadcrumb    { display: flex; align-items: center; gap: .3rem; font-size: 12px; color: rgba(255,255,255,.60); margin-bottom: .55rem; }
+.ed-breadcrumb a  { color: rgba(255,255,255,.80); text-decoration: none; }
 .ed-breadcrumb a:hover { color: #fff; text-decoration: underline; }
-.ed-hero-row   { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
-.ed-hero-title {
-  display: flex; align-items: center; gap: .5rem;
-  font-size: clamp(14px, 2.2vw, 20px); font-weight: 800; color: #fff; margin: 0;
-}
-.ed-back-btn {
+.ed-hero-row      { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.ed-hero-title    { display: flex; align-items: center; gap: .5rem; font-size: clamp(14px,2.2vw,20px); font-weight: 800; color: #fff; margin: 0; }
+.ed-back-btn      {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 13px; font-weight: 600;
-  background: rgba(255,255,255,.15); border: 1.5px solid rgba(255,255,255,.3);
+  background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.28);
   color: #fff; padding: .38rem .85rem; border-radius: 8px;
   text-decoration: none; transition: background .18s; white-space: nowrap;
 }
-.ed-back-btn:hover { background: rgba(255,255,255,.25); color: #fff; }
+.ed-back-btn:hover { background: rgba(255,255,255,.24); color: #fff; }
 
-/* ── Card wrapper ── */
-.ed-card {
-  background: var(--bg-card); border: 1px solid var(--border-light);
-  border-radius: 12px; overflow: hidden;
-  box-shadow: 0 1px 6px rgba(0,0,0,.05);
-}
+/* ── Card ── */
+.ed-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,.05); }
 
 /* ── Sections ── */
 .ed-section       { padding: 1.4rem 1.6rem; }
-.ed-section-title {
-  font-size: 11px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .08em;
-  color: var(--text-muted); margin-bottom: 1rem;
-}
-.ed-divider { height: 1px; background: var(--border-light); }
-
-/* Reuse global .form-label — hanya tambahan kecil */
-.ed-hint     { font-size: 12px; color: var(--text-muted); margin-top: .25rem; }
-.ed-optional { font-weight: 400; color: var(--text-muted); font-size: 11px; }
+.ed-section-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 1rem; }
+.ed-divider       { height: 1px; background: var(--border-light); }
+.ed-hint          { font-size: 12px; color: var(--text-muted); margin-top: .25rem; }
+.ed-optional      { font-weight: 400; color: var(--text-muted); font-size: 11px; }
 
 /* ── Color picker ── */
-.ed-color-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .5rem; }
+.ed-color-row  { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: .5rem; }
 .ed-swatch {
   width: 26px; height: 26px; border-radius: 50%;
-  border: 2.5px solid transparent; cursor: pointer;
-  transition: transform .15s, box-shadow .15s; flex-shrink: 0; padding: 0;
+  border: 2.5px solid transparent;
+  outline: none; cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+  flex-shrink: 0; padding: 0;
 }
 .ed-swatch:hover { transform: scale(1.15); }
-.ed-swatch.active { box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor; transform: scale(1.1); }
+.ed-swatch.active {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4.5px var(--sw, var(--brand));
+  transform: scale(1.1);
+}
 .ed-swatch-custom {
   display: flex; align-items: center; justify-content: center;
   background: var(--bg-page); border: 1.5px dashed var(--border); color: var(--text-muted);
@@ -502,51 +498,24 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
   transition: border-color .15s, color .15s;
 }
 .ed-swatch-custom:hover { border-color: var(--text-muted); color: var(--text-main); }
-.ed-swatch-custom input[type=color] {
-  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
-}
+.ed-swatch-custom input[type=color] { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .ed-color-preview { display: flex; align-items: center; gap: .4rem; margin-top: .3rem; }
-.ed-color-dot {
-  display: inline-block; width: 14px; height: 14px;
-  border-radius: 50%; border: 1px solid var(--border); flex-shrink: 0;
-}
-.ed-color-hex { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+.ed-color-dot     { display: inline-block; width: 14px; height: 14px; border-radius: 50%; border: 1px solid var(--border); flex-shrink: 0; }
+.ed-color-hex     { font-size: 12px; color: var(--text-muted); font-family: monospace; }
 
 /* ── Participant box ── */
-.ed-p-wrap { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-.ed-p-search {
-  display: flex; align-items: center; gap: .4rem;
-  padding: .5rem .8rem; border-bottom: 1px solid var(--border-light);
-  background: var(--bg-page);
-}
+.ed-p-wrap    { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.ed-p-search  { display: flex; align-items: center; gap: .4rem; padding: .5rem .8rem; border-bottom: 1px solid var(--border-light); background: var(--bg-page); }
 .ed-p-search svg   { flex-shrink: 0; color: var(--text-muted); }
-.ed-p-search input {
-  border: none; background: none; outline: none;
-  font-size: 13px; width: 100%; color: var(--text-main);
-}
-.ed-p-list {
-  max-height: 230px; overflow-y: auto; padding: .3rem 0;
-}
-.ed-p-item {
-  display: flex; align-items: center; gap: .5rem;
-  padding: .4rem .8rem; cursor: pointer; transition: background .12s;
-}
+.ed-p-search input { border: none; background: none; outline: none; font-size: 13px; width: 100%; color: var(--text-main); }
+.ed-p-list    { max-height: 230px; overflow-y: auto; padding: .3rem 0; }
+.ed-p-item    { display: flex; align-items: center; gap: .5rem; padding: .4rem .8rem; cursor: pointer; transition: background .12s; }
 .ed-p-item:hover { background: var(--brand-xlight); }
-.ed-p-item input[type=checkbox] {
-  width: 15px; height: 15px; flex-shrink: 0; cursor: pointer;
-  accent-color: var(--brand);
-}
-.ed-pav {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; border-radius: 50%;
-  font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
-}
-.ed-p-name  { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ed-p-dept  { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
-.ed-p-count {
-  padding: .35rem .8rem; font-size: 12px; font-weight: 600; color: var(--text-muted);
-  background: var(--bg-page); border-top: 1px solid var(--border-light);
-}
+.ed-p-item input[type=checkbox] { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; accent-color: var(--brand); }
+.ed-pav       { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; }
+.ed-p-name    { font-size: 13px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ed-p-dept    { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.ed-p-count   { padding: .35rem .8rem; font-size: 12px; font-weight: 600; color: var(--text-muted); background: var(--bg-page); border-top: 1px solid var(--border-light); }
 
 /* ── Footer ── */
 .ed-footer {
@@ -566,7 +535,7 @@ $avPalette = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a'];
   font-size: 13px; font-weight: 700;
   background: var(--brand); color: #fff;
   padding: .5rem 1.2rem; border: none; border-radius: 8px;
-  cursor: pointer; transition: background .18s, filter .18s;
+  cursor: pointer; transition: background .18s;
 }
 .ed-btn-submit:hover:not(:disabled) { background: var(--brand-dark); }
 .ed-btn-submit:disabled { opacity: .6; cursor: not-allowed; }

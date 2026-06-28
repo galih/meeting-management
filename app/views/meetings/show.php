@@ -10,7 +10,7 @@ $statusLabel = [
 ];
 $statusCls = [
   'scheduled' => 'sh-status-blue',
-  'ongoing'   => 'sh-status-orange',
+  'ongoing'   => 'sh-status-gold',
   'done'      => 'sh-status-green',
   'cancelled' => 'sh-status-red',
 ];
@@ -21,11 +21,11 @@ $statusIcon = [
   'cancelled' => '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
 ];
 $pStatusCls = [
-  'accepted' => 'sh-bdg-green',
-  'invited'  => 'sh-bdg-blue',
-  'declined' => 'sh-bdg-red',
-  'attended' => 'sh-bdg-teal',
-  'pending'  => 'sh-bdg-muted',
+  'accepted' => 'bdg-green',
+  'invited'  => 'bdg-blue',
+  'declined' => 'bdg-red',
+  'attended' => 'bdg-teal',
+  'pending'  => 'bdg-muted',
 ];
 $pStatusLabel = [
   'accepted' => 'Diterima',
@@ -34,9 +34,9 @@ $pStatusLabel = [
   'attended' => 'Hadir',
   'pending'  => 'Menunggu',
 ];
-$prioClsMap = ['high' => 'sh-bdg-red', 'medium' => 'sh-bdg-orange', 'low' => 'sh-bdg-green'];
+$prioClsMap = ['high' => 'bdg-red', 'medium' => 'bdg-gold', 'low' => 'bdg-green'];
 $prioLblMap = ['high' => 'Tinggi', 'medium' => 'Sedang', 'low' => 'Rendah'];
-$tlSClsMap  = ['pending' => 'sh-bdg-muted', 'in_progress' => 'sh-bdg-blue', 'done' => 'sh-bdg-green', 'cancelled' => 'sh-bdg-red'];
+$tlSClsMap  = ['pending' => 'bdg-muted', 'in_progress' => 'bdg-blue', 'done' => 'bdg-green', 'cancelled' => 'bdg-red'];
 $tlSLblMap  = ['pending' => 'Menunggu', 'in_progress' => 'Berlangsung', 'done' => 'Selesai', 'cancelled' => 'Dibatalkan'];
 
 // ── Computed vars ─────────────────────────────────────────────
@@ -45,9 +45,9 @@ $participants     = $participants ?? [];
 $tindakLanjutList = $tindakLanjutList ?? [];
 
 $mStatus  = $meeting['status'] ?? 'scheduled';
-$mCls     = $statusCls[$mStatus]    ?? 'sh-status-muted';
-$mLabel   = $statusLabel[$mStatus]  ?? ucfirst($mStatus);
-$mIcon    = $statusIcon[$mStatus]   ?? '';
+$mCls     = $statusCls[$mStatus]   ?? 'sh-status-muted';
+$mLabel   = $statusLabel[$mStatus] ?? ucfirst($mStatus);
+$mIcon    = $statusIcon[$mStatus]  ?? '';
 $loc      = trim($meeting['location'] ?? '');
 $isLink   = $loc && (str_starts_with($loc, 'http://') || str_starts_with($loc, 'https://'));
 $brand    = htmlspecialchars($meeting['color'] ?? '#7B1C1C');
@@ -60,9 +60,9 @@ $overdueTL    = count(array_filter($tindakLanjutList,
   fn($t) => !empty($t['due_date']) && $t['due_date'] < $today
          && !in_array($t['status'], ['done', 'cancelled'])
 ));
-$progressPct  = $totalTL > 0 ? round(($doneTL / $totalTL) * 100) : 0;
-$csrfToken    = htmlspecialchars($_SESSION['csrf_token'] ?? '');
-$avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a', '#b5530a'];
+$progressPct = $totalTL > 0 ? round(($doneTL / $totalTL) * 100) : 0;
+$csrfToken   = htmlspecialchars($_SESSION['csrf_token'] ?? '');
+$avPalette   = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a', '#b5530a'];
 ?>
 
 <?php /* ── Flash toasts ── */ ?>
@@ -96,7 +96,7 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
         </nav>
         <h1 class="sh-hero-title"><?= htmlspecialchars($meeting['title']) ?></h1>
         <div class="sh-hero-meta">
-          <span class="sh-status <?= $mCls ?>"><?= $mIcon ?> <?= $mLabel ?></span>
+          <span class="sh-status <?= $mCls ?>"><?= $mIcon ?>&nbsp;<?= $mLabel ?></span>
           <?php if (!empty($meeting['dept_name'])): ?>
           <span class="sh-chip">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -172,28 +172,40 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
     <!-- Stat cards -->
     <div class="sh-stats mb-3">
       <div class="sh-stat">
-        <div class="sh-stat-ico sh-sico-blue">
+        <div class="sh-stat-ico sico-blue">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         </div>
-        <div><div class="sh-stat-val"><?= $totalPeserta ?></div><div class="sh-stat-lbl">Peserta</div></div>
+        <div>
+          <div class="sh-stat-val"><?= $totalPeserta ?></div>
+          <div class="sh-stat-lbl">Peserta</div>
+        </div>
       </div>
       <div class="sh-stat">
-        <div class="sh-stat-ico sh-sico-brand">
+        <div class="sh-stat-ico sico-brand">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         </div>
-        <div><div class="sh-stat-val"><?= $totalTL ?></div><div class="sh-stat-lbl">Tindak Lanjut</div></div>
+        <div>
+          <div class="sh-stat-val"><?= $totalTL ?></div>
+          <div class="sh-stat-lbl">Tindak Lanjut</div>
+        </div>
       </div>
       <div class="sh-stat">
-        <div class="sh-stat-ico sh-sico-green">
+        <div class="sh-stat-ico sico-green">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
         </div>
-        <div><div class="sh-stat-val sh-val-green"><?= $doneTL ?></div><div class="sh-stat-lbl">Selesai</div></div>
+        <div>
+          <div class="sh-stat-val val-green"><?= $doneTL ?></div>
+          <div class="sh-stat-lbl">Selesai</div>
+        </div>
       </div>
       <div class="sh-stat">
-        <div class="sh-stat-ico <?= $overdueTL > 0 ? 'sh-sico-red' : 'sh-sico-muted' ?>">
+        <div class="sh-stat-ico <?= $overdueTL > 0 ? 'sico-red' : 'sico-muted' ?>">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
         </div>
-        <div><div class="sh-stat-val <?= $overdueTL > 0 ? 'sh-val-red' : '' ?>"><?= $overdueTL ?></div><div class="sh-stat-lbl">Terlambat</div></div>
+        <div>
+          <div class="sh-stat-val <?= $overdueTL > 0 ? 'val-red' : '' ?>"><?= $overdueTL ?></div>
+          <div class="sh-stat-lbl">Terlambat</div>
+        </div>
       </div>
     </div>
 
@@ -257,7 +269,7 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
       </div>
     </div>
 
-  </div>
+  </div><!-- /sidebar -->
 
   <?php /* ── MAIN PANEL ── */ ?>
   <div class="col-xl-9 col-lg-8">
@@ -266,13 +278,13 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
       <!-- Tab nav -->
       <div class="sh-tabs" role="tablist">
         <button type="button" class="sh-tab active" data-tab="tl"
-                role="tab" aria-selected="true" aria-controls="sh-panel-tl">
+                role="tab" aria-selected="true" aria-controls="sh-panel-tl" id="sh-tab-tl">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           Tindak Lanjut
           <span class="sh-pill"><?= $totalTL ?></span>
         </button>
         <button type="button" class="sh-tab" data-tab="peserta"
-                role="tab" aria-selected="false" aria-controls="sh-panel-peserta">
+                role="tab" aria-selected="false" aria-controls="sh-panel-peserta" id="sh-tab-peserta">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           Peserta
           <span class="sh-pill"><?= $totalPeserta ?></span>
@@ -280,7 +292,7 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
       </div>
 
       <?php /* Tab: Tindak Lanjut */ ?>
-      <div id="sh-panel-tl" class="sh-panel active" role="tabpanel">
+      <div id="sh-panel-tl" class="sh-panel active" role="tabpanel" aria-labelledby="sh-tab-tl">
 
         <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
         <div class="sh-toolbar">
@@ -294,7 +306,7 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
         <?php if (empty($tindakLanjutList)): ?>
         <div class="sh-empty">
           <div class="sh-empty-ico">
-            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           </div>
           <p>Belum ada tindak lanjut untuk kegiatan ini.</p>
           <?php if (Auth::hasRole('admin', 'sekretaris')): ?>
@@ -314,7 +326,7 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
                 <th>Deadline</th>
                 <th>Prioritas</th>
                 <th>Status</th>
-                <th style="width:56px"></th>
+                <th style="width:60px"></th>
               </tr>
             </thead>
             <tbody>
@@ -322,16 +334,16 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
               $isOver = !empty($tl['due_date'])
                 && $tl['due_date'] < $today
                 && !in_array($tl['status'], ['done', 'cancelled']);
-              $pCls = $prioClsMap[$tl['priority'] ?? ''] ?? 'sh-bdg-muted';
+              $pCls = $prioClsMap[$tl['priority'] ?? ''] ?? 'bdg-muted';
               $pLbl = $prioLblMap[$tl['priority'] ?? ''] ?? ucfirst($tl['priority'] ?? '-');
-              $sCls = $tlSClsMap[$tl['status'] ?? '']   ?? 'sh-bdg-muted';
+              $sCls = $tlSClsMap[$tl['status'] ?? '']   ?? 'bdg-muted';
               $sLbl = $tlSLblMap[$tl['status'] ?? '']   ?? ucfirst($tl['status'] ?? '-');
             ?>
-              <tr class="<?= $isOver ? 'sh-row-over' : '' ?>">
+              <tr class="<?= $isOver ? 'row-overdue' : '' ?>">
                 <td>
                   <div class="sh-tl-desc"><?= htmlspecialchars($tl['description']) ?></div>
                   <?php if ($isOver): ?>
-                  <span class="sh-bdg sh-bdg-red" style="font-size:10px;margin-top:.2rem;display:inline-flex">Terlambat</span>
+                  <span class="sh-bdg bdg-red" style="font-size:10px;margin-top:.2rem;display:inline-flex">Terlambat</span>
                   <?php endif; ?>
                 </td>
                 <td>
@@ -340,10 +352,10 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
                     <span class="sh-av sh-av-sm"><?= strtoupper(mb_substr($tl['assigned_name'], 0, 1)) ?></span>
                     <span><?= htmlspecialchars($tl['assigned_name']) ?></span>
                   </div>
-                  <?php else: ?><span class="sh-muted">&mdash;</span><?php endif; ?>
+                  <?php else: ?><span class="text-muted">&mdash;</span><?php endif; ?>
                 </td>
                 <td>
-                  <span class="<?= $isOver ? 'sh-dl-over' : 'sh-dl' ?>">
+                  <span class="<?= $isOver ? 'dl-over' : 'dl-normal' ?>">
                     <?= !empty($tl['due_date']) ? date('d M Y', strtotime($tl['due_date'])) : '&mdash;' ?>
                   </span>
                 </td>
@@ -361,21 +373,21 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
           </table>
         </div>
         <?php endif; ?>
-      </div>
+      </div><!-- /sh-panel-tl -->
 
       <?php /* Tab: Peserta */ ?>
-      <div id="sh-panel-peserta" class="sh-panel" role="tabpanel">
+      <div id="sh-panel-peserta" class="sh-panel" role="tabpanel" aria-labelledby="sh-tab-peserta">
         <?php if (empty($participants)): ?>
         <div class="sh-empty">
           <div class="sh-empty-ico">
-            <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
           <p>Belum ada peserta terdaftar.</p>
         </div>
         <?php else: ?>
         <div class="sh-peserta-grid">
           <?php foreach ($participants as $p):
-            $psCls = $pStatusCls[$p['status'] ?? '']   ?? 'sh-bdg-muted';
+            $psCls = $pStatusCls[$p['status'] ?? '']   ?? 'bdg-muted';
             $psLbl = $pStatusLabel[$p['status'] ?? ''] ?? ucfirst($p['status'] ?? '-');
             $bg    = $avPalette[abs(crc32($p['name'])) % count($avPalette)];
           ?>
@@ -394,10 +406,10 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
           <?php endforeach; ?>
         </div>
         <?php endif; ?>
-      </div>
+      </div><!-- /sh-panel-peserta -->
 
     </div><!-- /sh-main-card -->
-  </div>
+  </div><!-- /col -->
 
 </div><!-- /row -->
 
@@ -568,15 +580,11 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
 
       var origHtml = btnSaveTL.innerHTML;
       btnSaveTL.disabled = true;
-      btnSaveTL.innerHTML =
-        '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Menyimpan…';
+      btnSaveTL.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Menyimpan…';
 
       fetch(BASE + '/tindak-lanjut', {
         method : 'POST',
-        headers: {
-          'Content-Type'    : 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({
           meeting_id : MTG_ID,
           description: desc.value.trim(),
@@ -594,13 +602,13 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
         if (data.success) {
           window.location.reload();
         } else {
-          shToast(data.message || 'Gagal menyimpan tindak lanjut.');
+          shToast(data.message || 'Gagal menyimpan tindak lanjut.', 'error');
           btnSaveTL.disabled = false;
           btnSaveTL.innerHTML = origHtml;
         }
       })
       .catch(function (err) {
-        shToast('Terjadi kesalahan: ' + err.message);
+        shToast('Terjadi kesalahan: ' + err.message, 'error');
         btnSaveTL.disabled = false;
         btnSaveTL.innerHTML = origHtml;
       });
@@ -614,19 +622,15 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
       if (!confirm('Kirim undangan email ke semua peserta?')) return;
       var orig = btnInv.innerHTML;
       btnInv.disabled = true;
-      btnInv.innerHTML =
-        '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+      btnInv.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
       fetch(BASE + '/meetings/' + MTG_ID + '/send-invitations', {
         method : 'POST',
-        headers: {
-          'Content-Type'    : 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ _csrf: CSRF })
       })
       .then(function (r) { return r.json(); })
       .then(function (d) { shToast(d.message || 'Undangan terkirim.', 'success'); })
-      .catch(function ()  { shToast('Gagal mengirim undangan.'); })
+      .catch(function ()  { shToast('Gagal mengirim undangan.', 'error'); })
       .finally(function () { btnInv.disabled = false; btnInv.innerHTML = orig; });
     });
   }
@@ -638,19 +642,15 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
       if (!confirm('Kirim ringkasan kegiatan ke semua peserta?')) return;
       var orig = btnSum.innerHTML;
       btnSum.disabled = true;
-      btnSum.innerHTML =
-        '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
+      btnSum.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span>';
       fetch(BASE + '/meetings/' + MTG_ID + '/send-summary', {
         method : 'POST',
-        headers: {
-          'Content-Type'    : 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ _csrf: CSRF })
       })
       .then(function (r) { return r.json(); })
       .then(function (d) { shToast(d.message || 'Ringkasan terkirim.', 'success'); })
-      .catch(function ()  { shToast('Gagal mengirim ringkasan.'); })
+      .catch(function ()  { shToast('Gagal mengirim ringkasan.', 'error'); })
       .finally(function () { btnSum.disabled = false; btnSum.innerHTML = orig; });
     });
   }
@@ -658,10 +658,10 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
   /* ── Toast helper ── */
   function shToast(msg, type) {
     var t = document.createElement('div');
-    t.className = 'sh-toast' + (type === 'success' ? '' : ' sh-toast--error');
+    t.className = 'sh-toast' + (type === 'error' ? ' sh-toast--error' : '');
     t.setAttribute('role', 'alert');
-    t.innerHTML =
-      msg +
+    t.setAttribute('aria-live', 'polite');
+    t.innerHTML = msg +
       '<button class="sh-toast-close" onclick="this.parentElement.remove()" aria-label="Tutup">&times;</button>';
     document.body.appendChild(t);
     setTimeout(function () {
@@ -684,18 +684,17 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
 }());
 </script>
 
-<?php /* ================================================================
-   STYLES
-   Semua token dari custom.css:
+<style>
+/* =============================================================
+   SHOW.PHP — scoped styles
+   Semua warna dari token custom.css:
      --brand, --brand-dark, --brand-light, --brand-xlight
-     --gold, --gold-dark, --gold-light
+     --gold,  --gold-dark,  --gold-light
      --bg-page, --bg-card, --text-main, --text-muted
      --border, --border-light
-================================================================ */ ?>
-<style>
-/* ─────────────────────────────────────────────
-   TOAST
-───────────────────────────────────────────── */
+============================================================= */
+
+/* ── Toast ─────────────────────────────────────────────────── */
 .sh-toast {
   position: fixed; top: 1.1rem; right: 1.1rem; z-index: 1090;
   display: flex; align-items: center; gap: .45rem;
@@ -704,7 +703,7 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
   font-size: 13px; font-weight: 600;
   box-shadow: 0 4px 18px rgba(0,0,0,.18);
   transition: opacity .4s ease;
-  max-width: 340px; pointer-events: auto;
+  max-width: 340px;
 }
 .sh-toast--error { background: var(--brand); }
 .sh-toast-close {
@@ -714,321 +713,185 @@ $avPalette    = ['#7B1C1C', '#2F6BC4', '#1a7340', '#7d3cb5', '#C9A84C', '#0d7a8a
 }
 .sh-toast-close:hover { opacity: 1; }
 
-/* ─────────────────────────────────────────────
-   HERO
-───────────────────────────────────────────── */
+/* ── Hero ──────────────────────────────────────────────────── */
 .sh-hero {
   --mc: var(--brand);
-  background: linear-gradient(
-    135deg,
-    var(--mc) 0%,
-    color-mix(in srgb, var(--mc) 72%, #1a0000 28%) 100%
-  );
+  background: linear-gradient(135deg, var(--mc) 0%, var(--mc) 60%, #3d0a0a 100%);
   border-radius: 14px;
   box-shadow: 0 4px 24px rgba(0,0,0,.18);
   overflow: hidden;
-  margin-bottom: 0;
 }
 .sh-hero-body   { padding: 1.35rem 1.6rem 1rem; }
-.sh-hero-row    {
-  display: flex; flex-wrap: wrap;
-  align-items: flex-start; justify-content: space-between; gap: .75rem;
-}
-.sh-bc {
-  display: flex; align-items: center; gap: .3rem;
-  font-size: 11.5px; color: rgba(255,255,255,.58); margin-bottom: .4rem;
-}
-.sh-bc a { color: rgba(255,255,255,.78); text-decoration: none; }
-.sh-bc a:hover { color: #fff; text-decoration: underline; }
-.sh-hero-title {
-  font-size: clamp(15px, 2.3vw, 21px); font-weight: 800;
-  color: #fff; margin: 0; letter-spacing: -.02em; line-height: 1.25;
-}
-.sh-hero-meta {
-  display: flex; flex-wrap: wrap; align-items: center;
-  gap: .35rem; margin-top: .5rem;
-}
+.sh-hero-row    { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.sh-bc          { display: flex; align-items: center; gap: .3rem; font-size: 11.5px; color: rgba(255,255,255,.55); margin-bottom: .4rem; }
+.sh-bc a        { color: rgba(255,255,255,.78); text-decoration: none; }
+.sh-bc a:hover  { color: #fff; text-decoration: underline; }
+.sh-hero-title  { font-size: clamp(15px,2.3vw,21px); font-weight: 800; color: #fff; margin: 0; letter-spacing: -.02em; line-height: 1.25; }
+.sh-hero-meta   { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .5rem; }
 
-/* Status pill */
-.sh-status {
-  display: inline-flex; align-items: center; gap: .3rem;
-  font-size: 11px; font-weight: 700; padding: .25em .6em;
-  border-radius: 20px; white-space: nowrap;
-}
-.sh-status-blue     { background: rgba(47,107,196,.22); color: #a8caff; }
-.sh-status-orange   { background: rgba(201,168,76,.22); color: #ffe9a0; }
-.sh-status-green    { background: rgba(26,115,64,.28);  color: #a1f0c0; }
-.sh-status-red      { background: rgba(192,57,43,.28);  color: #ffc1b8; }
-.sh-status-muted    { background: rgba(255,255,255,.12); color: rgba(255,255,255,.7); }
+/* Status pill (in hero) */
+.sh-status      { display: inline-flex; align-items: center; gap: .3rem; font-size: 11px; font-weight: 700; padding: .25em .6em; border-radius: 20px; white-space: nowrap; }
+.sh-status-blue   { background: rgba(47,107,196,.22);  color: #a8caff; }
+.sh-status-gold   { background: rgba(201,168,76,.28);  color: #ffe9a0; }
+.sh-status-green  { background: rgba(26,115,64,.28);   color: #a1f0c0; }
+.sh-status-red    { background: rgba(192,57,43,.28);   color: #ffc1b8; }
+.sh-status-muted  { background: rgba(255,255,255,.12); color: rgba(255,255,255,.7); }
 
 /* Chip */
-.sh-chip {
-  display: inline-flex; align-items: center; gap: .25rem;
-  font-size: 11px; color: rgba(255,255,255,.72);
-  background: rgba(255,255,255,.10);
-  padding: .2em .55em; border-radius: 20px;
-}
+.sh-chip { display: inline-flex; align-items: center; gap: .25rem; font-size: 11px; color: rgba(255,255,255,.72); background: rgba(255,255,255,.10); padding: .2em .55em; border-radius: 20px; }
 
-/* Hero actions */
-.sh-hero-actions {
-  display: flex; flex-wrap: wrap; gap: .4rem; align-items: flex-start;
-  padding-top: 1.2rem;
-}
+/* Hero action buttons */
+.sh-hero-actions { display: flex; flex-wrap: wrap; gap: .4rem; align-items: flex-start; padding-top: 1.2rem; }
 .sh-btn {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 12.5px; font-weight: 700;
   padding: .38rem .9rem; border-radius: 8px;
   cursor: pointer; border: none; text-decoration: none;
-  transition: background .18s, box-shadow .18s, filter .18s;
+  transition: background .18s, box-shadow .18s;
   white-space: nowrap;
 }
-.sh-btn--gold    { background: var(--gold);  color: #fff; }
+.sh-btn--gold   { background: var(--gold); color: #fff; }
 .sh-btn--gold:hover { background: var(--gold-dark); color: #fff; }
-.sh-btn--ghost {
-  background: rgba(255,255,255,.14);
-  border: 1.5px solid rgba(255,255,255,.3);
-  color: #fff;
-}
+.sh-btn--ghost  { background: rgba(255,255,255,.14); border: 1.5px solid rgba(255,255,255,.3); color: #fff; }
 .sh-btn--ghost:hover { background: rgba(255,255,255,.24); }
-.sh-btn--danger {
-  background: rgba(192,57,43,.2);
-  border: 1.5px solid rgba(255,255,255,.25);
-  color: #ffd5cf;
-}
+.sh-btn--danger { background: rgba(192,57,43,.22); border: 1.5px solid rgba(255,255,255,.25); color: #ffd5cf; }
 .sh-btn--danger:hover { background: rgba(192,57,43,.38); color: #fff; }
 
 /* Hero strip */
-.sh-hero-strip {
-  display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
-  background: rgba(0,0,0,.18);
-  padding: .55rem 1.6rem; font-size: 12px;
-  color: rgba(255,255,255,.80);
-}
+.sh-hero-strip  { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; background: rgba(0,0,0,.20); padding: .55rem 1.6rem; font-size: 12px; color: rgba(255,255,255,.82); }
 .sh-strip-item  { display: flex; align-items: center; gap: .3rem; }
 .sh-strip-sep   { opacity: .45; }
-.sh-strip-link  {
-  color: rgba(255,255,255,.9); text-decoration: underline dotted;
-  display: inline-flex; align-items: center; gap: .2rem;
-}
+.sh-strip-link  { color: rgba(255,255,255,.9); text-decoration: underline dotted; display: inline-flex; align-items: center; gap: .2rem; }
 .sh-strip-link:hover { color: #fff; }
 
-/* ─────────────────────────────────────────────
-   STAT GRID (sidebar)
-───────────────────────────────────────────── */
-.sh-stats {
-  display: grid; grid-template-columns: 1fr 1fr; gap: .5rem;
-}
-.sh-stat {
-  display: flex; align-items: center; gap: .6rem;
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 10px; padding: .7rem .85rem;
-}
-.sh-stat-ico {
-  width: 32px; height: 32px; border-radius: 8px;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.sh-sico-blue  { background: rgba(47,107,196,.10); color: #2F6BC4; }
-.sh-sico-brand { background: var(--brand-light);   color: var(--brand); }
-.sh-sico-green { background: rgba(26,115,64,.10);  color: #1a7340; }
-.sh-sico-red   { background: rgba(192,57,43,.10);  color: #c0392b; }
-.sh-sico-muted { background: rgba(122,106,90,.08); color: var(--text-muted); }
-.sh-stat-val   { font-size: 18px; font-weight: 800; color: var(--text-main); line-height: 1.1; }
-.sh-stat-lbl   { font-size: 10.5px; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
-.sh-val-green  { color: #1a7340; }
-.sh-val-red    { color: #c0392b; }
+/* ── Stat grid ─────────────────────────────────────────────── */
+.sh-stats { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.sh-stat  { display: flex; align-items: center; gap: .6rem; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 10px; padding: .7rem .85rem; }
+.sh-stat-ico { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.sico-blue  { background: rgba(47,107,196,.10);  color: #2F6BC4; }
+.sico-brand { background: var(--brand-light);    color: var(--brand); }
+.sico-green { background: rgba(26,115,64,.10);   color: #1a7340; }
+.sico-red   { background: rgba(192,57,43,.10);   color: #a82515; }
+.sico-muted { background: rgba(122,106,90,.08);  color: var(--text-muted); }
+.sh-stat-val { font-size: 18px; font-weight: 800; color: var(--text-main); line-height: 1.1; }
+.sh-stat-lbl { font-size: 10.5px; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
+.val-green   { color: #1a7340; }
+.val-red     { color: #a82515; }
 
-/* ─────────────────────────────────────────────
-   SIDEBAR CARDS
-───────────────────────────────────────────── */
-.sh-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 10px; overflow: hidden;
-}
-.sh-card-hd {
-  display: flex; align-items: center; gap: .35rem;
-  font-size: 11px; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .07em;
-  color: var(--text-muted);
-  padding: .65rem .9rem;
-  border-bottom: 1px solid var(--border-light);
-  background: #faf6ef;
-}
+/* ── Sidebar cards ─────────────────────────────────────────── */
+.sh-card    { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; }
+.sh-card-hd { display: flex; align-items: center; gap: .35rem; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); padding: .65rem .9rem; border-bottom: 1px solid var(--border-light); background: #faf6ef; }
 .sh-card-bd { padding: .85rem .9rem; }
 
-/* Progress */
 .sh-prog-row  { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .4rem; }
 .sh-prog-pct  { font-size: 14px; font-weight: 800; color: var(--brand); }
 .sh-prog-meta { font-size: 11.5px; color: var(--text-muted); }
-.sh-prog-bar  {
-  height: 7px; background: var(--border-light);
-  border-radius: 999px; overflow: hidden;
-}
-.sh-prog-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--brand), var(--gold));
-  border-radius: 999px; transition: width .5s ease;
-}
+.sh-prog-bar  { height: 7px; background: var(--border-light); border-radius: 999px; overflow: hidden; }
+.sh-prog-fill { height: 100%; background: linear-gradient(90deg, var(--brand), var(--gold)); border-radius: 999px; transition: width .5s ease; }
 
-.sh-agenda {
-  font-size: 13px; color: var(--text-main);
-  line-height: 1.65; margin: 0;
-  white-space: pre-wrap; word-break: break-word;
-}
+.sh-agenda { font-size: 13px; color: var(--text-main); line-height: 1.65; margin: 0; white-space: pre-wrap; word-break: break-word; }
 
-/* Dokumen buttons */
-.sh-doc-list  { display: flex; flex-direction: column; gap: .45rem; }
-.sh-doc-btn {
+.sh-doc-list { display: flex; flex-direction: column; gap: .45rem; }
+.sh-doc-btn  {
   display: inline-flex; align-items: center; justify-content: center;
   gap: .4rem; font-size: 13px; font-weight: 600;
   padding: .45rem .9rem; border-radius: 8px;
-  cursor: pointer; text-decoration: none;
-  border: none; transition: background .16s, color .16s;
-  width: 100%;
+  cursor: pointer; text-decoration: none; border: none;
+  transition: background .16s, color .16s; width: 100%;
 }
-.sh-doc-primary {
-  background: var(--brand); color: #fff;
-}
-.sh-doc-primary:hover { background: var(--brand-dark); color: #fff; }
-.sh-doc-outline {
-  background: transparent; color: var(--text-main);
-  border: 1.5px solid var(--border);
-}
-.sh-doc-outline:hover { background: var(--brand-xlight); border-color: var(--brand); color: var(--brand); }
-.sh-doc-outline-teal {
-  background: transparent; color: #0d7a8a;
-  border: 1.5px solid rgba(13,122,138,.3);
-}
+.sh-doc-primary         { background: var(--brand); color: #fff; }
+.sh-doc-primary:hover   { background: var(--brand-dark); color: #fff; }
+.sh-doc-outline         { background: transparent; color: var(--text-main); border: 1.5px solid var(--border); }
+.sh-doc-outline:hover   { background: var(--brand-xlight); border-color: var(--brand); color: var(--brand); }
+.sh-doc-outline-teal    { background: transparent; color: #0d7a8a; border: 1.5px solid rgba(13,122,138,.30); }
 .sh-doc-outline-teal:hover { background: rgba(13,122,138,.06); border-color: #0d7a8a; }
 
-/* ─────────────────────────────────────────────
-   MAIN CARD + TABS
-───────────────────────────────────────────── */
-.sh-main-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-light);
-  border-radius: 12px; overflow: hidden;
-}
-.sh-tabs {
-  display: flex; gap: 0;
-  border-bottom: 1px solid var(--border-light);
-  background: #faf6ef;
-  padding: 0 1rem;
-}
+/* ── Main card & tabs ──────────────────────────────────────── */
+.sh-main-card { background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px; overflow: hidden; }
+.sh-tabs      { display: flex; border-bottom: 1px solid var(--border-light); background: #faf6ef; padding: 0 1rem; }
 .sh-tab {
   display: inline-flex; align-items: center; gap: .35rem;
-  font-size: 13px; font-weight: 600;
-  color: var(--text-muted);
-  padding: .7rem .9rem;
-  background: none; border: none;
+  font-size: 13px; font-weight: 600; color: var(--text-muted);
+  padding: .7rem .9rem; background: none; border: none;
   border-bottom: 2.5px solid transparent;
-  cursor: pointer;
-  transition: color .15s, border-color .15s;
-  white-space: nowrap;
+  cursor: pointer; transition: color .15s, border-color .15s; white-space: nowrap;
 }
-.sh-tab:hover { color: var(--brand); }
-.sh-tab.active {
-  color: var(--brand);
-  border-bottom-color: var(--brand);
-  font-weight: 700;
-}
+.sh-tab:hover  { color: var(--brand); }
+.sh-tab.active { color: var(--brand); border-bottom-color: var(--brand); font-weight: 700; }
 .sh-pill {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 18px; height: 18px; padding: 0 5px;
   font-size: 10px; font-weight: 700;
-  background: var(--border-light);
-  color: var(--text-muted);
-  border-radius: 9px;
+  background: var(--border-light); color: var(--text-muted); border-radius: 9px;
 }
-.sh-tab.active .sh-pill {
-  background: var(--brand-light); color: var(--brand);
-}
+.sh-tab.active .sh-pill { background: var(--brand-light); color: var(--brand); }
 
-.sh-panel { display: none; }
+.sh-panel        { display: none; }
 .sh-panel.active { display: block; }
 
-.sh-toolbar {
-  padding: .75rem 1rem;
-  border-bottom: 1px solid var(--border-light);
-  background: #fdfaf5;
-}
+.sh-toolbar { padding: .75rem 1rem; border-bottom: 1px solid var(--border-light); background: #fdfaf5; }
 
-/* Empty state */
-.sh-empty {
-  display: flex; flex-direction: column;
-  align-items: center; text-align: center;
-  padding: 2.5rem 1rem;
-  color: var(--text-muted);
-}
-.sh-empty-ico {
-  width: 56px; height: 56px; border-radius: 14px;
-  background: var(--brand-xlight);
-  display: flex; align-items: center; justify-content: center;
-  color: var(--brand); margin-bottom: .9rem;
-}
-.sh-empty p { font-size: 13.5px; margin-bottom: 1rem; }
+.sh-empty      { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 2.5rem 1rem; color: var(--text-muted); }
+.sh-empty-ico  { width: 54px; height: 54px; border-radius: 14px; background: var(--brand-xlight); display: flex; align-items: center; justify-content: center; color: var(--brand); margin-bottom: .9rem; }
+.sh-empty p    { font-size: 13.5px; margin-bottom: 1rem; }
 
-/* Add button */
 .sh-btn-add {
   display: inline-flex; align-items: center; gap: .35rem;
   font-size: 12.5px; font-weight: 700;
   background: var(--brand); color: #fff;
-  padding: .4rem 1rem; border-radius: 8px;
-  border: none; cursor: pointer;
+  padding: .4rem 1rem; border-radius: 8px; border: none; cursor: pointer;
   transition: background .18s;
 }
 .sh-btn-add:hover { background: var(--brand-dark); }
 
-/* Table */
-.sh-table {
-  width: 100%; border-collapse: collapse;
-  font-size: 13px; color: var(--text-main);
-}
+/* ── Table ─────────────────────────────────────────────────── */
+.sh-table { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--text-main); }
 .sh-table thead th {
-  font-size: 10.5px; font-weight: 700;
-  text-transform: uppercase; letter-spacing: .06em;
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
   color: var(--text-muted); background: #faf6ef;
-  border-bottom: 2px solid var(--border);
-  padding: .6rem 1rem; white-space: nowrap;
+  border-bottom: 2px solid var(--border); padding: .6rem 1rem; white-space: nowrap;
 }
-.sh-table tbody td {
-  padding: .65rem 1rem;
-  border-bottom: 1px solid var(--border-light);
-  vertical-align: middle;
-}
+.sh-table tbody td { padding: .65rem 1rem; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
 .sh-table tbody tr:last-child td { border-bottom: none; }
 .sh-table tbody tr:hover { background: var(--brand-xlight); }
-.sh-row-over { background: rgba(192,57,43,.03) !important; }
-.sh-row-over:hover { background: rgba(192,57,43,.06) !important; }
+.row-overdue       { background: rgba(192,57,43,.03) !important; }
+.row-overdue:hover { background: rgba(192,57,43,.06) !important; }
 
-/* Badges */
-.sh-bdg {
-  display: inline-flex; align-items: center;
-  font-size: 10.5px; font-weight: 700;
-  padding: .25em .6em; border-radius: 5px;
-  white-space: nowrap;
-}
-.sh-bdg-green  { background: rgba(26,115,64,.10);  color: #1a7340; }
-.sh-bdg-blue   { background: rgba(47,107,196,.10); color: #1557a0; }
-.sh-bdg-red    { background: rgba(192,57,43,.10);  color: #a82515; }
-.sh-bdg-orange { background: var(--gold-light);    color: #7a5f00; }
-.sh-bdg-teal   { background: rgba(13,122,138,.10); color: #0a7a58; }
-.sh-bdg-muted  { background: rgba(122,106,90,.09); color: var(--text-muted); }
+/* ── Badges ────────────────────────────────────────────────── */
+.sh-bdg       { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; padding: .25em .6em; border-radius: 5px; white-space: nowrap; }
+.bdg-green    { background: rgba(26,115,64,.10);  color: #1a7340; }
+.bdg-blue     { background: rgba(47,107,196,.10); color: #1557a0; }
+.bdg-red      { background: rgba(192,57,43,.10);  color: #a82515; }
+.bdg-gold     { background: var(--gold-light);    color: #7a5000; }
+.bdg-teal     { background: rgba(13,122,138,.10); color: #0a7a58; }
+.bdg-muted    { background: rgba(122,106,90,.09); color: var(--text-muted); }
 
-/* Misc */
-.sh-tl-desc   { font-size: 13px; font-weight: 500; line-height: 1.4; }
-.sh-muted     { color: var(--text-muted); font-size: 13px; }
-.sh-dl        { font-size: 12.5px; color: var(--text-muted); }
-.sh-dl-over   { font-size: 12.5px; color: #c0392b; font-weight: 700; }
-.sh-pic       { display: flex; align-items: center; gap: .4rem; font-size: 13px; }
-.sh-av {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; border-radius: 50%;
-  font-size: 12px; font-weight: 800;
-  color: #fff; background: var(--brand); flex-shrink: 0;
+/* ── Misc ──────────────────────────────────────────────────── */
+.sh-tl-desc    { font-size: 13px; font-weight: 500; line-height: 1.4; }
+.dl-normal     { font-size: 12.5px; color: var(--text-muted); }
+.dl-over       { font-size: 12.5px; color: #a82515; font-weight: 700; }
+.sh-pic        { display: flex; align-items: center; gap: .4rem; font-size: 13px; }
+.sh-av         { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; font-size: 12px; font-weight: 800; color: #fff; background: var(--brand); flex-shrink: 0; }
+.sh-av-sm      { width: 22px; height: 22px; font-size: 10px; }
+.sh-link-detail { display: inline-flex; align-items: center; gap: .25rem; font-size: 12px; color: var(--brand); font-weight: 600; text-decoration: none; }
+.sh-link-detail:hover { color: var(--brand-dark); text-decoration: underline; }
+
+/* ── Peserta grid ──────────────────────────────────────────── */
+.sh-peserta-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .5rem; padding: .85rem 1rem; }
+.sh-peserta-card { display: flex; align-items: center; gap: .6rem; background: var(--bg-page); border: 1px solid var(--border-light); border-radius: 10px; padding: .6rem .85rem; }
+.sh-peserta-info { flex: 1; min-width: 0; }
+.sh-peserta-name { font-size: 13px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sh-peserta-pos  { font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Delete icon container ─────────────────────────────────── */
+.sh-del-ico { width: 60px; height: 60px; border-radius: 50%; background: rgba(192,57,43,.10); color: #a82515; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 575px) {
+  .sh-hero-body { padding: 1rem; }
+  .sh-hero-strip { padding: .5rem 1rem; }
+  .sh-hero-actions { padding-top: 0; }
+  .sh-stats { grid-template-columns: 1fr 1fr; }
+  .sh-peserta-grid { grid-template-columns: 1fr; }
 }
-.sh-av-sm { width: 22px; height: 22px; font-size: 10px; }
-.sh-link-detail {
-  display: inline-flex; align-items: center; gap: .25rem;
-  font-size: 12px; font-
+</style>
