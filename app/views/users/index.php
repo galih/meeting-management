@@ -119,8 +119,8 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
 .usr-btn-primary:hover { background: linear-gradient(135deg,#9B2020,var(--kb-primary-dark)); color:#fff; }
 .usr-btn-outline { background: #fff; color: var(--kb-text-muted); border-color: var(--kb-border); }
 .usr-btn-outline:hover { border-color: var(--kb-primary); color: var(--kb-primary); }
-.usr-btn-ghost { background: transparent; color: var(--kb-text-muted); border-color: transparent; }
-.usr-btn-ghost:hover { background: var(--kb-primary-light); color: var(--kb-primary); }
+.usr-btn-ghost { background: transparent; color: var(--kb-text-muted); border-color: var(--kb-border); }
+.usr-btn-ghost:hover { background: var(--kb-primary-light); border-color: var(--kb-primary); color: var(--kb-primary); }
 
 /* ── Stats Row ───────────────────────────────────────────────── */
 .usr-stats {
@@ -310,7 +310,7 @@ select.usr-form-control { appearance: auto; }
         <div class="usr-hero-sub">Kelola akun, role, dan unit kerja seluruh pengguna sistem</div>
       </div>
     </div>
-    <button class="usr-btn usr-btn-primary" data-bs-toggle="modal" data-bs-target="#modalAddUser">
+    <button class="usr-btn usr-btn-primary" id="btnOpenAddUser">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       Tambah Pengguna
     </button>
@@ -440,7 +440,6 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           </td>
           <td data-label="Aksi">
             <div class="usr-actions">
-              <!-- Edit: set data lalu buka modal lewat JS -->
               <button class="usr-action-btn ua-edit btn-edit" data-user="<?= $uJson ?>">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 Edit
@@ -504,14 +503,14 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           Hapus Pengguna
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <button type="button" class="btn-close" id="btnCloseHapus"></button>
       </div>
       <div class="modal-body" style="font-size:13.5px;color:var(--kb-text);padding:1.25rem;">
         Yakin ingin menghapus <strong id="hapus-nama"></strong> secara permanen?
         <div style="margin-top:.5rem;font-size:12px;color:var(--kb-red);">&#9888; Tindakan ini tidak dapat dibatalkan.</div>
       </div>
       <div class="modal-footer">
-        <button type="button" class="usr-btn usr-btn-ghost" data-bs-dismiss="modal">Batal</button>
+        <button type="button" class="usr-btn usr-btn-ghost" id="btnBatalHapus">Batal</button>
         <button type="button" id="btn-konfirmasi-hapus" class="usr-btn usr-btn-primary"
                 style="background:linear-gradient(135deg,var(--kb-red),#8B1A14);">
           Ya, Hapus
@@ -534,7 +533,7 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
             <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
             Tambah Pengguna Baru
           </div>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" id="btnCloseAdd"></button>
         </div>
         <div class="modal-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1rem;">
@@ -544,7 +543,6 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
             </div>
             <div>
               <label class="usr-form-label">Username <span class="req">*</span></label>
-              <!-- FIX: dash di-escape agar valid di semua mode regex browser -->
               <input type="text" name="username" class="usr-form-control" required
                      placeholder="contoh: john.doe" pattern="[a-zA-Z0-9._\-]+">
               <div class="usr-form-hint">Tanpa spasi, hanya huruf/angka/titik/strip</div>
@@ -586,7 +584,7 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="usr-btn usr-btn-ghost" data-bs-dismiss="modal">Batal</button>
+          <button type="button" class="usr-btn usr-btn-ghost" id="btnBatalAdd">Batal</button>
           <button type="submit" class="usr-btn usr-btn-primary">Simpan Pengguna</button>
         </div>
       </form>
@@ -607,7 +605,7 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
             <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Edit Pengguna
           </div>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          <button type="button" class="btn-close" id="btnCloseEdit"></button>
         </div>
         <div class="modal-body">
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem 1rem;">
@@ -617,7 +615,6 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
             </div>
             <div>
               <label class="usr-form-label">Username <span class="req">*</span></label>
-              <!-- FIX: dash di-escape agar valid di semua mode regex browser -->
               <input type="text" name="username" id="edit-username" class="usr-form-control" required pattern="[a-zA-Z0-9._\-]+">
             </div>
             <div>
@@ -664,7 +661,8 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           </div>
         </div>
         <div class="modal-footer">
-          <button type="button" class="usr-btn usr-btn-ghost" data-bs-dismiss="modal">Batal</button>
+          <!-- FIX: gunakan id JS bukan data-bs-dismiss agar selalu bisa diklik -->
+          <button type="button" class="usr-btn usr-btn-ghost" id="btnBatalEdit">Batal</button>
           <button type="submit" class="usr-btn usr-btn-primary">Simpan Perubahan</button>
         </div>
       </form>
@@ -673,166 +671,199 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
 </div>
 
 <script>
-const baseUrl         = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
-const deptChildrenUrl = baseUrl + '/api/departments/children';
-const allDepts        = <?= json_encode(array_values($departments)) ?>;
+(function () {
+  'use strict';
 
-/* ── Safe Bootstrap Modal helper ─────────────────────────────────
-   Gunakan window.bootstrap jika tersedia; fallback ke data-bs-toggle
-   agar tidak throw ReferenceError saat bootstrap belum dimuat. */
-function bsModal(el) {
-  const BS = window.bootstrap;
-  if (BS && BS.Modal) return new BS.Modal(el);
-  // fallback: trigger klik elemen trigger jika ada
-  return { show() { el.classList.add('show'); el.style.display = 'block'; document.body.classList.add('modal-open'); },
-           hide() { el.classList.remove('show'); el.style.display = ''; document.body.classList.remove('modal-open'); } };
-}
-function bsModalGet(el) {
-  const BS = window.bootstrap;
-  if (BS && BS.Modal) return BS.Modal.getInstance(el);
-  return { hide() { el.classList.remove('show'); el.style.display = ''; document.body.classList.remove('modal-open'); } };
-}
+  const baseUrl         = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+  const deptChildrenUrl = baseUrl + '/api/departments/children';
+  const allDepts        = <?= json_encode(array_values($departments)) ?>;
 
-async function fetchDeptChildren(parentId) {
-  try {
-    const res = await fetch(deptChildrenUrl + '?parent_id=' + parentId);
-    return await res.json();
-  } catch(e) { return []; }
-}
+  /* ── Bootstrap Modal helper ─────────────────────────────────────
+     Selalu buat instance baru saat show agar tidak konflik.        */
+  function openModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const BS = window.bootstrap;
+    if (BS && BS.Modal) {
+      let inst = BS.Modal.getInstance(el);
+      if (!inst) inst = new BS.Modal(el, { backdrop: true, keyboard: true });
+      inst.show();
+      return inst;
+    }
+    // Fallback jika Bootstrap JS belum termuat
+    el.classList.add('show'); el.style.display = 'block';
+    document.body.classList.add('modal-open');
+    return { hide() { el.classList.remove('show'); el.style.display = ''; document.body.classList.remove('modal-open'); } };
+  }
 
-function syncHidden(prefix) {
-  const v3 = document.getElementById(prefix + '-u3')?.value || '';
-  const v2 = document.getElementById(prefix + '-u2')?.value || '';
-  const v1 = document.getElementById(prefix + '-u1')?.value || '';
-  document.getElementById(prefix + '-dept-id').value = v3 || v2 || v1 || '';
-}
+  function closeModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const BS = window.bootstrap;
+    if (BS && BS.Modal) {
+      const inst = BS.Modal.getInstance(el);
+      if (inst) { inst.hide(); return; }
+    }
+    el.classList.remove('show'); el.style.display = '';
+    document.body.classList.remove('modal-open');
+  }
 
-async function cascadeUser(prefix, level) {
-  const s1 = document.getElementById(prefix + '-u1');
-  const s2 = document.getElementById(prefix + '-u2');
-  const s3 = document.getElementById(prefix + '-u3');
-  if (level === 1) {
+  /* ── Cascade department ────────────────────────────────────────── */
+  async function fetchDeptChildren(parentId) {
+    try {
+      const res = await fetch(deptChildrenUrl + '?parent_id=' + parentId);
+      return await res.json();
+    } catch(e) { return []; }
+  }
+
+  function syncHidden(prefix) {
+    const v3 = document.getElementById(prefix + '-u3')?.value || '';
+    const v2 = document.getElementById(prefix + '-u2')?.value || '';
+    const v1 = document.getElementById(prefix + '-u1')?.value || '';
+    document.getElementById(prefix + '-dept-id').value = v3 || v2 || v1 || '';
+  }
+
+  window.cascadeUser = async function(prefix, level) {
+    const s1 = document.getElementById(prefix + '-u1');
+    const s2 = document.getElementById(prefix + '-u2');
+    const s3 = document.getElementById(prefix + '-u3');
+    if (level === 1) {
+      s2.innerHTML = '<option value="">&mdash; Pilih Bidang / Bagian (Level 2) &mdash;</option>';
+      s3.innerHTML = '<option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>';
+      s2.disabled = s3.disabled = true;
+      syncHidden(prefix);
+      if (!s1.value) return;
+      const kids = await fetchDeptChildren(s1.value);
+      if (kids.length) {
+        s2.innerHTML = '<option value="">&mdash; Semua Bidang &mdash;</option>' +
+          kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        s2.disabled = false;
+      }
+      syncHidden(prefix);
+    } else if (level === 2) {
+      s3.innerHTML = '<option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>';
+      s3.disabled = true;
+      syncHidden(prefix);
+      if (!s2.value) return;
+      const kids = await fetchDeptChildren(s2.value);
+      if (kids.length) {
+        s3.innerHTML = '<option value="">&mdash; Semua Sub Bidang &mdash;</option>' +
+          kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        s3.disabled = false;
+      }
+      syncHidden(prefix);
+    } else {
+      syncHidden(prefix);
+    }
+  };
+
+  async function setEditCascade(deptId) {
+    const s1  = document.getElementById('edit-u1');
+    const s2  = document.getElementById('edit-u2');
+    const s3  = document.getElementById('edit-u3');
+    const hid = document.getElementById('edit-dept-id');
+    s1.value = '';
     s2.innerHTML = '<option value="">&mdash; Pilih Bidang / Bagian (Level 2) &mdash;</option>';
     s3.innerHTML = '<option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>';
     s2.disabled = s3.disabled = true;
-    syncHidden(prefix);
-    if (!s1.value) return;
-    const kids = await fetchDeptChildren(s1.value);
-    if (kids.length) {
-      s2.innerHTML = '<option value="">&mdash; Semua Bidang &mdash;</option>' +
-        kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-      s2.disabled = false;
-    }
-    syncHidden(prefix);
-  } else if (level === 2) {
-    s3.innerHTML = '<option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>';
-    s3.disabled = true;
-    syncHidden(prefix);
-    if (!s2.value) return;
-    const kids = await fetchDeptChildren(s2.value);
-    if (kids.length) {
-      s3.innerHTML = '<option value="">&mdash; Semua Sub Bidang &mdash;</option>' +
-        kids.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-      s3.disabled = false;
-    }
-    syncHidden(prefix);
-  } else {
-    syncHidden(prefix);
-  }
-}
-
-async function setEditCascade(deptId) {
-  const s1  = document.getElementById('edit-u1');
-  const s2  = document.getElementById('edit-u2');
-  const s3  = document.getElementById('edit-u3');
-  const hid = document.getElementById('edit-dept-id');
-  s1.value  = '';
-  s2.innerHTML = '<option value="">&mdash; Pilih Bidang / Bagian (Level 2) &mdash;</option>';
-  s3.innerHTML = '<option value="">&mdash; Pilih Sub Bidang (Level 3) &mdash;</option>';
-  s2.disabled = s3.disabled = true;
-  hid.value = deptId || '';
-  if (!deptId) return;
-  const node = allDepts.find(d => d.id == deptId);
-  if (!node) return;
-  if (node.level == 1) {
-    s1.value = node.id;
-  } else if (node.level == 2) {
-    s1.value = node.parent_id;
-    const c2 = await fetchDeptChildren(node.parent_id);
-    s2.innerHTML = '<option value="">&mdash; Semua Bidang &mdash;</option>' +
-      c2.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-    s2.disabled = false; s2.value = node.id;
-  } else if (node.level == 3) {
-    const p2 = allDepts.find(d => d.id == node.parent_id);
-    if (p2) {
-      s1.value = p2.parent_id;
-      const c2 = await fetchDeptChildren(p2.parent_id);
+    hid.value = deptId || '';
+    if (!deptId) return;
+    const node = allDepts.find(d => d.id == deptId);
+    if (!node) return;
+    if (node.level == 1) {
+      s1.value = node.id;
+    } else if (node.level == 2) {
+      s1.value = node.parent_id;
+      const c2 = await fetchDeptChildren(node.parent_id);
       s2.innerHTML = '<option value="">&mdash; Semua Bidang &mdash;</option>' +
         c2.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-      s2.disabled = false; s2.value = p2.id;
-      const c3 = await fetchDeptChildren(p2.id);
-      s3.innerHTML = '<option value="">&mdash; Semua Sub Bidang &mdash;</option>' +
-        c3.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-      s3.disabled = false; s3.value = node.id;
-    }
-  }
-  hid.value = deptId;
-}
-
-/* ── Event Listeners ── */
-document.querySelectorAll('.btn-edit').forEach(btn => {
-  btn.addEventListener('click', function () {
-    let u;
-    try { u = JSON.parse(this.getAttribute('data-user')); }
-    catch(e) { alert('Gagal membuka form edit.'); return; }
-    document.getElementById('edit-name').value     = u.name     ?? '';
-    document.getElementById('edit-username').value = u.username ?? '';
-    document.getElementById('edit-email').value    = u.email    ?? '';
-    document.getElementById('edit-role').value     = u.role     ?? 'peserta';
-    document.getElementById('edit-active').checked = u.is_active == 1;
-    document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
-    setEditCascade(u.department_id);
-    bsModal(document.getElementById('modalEditUser')).show();
-  });
-});
-
-document.querySelectorAll('.btn-nonaktif').forEach(btn => {
-  btn.addEventListener('click', async function () {
-    if (!confirm('Nonaktifkan pengguna ini?')) return;
-    this.disabled = true;
-    const res = await fetch(this.dataset.url, { method: 'POST' });
-    const d   = await res.json();
-    if (d.success) {
-      const row = document.getElementById('row-' + this.dataset.id);
-      if (row) {
-        const statusCell = row.querySelector('[data-label="Status"]');
-        if (statusCell) statusCell.innerHTML = '<span class="usr-badge usr-badge-gray"><span class="usr-dot usr-dot-gray"></span>Nonaktif</span>';
-        this.remove();
+      s2.disabled = false; s2.value = node.id;
+    } else if (node.level == 3) {
+      const p2 = allDepts.find(d => d.id == node.parent_id);
+      if (p2) {
+        s1.value = p2.parent_id;
+        const c2 = await fetchDeptChildren(p2.parent_id);
+        s2.innerHTML = '<option value="">&mdash; Semua Bidang &mdash;</option>' +
+          c2.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        s2.disabled = false; s2.value = p2.id;
+        const c3 = await fetchDeptChildren(p2.id);
+        s3.innerHTML = '<option value="">&mdash; Semua Sub Bidang &mdash;</option>' +
+          c3.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+        s3.disabled = false; s3.value = node.id;
       }
-    } else {
-      alert(d.message || 'Gagal menonaktifkan pengguna');
-      this.disabled = false;
     }
-  });
-});
+    hid.value = deptId;
+  }
 
-let hapusUrl = '', hapusId = '';
-document.querySelectorAll('.btn-hapus').forEach(btn => {
-  btn.addEventListener('click', function () {
-    hapusUrl = this.dataset.url;
-    hapusId  = this.dataset.id;
-    document.getElementById('hapus-nama').textContent = this.dataset.name;
-    bsModal(document.getElementById('modalHapusUser')).show();
+  /* ── Tutup modal — semua tombol Batal & ✕ ─────────────────────── */
+  document.getElementById('btnBatalEdit').addEventListener('click',  () => closeModal('modalEditUser'));
+  document.getElementById('btnCloseEdit').addEventListener('click',  () => closeModal('modalEditUser'));
+  document.getElementById('btnBatalAdd').addEventListener('click',   () => closeModal('modalAddUser'));
+  document.getElementById('btnCloseAdd').addEventListener('click',   () => closeModal('modalAddUser'));
+  document.getElementById('btnBatalHapus').addEventListener('click', () => closeModal('modalHapusUser'));
+  document.getElementById('btnCloseHapus').addEventListener('click', () => closeModal('modalHapusUser'));
+
+  /* ── Buka modal Tambah ────────────────────────────────────────── */
+  document.getElementById('btnOpenAddUser').addEventListener('click', () => openModal('modalAddUser'));
+
+  /* ── Buka modal Edit ─────────────────────────────────────────── */
+  document.querySelectorAll('.btn-edit').forEach(btn => {
+    btn.addEventListener('click', function () {
+      let u;
+      try { u = JSON.parse(this.getAttribute('data-user')); }
+      catch(e) { alert('Gagal membuka form edit.'); return; }
+      document.getElementById('edit-name').value     = u.name     ?? '';
+      document.getElementById('edit-username').value = u.username ?? '';
+      document.getElementById('edit-email').value    = u.email    ?? '';
+      document.getElementById('edit-role').value     = u.role     ?? 'peserta';
+      document.getElementById('edit-active').checked = u.is_active == 1;
+      document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
+      setEditCascade(u.department_id);
+      openModal('modalEditUser');
+    });
   });
-});
-document.getElementById('btn-konfirmasi-hapus').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-konfirmasi-hapus');
-  btn.disabled = true; btn.textContent = 'Menghapus\u2026';
-  const res = await fetch(hapusUrl, { method: 'POST' });
-  const d   = await res.json();
-  bsModalGet(document.getElementById('modalHapusUser')).hide();
-  btn.disabled = false; btn.textContent = 'Ya, Hapus';
-  if (d.success) { document.getElementById('row-' + hapusId)?.remove(); }
-  else alert(d.message || 'Gagal menghapus pengguna');
-});
+
+  /* ── Nonaktifkan ─────────────────────────────────────────────── */
+  document.querySelectorAll('.btn-nonaktif').forEach(btn => {
+    btn.addEventListener('click', async function () {
+      if (!confirm('Nonaktifkan pengguna ini?')) return;
+      this.disabled = true;
+      const res = await fetch(this.dataset.url, { method: 'POST' });
+      const d   = await res.json();
+      if (d.success) {
+        const row = document.getElementById('row-' + this.dataset.id);
+        if (row) {
+          const statusCell = row.querySelector('[data-label="Status"]');
+          if (statusCell) statusCell.innerHTML = '<span class="usr-badge usr-badge-gray"><span class="usr-dot usr-dot-gray"></span>Nonaktif</span>';
+          this.remove();
+        }
+      } else {
+        alert(d.message || 'Gagal menonaktifkan pengguna');
+        this.disabled = false;
+      }
+    });
+  });
+
+  /* ── Hapus ───────────────────────────────────────────────────── */
+  let hapusUrl = '', hapusId = '';
+  document.querySelectorAll('.btn-hapus').forEach(btn => {
+    btn.addEventListener('click', function () {
+      hapusUrl = this.dataset.url;
+      hapusId  = this.dataset.id;
+      document.getElementById('hapus-nama').textContent = this.dataset.name;
+      openModal('modalHapusUser');
+    });
+  });
+  document.getElementById('btn-konfirmasi-hapus').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-konfirmasi-hapus');
+    btn.disabled = true; btn.textContent = 'Menghapus\u2026';
+    const res = await fetch(hapusUrl, { method: 'POST' });
+    const d   = await res.json();
+    closeModal('modalHapusUser');
+    btn.disabled = false; btn.textContent = 'Ya, Hapus';
+    if (d.success) { document.getElementById('row-' + hapusId)?.remove(); }
+    else alert(d.message || 'Gagal menghapus pengguna');
+  });
+
+}());
 </script>
