@@ -74,17 +74,13 @@ class TindakLanjutController
 
         $summary = self::getSummary($isAdminLike, $userId);
 
-        $users = Auth::hasRole('admin')
-            ? Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name")
-            : [];
-
+        // Single query covers all roles; $allUsers replaces the redundant $users query
         $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
         View::layout('tindak-lanjut/index', [
             'pageTitle'        => 'Tindak Lanjut',
             'tindakLanjutList' => $tindakLanjutList,
             'summary'          => $summary,
-            'users'            => $users,
             'allUsers'         => $allUsers,
             'status'           => $status,
             'priority'         => $priority,
@@ -127,7 +123,7 @@ class TindakLanjutController
         if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
             http_response_code(403);
             $pageTitle = '403 - Akses Ditolak';
-            include APP_PATH . '/views/errors/404.php';
+            include APP_PATH . '/views/errors/403.php';
             return;
         }
 
@@ -165,6 +161,7 @@ class TindakLanjutController
         if (strpos($contentType, 'application/json') !== false) {
             $d = json_decode(file_get_contents('php://input'), true) ?? [];
         } else {
+            CSRF::verify();
             $d = $_POST;
         }
 
@@ -206,9 +203,18 @@ class TindakLanjutController
     public static function updateStatus(int $id): void
     {
         Auth::requireAuth();
+        CSRF::verify();
+
         $input   = json_decode(file_get_contents('php://input'), true) ?? $_POST;
         $status  = $input['status'] ?? '';
         $userId  = (int)($input['user_id'] ?? 0);
+
+        // Validate $userId exists when provided
+        if ($userId > 0) {
+            $userExists = Database::queryOne("SELECT id FROM users WHERE id=? AND is_active=1", [$userId]);
+            if (!$userExists) $userId = 0;
+        }
+
         $allowed = ['pending', 'in_progress', 'done', 'cancelled'];
         if (!in_array($status, $allowed)) {
             header('Content-Type: application/json');
@@ -273,6 +279,8 @@ class TindakLanjutController
     public static function addNote(int $id): void
     {
         Auth::requireAuth();
+        CSRF::verify();
+
         $tl = Database::queryOne("SELECT assigned_to, description FROM tindak_lanjut WHERE id=?", [$id]);
         if (!$tl) { http_response_code(404); echo json_encode(['success'=>false]); exit; }
 
@@ -315,7 +323,8 @@ class TindakLanjutController
 
     private static function processMentions(string $note, int $tlId, string $tlDesc): void
     {
-        preg_match_all('/@([\w]+(?:\s[\w]+)*)/u', $note, $matches);
+        // Support names with letters, spaces, and hyphens (e.g. @Budi Santoso, @Anne-Marie)
+        preg_match_all('/@([\p{L}\p{N}][\p{L}\p{N}\s\-]*[\p{L}\p{N}]|[\p{L}\p{N}]+)/u', $note, $matches);
         if (empty($matches[1])) return;
 
         $myId      = Auth::id();
@@ -325,9 +334,10 @@ class TindakLanjutController
             $namePart = trim($namePart);
             if (!$namePart) continue;
 
+            // Use exact (case-insensitive) match to avoid ambiguous partial matches
             $user = Database::queryOne(
-                "SELECT id FROM users WHERE is_active=1 AND name LIKE ? LIMIT 1",
-                ["%{$namePart}%"]
+                "SELECT id FROM users WHERE is_active=1 AND LOWER(name) = LOWER(?) LIMIT 1",
+                [$namePart]
             );
             if (!$user) continue;
             $uid = (int)$user['id'];
@@ -346,6 +356,8 @@ class TindakLanjutController
     public static function deleteNote(int $tlId, int $noteId): void
     {
         Auth::requireAuth();
+        CSRF::verify();
+
         $n = Database::queryOne("SELECT * FROM tindak_lanjut_notes WHERE id=?", [$noteId]);
         if (!$n) {
             header('Content-Type: application/json');
@@ -371,6 +383,15 @@ class TindakLanjutController
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
+        CSRF::verify();
+
+        $tl = Database::queryOne("SELECT id FROM tindak_lanjut WHERE id=?", [$id]);
+        if (!$tl) {
+            http_response_code(404);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Data tidak ditemukan']); exit;
+        }
+
         Database::getInstance()->prepare("DELETE FROM tindak_lanjut WHERE id=?")->execute([$id]);
         header('Content-Type: application/json');
         echo json_encode(['success' => true]); exit;
