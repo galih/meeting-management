@@ -3,6 +3,42 @@ declare(strict_types=1);
 
 class NotulisController
 {
+    /* ── Baca limit riwayat dari setting, default 10 ── */
+    private static function historyLimit(): int
+    {
+        try {
+            $row = Database::queryOne("SELECT value FROM app_settings WHERE `key`='notulen_history_limit'");
+            $v   = (int)(($row['value'] ?? '') ?: 10);
+            return max(1, min(100, $v));
+        } catch (\Throwable $e) {
+            return 10;
+        }
+    }
+
+    /* ── Hapus baris lama yang melebihi limit untuk meeting tertentu ── */
+    private static function pruneHistory(int $meetingId): void
+    {
+        $limit = self::historyLimit();
+        try {
+            /* Hitung total baris saat ini */
+            $cnt = (int)(Database::queryOne(
+                "SELECT COUNT(*) AS c FROM notulen_history WHERE meeting_id=?",
+                [$meetingId]
+            )['c'] ?? 0);
+
+            if ($cnt > $limit) {
+                $excess = $cnt - $limit;
+                /* Hapus baris terlama (id terkecil) sejumlah $excess */
+                Database::getInstance()->prepare(
+                    "DELETE FROM notulen_history
+                     WHERE meeting_id=?
+                     ORDER BY id ASC
+                     LIMIT " . $excess
+                )->execute([$meetingId]);
+            }
+        } catch (\Throwable $e) { /* tabel belum ada, abaikan */ }
+    }
+
     /* ------------------------------------------------------------------ */
     /*  EDITOR NOTULEN  (GET /notulen/{id})                                */
     /* ------------------------------------------------------------------ */
@@ -16,7 +52,6 @@ class NotulisController
 
         $notulen = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
 
-        // Counter badge riwayat
         $historyCount = 0;
         try {
             $historyCount = (int)(Database::queryOne(
@@ -25,7 +60,6 @@ class NotulisController
             )['cnt'] ?? 0);
         } catch (\Throwable $e) { /* tabel belum ada */ }
 
-        // Peserta rapat
         $participants = Database::query(
             "SELECT u.id, u.name, u.avatar, u.role
              FROM meeting_participants mp
@@ -34,7 +68,6 @@ class NotulisController
             [$meetingId]
         ) ?: [];
 
-        // Tindak lanjut terkait
         $tindakLanjutList = Database::query(
             "SELECT tl.*, u.name AS assigned_name
              FROM tindak_lanjut tl
@@ -70,8 +103,7 @@ class NotulisController
         $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
-        // FIX: key diubah dari 'historyRows' → 'histories' agar sesuai
-        // dengan $histories yang dibaca di view history.php ($list = $histories ?? [])
+        $limit     = self::historyLimit();
         $histories = [];
         try {
             $histories = Database::query(
@@ -79,7 +111,8 @@ class NotulisController
                  FROM notulen_history nh
                  LEFT JOIN users u ON u.id = nh.edited_by
                  WHERE nh.meeting_id = ?
-                 ORDER BY nh.created_at DESC",
+                 ORDER BY nh.created_at DESC
+                 LIMIT " . $limit,
                 [$meetingId]
             ) ?: [];
         } catch (\Throwable $e) { /* tabel belum ada */ }
@@ -93,10 +126,11 @@ class NotulisController
         );
 
         View::layout('notulen/history', [
-            'pageTitle'  => 'Riwayat Notulen \u2014 ' . $meeting['title'],
-            'meeting'    => $meeting,
-            'notulen'    => $notulen,
-            'histories'  => $histories,
+            'pageTitle'     => 'Riwayat Notulen \u2014 ' . $meeting['title'],
+            'meeting'       => $meeting,
+            'notulen'       => $notulen,
+            'histories'     => $histories,
+            'historyLimit'  => $limit,
         ]);
     }
 
@@ -122,9 +156,6 @@ class NotulisController
 
     /* ------------------------------------------------------------------ */
     /*  SAVE NOTULEN (POST /api/notulen/save)                              */
-    /*                                                                      */
-    /*  Payload JSON: { meeting_id: int, content: string (HTML Quill) }   */
-    /*  Kolom DB  :   content = HTML string                                */
     /* ------------------------------------------------------------------ */
     public static function save(): void
     {
@@ -146,7 +177,6 @@ class NotulisController
         $existing = Database::queryOne("SELECT id, version FROM notulen WHERE meeting_id=?", [$meetingId]);
 
         if ($existing) {
-            // Snapshot ke history sebelum overwrite
             try {
                 $old = Database::queryOne("SELECT * FROM notulen WHERE meeting_id=?", [$meetingId]);
                 if ($old) {
@@ -155,6 +185,8 @@ class NotulisController
                          VALUES (?, ?, ?, ?)"
                     )->execute([$meetingId, $old['content'], (int)($old['version'] ?? 1), Auth::id()]);
                 }
+                /* Auto-prune setelah insert agar DB tidak membengkak */
+                self::pruneHistory($meetingId);
             } catch (\Throwable $e) { /* notulen_history belum ada */ }
 
             $newVersion = (int)($existing['version'] ?? 1) + 1;
@@ -210,16 +242,14 @@ class NotulisController
     }
 
     /* ------------------------------------------------------------------ */
-    /*  SYNC (API) — polling untuk deteksi perubahan oleh user lain        */
-    /*  Response: { success, updated_at, version, content,                 */
-    /*             editor_name, editor_id }                                */
+    /*  SYNC (API)                                                          */
     /* ------------------------------------------------------------------ */
     public static function sync(): void
     {
         Auth::requireLogin();
         header('Content-Type: application/json');
-        $meetingId      = (int)($_GET['meeting_id'] ?? 0);
-        $clientVersion  = (int)($_GET['version']    ?? 0);
+        $meetingId     = (int)($_GET['meeting_id'] ?? 0);
+        $clientVersion = (int)($_GET['version']    ?? 0);
         if (!$meetingId) { echo json_encode(['success'=>false]); exit; }
 
         $notulen = Database::queryOne(

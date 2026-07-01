@@ -1,7 +1,8 @@
 <?php
-$logo    = $settings['app_logo']   ?? '';
-$bg      = $settings['login_bg']   ?? '';
-$apiBase = rtrim(BASE_URL, '/');
+$logo         = $settings['app_logo']   ?? '';
+$bg           = $settings['login_bg']   ?? '';
+$histLimit    = (int)($settings['notulen_history_limit'] ?? 10);
+$apiBase      = rtrim(BASE_URL, '/');
 ?>
 <style>
 /* ===== ST: Settings Namespace ===== */
@@ -119,7 +120,7 @@ select.st-ctrl {
 .st-row { display: flex; gap: .85rem; flex-wrap: wrap; }
 .st-row > .st-group { flex: 1; min-width: 140px; }
 
-/* Input group (password toggle, test email) */
+/* Input group */
 .st-input-group {
   display: flex;
   border: 1.5px solid #DDD5C4;
@@ -187,7 +188,7 @@ select.st-ctrl {
 .st-msg-ok  { color: #27A155; display: flex; align-items: center; gap: .4rem; }
 .st-msg-err { color: #C05621; display: flex; align-items: center; gap: .4rem; }
 
-/* Info box (SMTP guide) */
+/* Info box */
 .st-infobox {
   background: #F5F0E8;
   border: 1px solid #E8E2D9;
@@ -204,6 +205,25 @@ select.st-ctrl {
 }
 .st-guide-item strong { display: block; font-size: 12.5px; color: #1C1714; margin-bottom: .25rem; }
 .st-guide-item code { background: #F0EBE2; padding: .05em .35em; border-radius: 4px; font-size: 11px; color: #7B1C1C; }
+
+/* Slider custom */
+.st-range {
+  width: 100%; height: 6px;
+  accent-color: #7B1C1C;
+  cursor: pointer;
+  margin: .4rem 0;
+}
+.st-range-labels {
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: #A89E90;
+}
+.st-range-val {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: #7B1C1C; color: #fff;
+  font-size: 13px; font-weight: 800;
+  width: 44px; height: 28px; border-radius: 6px;
+  margin-left: .6rem;
+}
 
 /* Admin badge */
 .st-admin-badge {
@@ -233,7 +253,7 @@ select.st-ctrl {
   </div>
   <div>
     <div class="st-hero-title">Pengaturan Sistem</div>
-    <div class="st-hero-sub">Kelola logo, tampilan, dan konfigurasi email aplikasi</div>
+    <div class="st-hero-sub">Kelola logo, tampilan, email, dan konfigurasi notulen</div>
   </div>
   <div class="st-gold-bar"></div>
 </div>
@@ -247,6 +267,10 @@ select.st-ctrl {
   <button class="st-tab" data-tab="smtp" role="tab">
     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
     Email / SMTP
+  </button>
+  <button class="st-tab" data-tab="notulen" role="tab">
+    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    Notulen
   </button>
 </div>
 
@@ -351,7 +375,6 @@ select.st-ctrl {
         Password disimpan terenkripsi di database.
       </p>
 
-      <!-- Row 1: Host, Port, Enkripsi -->
       <div class="st-row">
         <div class="st-group" style="flex:3">
           <label class="st-label">SMTP Host <span class="req">*</span></label>
@@ -378,7 +401,6 @@ select.st-ctrl {
 
       <hr class="st-divider">
 
-      <!-- Row 2: Username, Password -->
       <div class="st-row">
         <div class="st-group">
           <label class="st-label">Username / Email SMTP <span class="req">*</span></label>
@@ -401,7 +423,6 @@ select.st-ctrl {
         </div>
       </div>
 
-      <!-- Row 3: From Email, From Name -->
       <div class="st-row">
         <div class="st-group">
           <label class="st-label">From Email <span class="req">*</span></label>
@@ -419,7 +440,6 @@ select.st-ctrl {
 
       <hr class="st-divider">
 
-      <!-- Actions -->
       <div style="display:flex;gap:.65rem;align-items:flex-end;flex-wrap:wrap">
         <button class="st-btn st-btn-primary" id="btn-save-smtp">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -438,7 +458,6 @@ select.st-ctrl {
       </div>
       <div id="smtp-msg" class="st-msg" style="margin-top:.65rem"></div>
 
-      <!-- Quick Guide -->
       <div class="st-infobox">
         <div class="st-infobox-title">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -464,6 +483,78 @@ select.st-ctrl {
             Gunakan email &amp; password akun O365
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Panel: Notulen -->
+<div class="st-panel" id="panel-notulen">
+  <div class="st-card">
+    <div class="st-card-header">
+      <div class="st-card-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.23"/></svg>
+        Riwayat Notulen
+      </div>
+      <span class="st-admin-badge">Hanya Admin</span>
+    </div>
+    <div class="st-card-body">
+      <p class="st-hint" style="margin-bottom:1.5rem">
+        Tentukan berapa banyak riwayat perubahan notulen yang disimpan per kegiatan.
+        Baris terlama akan otomatis dihapus setiap kali notulen disimpan melebihi batas ini.
+      </p>
+
+      <div class="st-group" style="max-width:480px">
+        <label class="st-label">Jumlah Riwayat Maksimal <span class="req">*</span></label>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <input type="range" class="st-range" id="notulen_history_limit"
+                 min="1" max="50" step="1" value="<?= $histLimit ?>">
+          <span class="st-range-val" id="range-val-display"><?= $histLimit ?></span>
+        </div>
+        <div class="st-range-labels">
+          <span>1</span><span>10</span><span>20</span><span>30</span><span>40</span><span>50</span>
+        </div>
+        <div class="st-hint" style="margin-top:.5rem">
+          Nilai saat ini: <strong id="hint-limit-val"><?= $histLimit ?></strong> riwayat per kegiatan.
+          Rentang: 1 – 50.
+        </div>
+      </div>
+
+      <hr class="st-divider">
+
+      <!-- Preset cepat -->
+      <div class="st-group">
+        <label class="st-label">Preset Cepat</label>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <?php foreach ([5, 10, 20, 30, 50] as $p): ?>
+          <button class="st-btn st-btn-outline btn-preset" data-val="<?= $p ?>"
+                  style="height:34px;font-size:12.5px;padding:0 .85rem;<?= $histLimit === $p ? 'border-color:#7B1C1C;color:#7B1C1C;background:rgba(123,28,28,.06)' : '' ?>">
+            <?= $p ?> riwayat
+          </button>
+          <?php endforeach; ?>
+        </div>
+      </div>
+
+      <hr class="st-divider">
+
+      <button class="st-btn st-btn-primary" id="btn-save-notulen">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        Simpan Pengaturan
+      </button>
+      <div id="notulen-msg" class="st-msg"></div>
+
+      <!-- Info box -->
+      <div class="st-infobox" style="margin-top:1.25rem">
+        <div class="st-infobox-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Cara Kerja
+        </div>
+        <ul style="margin:0;padding-left:1.1rem;font-size:12.5px;color:#6B6055;line-height:1.8">
+          <li>Setiap kali notulen disimpan, versi lama otomatis diarsipkan ke tabel riwayat.</li>
+          <li>Jika jumlah riwayat melebihi batas, entri terlama (versi terkecil) dihapus otomatis.</li>
+          <li>Mengurangi limit <strong>tidak</strong> langsung menghapus data lama — efektif pada simpan berikutnya.</li>
+          <li>Disarankan nilai <strong>10–20</strong> untuk keseimbangan antara keamanan data dan kapasitas DB.</li>
+        </ul>
       </div>
     </div>
   </div>
@@ -556,11 +647,11 @@ select.st-ctrl {
 
   /* ── Save SMTP ── */
   const smtpMsg = document.getElementById('smtp-msg');
-  function setMsg(html, ok) {
+  function setMsg(el, html, ok) {
     const icon = ok
       ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
       : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-    smtpMsg.innerHTML = `<span class="${ok ? 'st-msg-ok' : 'st-msg-err'}">${icon} ${html}</span>`;
+    el.innerHTML = `<span class="${ok ? 'st-msg-ok' : 'st-msg-err'}">${icon} ${html}</span>`;
   }
 
   document.getElementById('btn-save-smtp').addEventListener('click', async function() {
@@ -570,8 +661,8 @@ select.st-ctrl {
       .forEach(id => fd.append(id, document.getElementById(id).value));
     try {
       const data = await (await fetch(`${BASE}/api/settings/save-smtp`, { method:'POST', body:fd })).json();
-      setMsg(data.message, data.success);
-    } catch(e) { setMsg('Gagal terhubung ke server.', false); }
+      setMsg(smtpMsg, data.message, data.success);
+    } catch(e) { setMsg(smtpMsg, 'Gagal terhubung ke server.', false); }
     finally {
       this.disabled = false;
       this.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Simpan SMTP`;
@@ -581,16 +672,54 @@ select.st-ctrl {
   /* ── Test SMTP ── */
   document.getElementById('btn-test-smtp').addEventListener('click', async function() {
     const to = document.getElementById('smtp_test_email').value.trim();
-    if (!to) { setMsg('Masukkan email tujuan test.', false); return; }
+    if (!to) { setMsg(smtpMsg, 'Masukkan email tujuan test.', false); return; }
     this.disabled = true; this.textContent = 'Mengirim…';
     const fd = new FormData(); fd.append('test_email', to);
     try {
       const data = await (await fetch(`${BASE}/api/settings/test-smtp`, { method:'POST', body:fd })).json();
-      setMsg(data.message, data.success);
-    } catch(e) { setMsg('Gagal terhubung ke server.', false); }
+      setMsg(smtpMsg, data.message, data.success);
+    } catch(e) { setMsg(smtpMsg, 'Gagal terhubung ke server.', false); }
     finally {
       this.disabled = false;
       this.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 2 15 22 11 13 2 9 22 2"/></svg> Kirim Test`;
+    }
+  });
+
+  /* ── Notulen: slider + preset ── */
+  const slider  = document.getElementById('notulen_history_limit');
+  const display = document.getElementById('range-val-display');
+  const hint    = document.getElementById('hint-limit-val');
+
+  function updateSlider(val) {
+    slider.value   = val;
+    display.textContent = val;
+    hint.textContent    = val;
+    document.querySelectorAll('.btn-preset').forEach(b => {
+      const active = parseInt(b.dataset.val) === parseInt(val);
+      b.style.borderColor = active ? '#7B1C1C' : '';
+      b.style.color       = active ? '#7B1C1C' : '';
+      b.style.background  = active ? 'rgba(123,28,28,.06)' : '';
+    });
+  }
+
+  slider.addEventListener('input', () => updateSlider(slider.value));
+
+  document.querySelectorAll('.btn-preset').forEach(b => {
+    b.addEventListener('click', () => updateSlider(b.dataset.val));
+  });
+
+  const notulenMsg = document.getElementById('notulen-msg');
+  document.getElementById('btn-save-notulen').addEventListener('click', async function() {
+    this.disabled = true; this.textContent = 'Menyimpan…';
+    const fd = new FormData();
+    fd.append('notulen_history_limit', slider.value);
+    try {
+      const data = await (await fetch(`${BASE}/api/settings/save-notulen`, { method:'POST', body:fd })).json();
+      setMsg(notulenMsg, data.message, data.success);
+    } catch(e) { setMsg(notulenMsg, 'Gagal terhubung ke server.', false); }
+    finally {
+      this.disabled = false;
+      this.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Simpan Pengaturan`;
     }
   });
 })();

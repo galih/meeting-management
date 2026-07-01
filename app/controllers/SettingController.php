@@ -33,21 +33,40 @@ class SettingController
     {
         Auth::requireRole('admin');
         $settings = [
-            'app_logo'        => self::getSetting('app_logo'),
-            'login_bg'        => self::getSetting('login_bg'),
-            'app_name_custom' => self::getSetting('app_name_custom', APP_NAME),
-            'smtp_host'       => self::getSetting('smtp_host'),
-            'smtp_port'       => self::getSetting('smtp_port', '587'),
-            'smtp_encryption' => self::getSetting('smtp_encryption', 'tls'),
-            'smtp_username'   => self::getSetting('smtp_username'),
-            'smtp_password'   => self::getSetting('smtp_password'),
-            'smtp_from_email' => self::getSetting('smtp_from_email'),
-            'smtp_from_name'  => self::getSetting('smtp_from_name', APP_NAME),
+            'app_logo'               => self::getSetting('app_logo'),
+            'login_bg'               => self::getSetting('login_bg'),
+            'app_name_custom'        => self::getSetting('app_name_custom', APP_NAME),
+            'smtp_host'              => self::getSetting('smtp_host'),
+            'smtp_port'              => self::getSetting('smtp_port', '587'),
+            'smtp_encryption'        => self::getSetting('smtp_encryption', 'tls'),
+            'smtp_username'          => self::getSetting('smtp_username'),
+            'smtp_password'          => self::getSetting('smtp_password'),
+            'smtp_from_email'        => self::getSetting('smtp_from_email'),
+            'smtp_from_name'         => self::getSetting('smtp_from_name', APP_NAME),
+            // Notulen settings
+            'notulen_history_limit'  => self::getSetting('notulen_history_limit', '10'),
         ];
         View::layout('settings/index', [
             'pageTitle' => 'Pengaturan Aplikasi',
             'settings'  => $settings,
         ]);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  SAVE NOTULEN SETTINGS (POST /api/settings/save-notulen)           */
+    /* ------------------------------------------------------------------ */
+    public static function saveNotulen(): void
+    {
+        Auth::requireRole('admin');
+        header('Content-Type: application/json');
+
+        $limit = (int)($_POST['notulen_history_limit'] ?? 10);
+        if ($limit < 1)   $limit = 1;
+        if ($limit > 100) $limit = 100;
+
+        self::setSetting('notulen_history_limit', (string)$limit);
+        echo json_encode(['success' => true, 'message' => 'Pengaturan notulen berhasil disimpan.']);
+        exit;
     }
 
     public static function saveSMTP(): void
