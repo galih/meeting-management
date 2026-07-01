@@ -155,7 +155,8 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   display:inline-flex; align-items:center; justify-content:center;
   font-size:10.5px; font-weight:800; color:#fff; flex-shrink:0;
 }
-.dm-file-name { font-weight:600; color:#1C1714; word-break:break-word; }
+.dm-file-name { font-weight:600; color:#1C1714; word-break:break-word; cursor:pointer; }
+.dm-file-name:hover { color:#7B1C1C; text-decoration:underline; }
 .dm-file-size  { font-size:12px; color:#A89E90; }
 .dm-badge {
   display:inline-flex; align-items:center;
@@ -495,7 +496,7 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
             </span>
           </td>
           <td>
-            <div class="dm-file-name"><?= htmlspecialchars($f['original_name']) ?></div>
+            <div class="dm-file-name" onclick="openPreview(<?= $f['id'] ?>)"><?= htmlspecialchars($f['original_name']) ?></div>
           </td>
           <td><span style="font-size:12px;color:#6B6055"><?= htmlspecialchars($f['mime_label']) ?></span></td>
           <td class="dm-file-size"><?= htmlspecialchars($f['size_fmt']) ?></td>
@@ -653,6 +654,8 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   </div>
 </div>
 
+<?php include __DIR__ . '/preview_modal.php'; ?>
+
 <script>
 (function(){
   const BASE    = '<?= $base ?>';
@@ -678,7 +681,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     return (b/1048576).toFixed(2)+'MB';
   }
 
-  /* ── Upload modal ── */
   const dropzone   = document.getElementById('upload-dropzone');
   const fileInput  = document.getElementById('input-file-upload');
   const uploadBtn  = document.getElementById('btn-do-upload');
@@ -748,7 +750,7 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     tr.id = 'file-row-' + f.id;
     tr.innerHTML =
       '<td><span class="dm-file-icon" style="background:'+escHtml(f.mime_color)+'">'+escHtml(f.mime_label)+'</span></td>'
-      +'<td><div class="dm-file-name">'+escHtml(f.original_name)+'</div></td>'
+      +'<td><div class="dm-file-name" onclick="openPreview('+f.id+')">'+escHtml(f.original_name)+'</div></td>'
       +'<td><span style="font-size:12px;color:#6B6055">'+escHtml(f.mime_label)+'</span></td>'
       +'<td class="dm-file-size">'+escHtml(f.size_fmt)+'</td>'
       +'<td style="font-size:12.5px;color:#6B6055">—</td>'
@@ -761,7 +763,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     tbody.insertBefore(tr, tbody.firstChild);
   }
 
-  /* ── Buat/Rename Folder ── */
   let folderMode = 'create';
   document.getElementById('btn-open-folder')?.addEventListener('click', () => {
     folderMode = 'create';
@@ -799,7 +800,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     } catch(e) { setMsg('folder-msg','Gagal koneksi.',false); btn.disabled=false; btn.textContent='Simpan'; }
   };
 
-  /* ── Hapus File ── */
   window.deleteFile = function(id, name) {
     if (!confirm('Hapus file "' + name + '"?')) return;
     fetch(BASE + '/api/dokumen/' + id + '/delete', {method:'POST'})
@@ -810,9 +810,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
       }).catch(()=>setMsg('page-msg','Gagal koneksi.',false));
   };
 
-  /* ═══════════════════════════════════════════════════════
-     FASE 2 — SHARE MODAL
-  ═══════════════════════════════════════════════════════ */
   let shareFileId   = null;
   let shareDebounce = null;
 
@@ -828,7 +825,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     openModal('modal-share');
   };
 
-  /* Live search user */
   document.getElementById('share-user-search').addEventListener('input', function() {
     clearTimeout(shareDebounce);
     const q = this.value.trim();
@@ -861,7 +857,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     document.getElementById('share-user-dropdown').classList.remove('open');
   };
 
-  /* Submit share */
   window.submitShare = async function() {
     const userId = document.getElementById('share-selected-user-id').value;
     const perm   = document.getElementById('share-permission').value;
@@ -886,7 +881,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     btn.disabled = false; btn.textContent = 'Bagikan';
   };
 
-  /* Load daftar share */
   async function loadShareList(fileId) {
     document.getElementById('share-list').innerHTML =
       '<div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0"><div class="spinner-border spinner-border-sm"></div></div>';
@@ -905,7 +899,7 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
       return;
     }
     el.innerHTML = shares.map(s =>
-      '<div class="dm-share-item" id="share-item-'+s.shared_to+'">'  
+      '<div class="dm-share-item" id="share-item-'+s.shared_to+'">'
       + '<div class="dm-share-avatar">'+escHtml(s.user_name.charAt(0).toUpperCase())+'</div>'
       + '<div class="dm-share-info">'
       + '<div class="dm-share-name">'+escHtml(s.user_name)+'</div>'
@@ -915,14 +909,13 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
       + '<option value="view"'+(s.permission==='view'?' selected':'')+'>View Only</option>'
       + '<option value="download"'+(s.permission==='download'?' selected':'')+'>Download</option>'
       + '</select>'
-      + '<button class="dm-share-revoke" title="Cabut akses" onclick="revokeShare('+shareFileId+','+s.shared_to+')">'  
+      + '<button class="dm-share-revoke" title="Cabut akses" onclick="revokeShare('+shareFileId+','+s.shared_to+')">'
       + '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
       + '</button>'
       + '</div>'
     ).join('');
   }
 
-  /* Update permission */
   window.updatePerm = async function(fileId, userId, perm) {
     const fd = new FormData(); fd.append('permission', perm);
     try {
@@ -932,7 +925,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     } catch(e) { alert('Gagal koneksi.'); }
   };
 
-  /* Cabut share */
   window.revokeShare = async function(fileId, userId) {
     if (!confirm('Cabut akses user ini?')) return;
     try {
@@ -942,7 +934,6 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     } catch(e) { alert('Gagal koneksi.'); }
   };
 
-  /* Close on overlay / ESC */
   document.querySelectorAll('.dm-modal-overlay').forEach(ov => {
     ov.addEventListener('click', e => { if (e.target===ov) closeModal(ov.id); });
   });
