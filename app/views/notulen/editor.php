@@ -1,9 +1,8 @@
 <?php
 $baseUrl  = rtrim(BASE_URL, '/');
-$pdfUrl   = $baseUrl . '/notulen/' . $meeting['id'] . '/export-pdf';
-$docxUrl  = $baseUrl . '/notulen/' . $meeting['id'] . '/export-docx';
-$histUrl  = $baseUrl . '/notulen/' . $meeting['id'] . '/history';
-$backUrl  = $baseUrl . '/meetings/' . $meeting['id'];
+$docxUrl  = $baseUrl . '/notulen/' . (int)$meeting['id'] . '/export-docx';
+$histUrl  = $baseUrl . '/notulen/' . (int)$meeting['id'] . '/history';
+$backUrl  = $baseUrl . '/meetings/'  . (int)$meeting['id'];
 $canEdit  = Auth::hasRole('admin', 'sekretaris');
 
 $statusBadge   = ['pending'=>'kb-badge-gray','in_progress'=>'kb-badge-blue','done'=>'kb-badge-green','cancelled'=>'kb-badge-red'];
@@ -16,18 +15,18 @@ $loc    = $meeting['location'] ?? '';
 $isLink = !empty($loc) && (strncmp($loc,'http://',7)===0 || strncmp($loc,'https://',8)===0);
 
 $initialContent = $notulen['content'] ?? '';
-// FIX #2: $saveUrl & $syncUrl di-expose ke window.* di blok JS bawah
 $saveUrl        = $baseUrl . '/api/notulen/save';
 $syncUrl        = $baseUrl . '/api/notulen/sync';
 $currentUserId  = Auth::user()['id'] ?? 0;
+
+// Fix #7 — guard filemtime agar tidak fatal error jika file tidak ada
+$editorJsPath  = ROOT_PATH . '/assets/js/notulen-editor.js';
+$editorJsVer   = file_exists($editorJsPath) ? filemtime($editorJsPath) : time();
+
+// Fix #6 — fallback $users agar loop di modal TL tidak error
+$tlUsers = $users ?? $allUsers ?? [];
 ?>
 
-<!-- ============================================================
-     KEMENBUD PALETTE CSS VARIABLES
-     Primary  : #7B1C1C  (Merah Marun)
-     Accent   : #C9A84C  (Emas Kemenbud)
-     Surface  : #FBF8F3  (Krem Hangat)
-============================================================ -->
 <style>
 /* ── Kemenbud Tokens ──────────────────────────────────────────── */
 :root {
@@ -62,7 +61,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
   --kb-transition:    180ms cubic-bezier(.16,1,.3,1);
 }
 
-/* ── Base resets scoped ────────────────────────────────────────── */
 .ned-wrap * { box-sizing: border-box; }
 
 /* ── Hero ─────────────────────────────────────────────────────── */
@@ -149,7 +147,6 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 }
 .ned-btn-hist:hover { border-color:rgba(255,255,255,.7); color:#fff; }
 
-/* Divider bar di bawah hero */
 .ned-hero-bar {
   height:4px;
   background: linear-gradient(90deg, var(--kb-gold) 0%, var(--kb-gold-dark) 60%, transparent 100%);
@@ -319,7 +316,7 @@ $currentUserId  = Auth::user()['id'] ?? 0;
   font-size:10.5px; font-weight:700; padding:.2em .65em;
   border-radius:20px; white-space:nowrap;
 }
-.kb-badge-red    { background:var(--kb-red-bg);   color:var(--kb-red); }
+.kb-badge-red    { background:var(--kb-red-bg);    color:var(--kb-red); }
 .kb-badge-gold   { background:var(--kb-gold-light); color:#7A5C00; }
 .kb-badge-green  { background:var(--kb-green-bg);  color:var(--kb-green); }
 .kb-badge-blue   { background:var(--kb-blue-bg);   color:var(--kb-blue); }
@@ -377,7 +374,7 @@ $currentUserId  = Auth::user()['id'] ?? 0;
           <?php if (!empty($loc)): ?>
           <span class="ned-chip">
             <?php if ($isLink): ?>
-            <a href="<?= htmlspecialchars($loc) ?>" target="_blank" rel="noopener" class="ned-chip-link">🔗 Link Kegiatan</a>
+            <a href="<?= htmlspecialchars($loc, ENT_QUOTES) ?>" target="_blank" rel="noopener" class="ned-chip-link">🔗 Link Kegiatan</a>
             <?php else: ?>
             <?= htmlspecialchars($loc) ?>
             <?php endif; ?>
@@ -398,22 +395,11 @@ $currentUserId  = Auth::user()['id'] ?? 0;
           Simpan
         </button>
         <?php endif; ?>
-        <div class="dropdown">
-          <button class="btn ned-btn-export dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Export
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-            <li><a class="dropdown-item" href="<?= $pdfUrl ?>" target="_blank">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              Export PDF
-            </a></li>
-            <li><a class="dropdown-item" href="<?= $docxUrl ?>">
-              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-1"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              Export Word (.docx)
-            </a></li>
-          </ul>
-        </div>
+        <!-- Export Word saja (PDF dihapus) -->
+        <a href="<?= $docxUrl ?>" class="btn ned-btn-export">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Export Word
+        </a>
         <?php if ($canEdit): ?>
         <a href="<?= $histUrl ?>" class="btn ned-btn-hist">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.23"/></svg>
@@ -427,8 +413,7 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 </div>
 
 <?php if (!$canEdit): ?>
-<!-- FIX #4: class 'alert' wajib agar data-bs-dismiss="alert" Bootstrap berfungsi.
-     onclick fallback .remove() untuk browser yang tidak mendukung Bootstrap dismiss. -->
+<!-- Fix #2: class="alert" wajib agar data-bs-dismiss="alert" Bootstrap berfungsi -->
 <div class="ned-readonly-alert alert mb-3" role="alert">
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
   Anda hanya bisa membaca notulen ini. Edit tidak tersedia.
@@ -467,7 +452,7 @@ $currentUserId  = Auth::user()['id'] ?? 0;
       <div id="comment-list" class="ned-comment-list"></div>
       <div class="ned-comment-footer">
         <div class="d-flex gap-2 align-items-start">
-          <span class="ned-user-avatar"><?= strtoupper(mb_substr($user['name'], 0, 1)) ?></span>
+          <span class="ned-user-avatar"><?= strtoupper(mb_substr($user['name'] ?? 'U', 0, 1)) ?></span>
           <div class="flex-fill">
             <div class="position-relative">
               <div id="mention-dropdown" class="dropdown-menu"></div>
@@ -498,7 +483,7 @@ $currentUserId  = Auth::user()['id'] ?? 0;
           <dt>Lokasi</dt>
           <dd>
             <?php if ($isLink): ?>
-            <a href="<?= htmlspecialchars($loc) ?>" target="_blank" rel="noopener" class="ned-link">Buka Link</a>
+            <a href="<?= htmlspecialchars($loc, ENT_QUOTES) ?>" target="_blank" rel="noopener" class="ned-link">Buka Link</a>
             <?php else: ?>
             <?= htmlspecialchars($loc ?: '—') ?>
             <?php endif; ?>
@@ -589,7 +574,7 @@ $currentUserId  = Auth::user()['id'] ?? 0;
         <?php if (empty($tindakLanjutList)): ?>
         <div class="ned-tl-empty" id="tl-empty">Belum ada tindak lanjut</div>
         <?php endif; ?>
-        <?php foreach ($tindakLanjutList as $tl):
+        <?php foreach (($tindakLanjutList ?? []) as $tl):
           $pc   = $priorityBadge[$tl['priority']] ?? 'kb-badge-gray';
           $plbl = $priorityLabel[$tl['priority']]  ?? ucfirst($tl['priority']);
           $sc   = $statusBadge[$tl['status']]       ?? 'kb-badge-gray';
@@ -687,8 +672,8 @@ $currentUserId  = Auth::user()['id'] ?? 0;
             <label class="ned-form-label">Ditugaskan ke</label>
             <select id="tl2-assign" class="form-select form-select-sm">
               <option value="">-- Pilih --</option>
-              <?php foreach ($users as $u): ?>
-              <option value="<?= $u['id'] ?>"><?= htmlspecialchars($u['name']) ?></option>
+              <?php foreach ($tlUsers as $u): ?>
+              <option value="<?= (int)$u['id'] ?>"><?= htmlspecialchars($u['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
@@ -720,90 +705,87 @@ $currentUserId  = Auth::user()['id'] ?? 0;
 <?php endif; ?>
 
 <!-- ============================================================
-     FIX #2 + FIX #3: Globals di-set ke window.* agar
-     notulen-editor.js dapat akses scope global dengan aman.
-     FIX #3: Guard Quill — load dinamis hanya jika
-     window.Quill belum ada (base.php sudah load quill@2.0.3).
+     GLOBALS + SCRIPT LOADER
 ============================================================ -->
 <script>
 (function () {
-  function initNotulenGlobals() {
-    /* FIX #2 — expose ke window.* bukan const lokal */
-    window.BASE_URL        = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
-    window.MEETING_ID      = <?= (int)$meeting['id'] ?>;
-    window.CURRENT_USER_ID = <?= (int)$currentUserId ?>;
-    window.IS_EDITOR       = <?= $canEdit ? 'true' : 'false' ?>;
-    window.INITIAL_CONTENT = <?= json_encode($initialContent) ?>;
-    window.SAVE_URL        = <?= json_encode($saveUrl) ?>;
-    window.SYNC_URL        = <?= json_encode($syncUrl) ?>;
+  /* Expose semua globals ke window.* agar notulen-editor.js dapat akses */
+  window.BASE_URL        = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
+  window.MEETING_ID      = <?= (int)$meeting['id'] ?>;
+  window.CURRENT_USER_ID = <?= (int)$currentUserId ?>;
+  window.IS_EDITOR       = <?= $canEdit ? 'true' : 'false' ?>;
+  window.INITIAL_CONTENT = <?= json_encode($initialContent) ?>;
+  window.SAVE_URL        = <?= json_encode($saveUrl) ?>;
+  window.SYNC_URL        = <?= json_encode($syncUrl) ?>;
 
 <?php if ($canEdit): ?>
-    /* ── Template picker ──────────────────────────────────────── */
-    var TPL_API_URL    = window.BASE_URL + '/api/notulen-templates';
-    var TPL_MANAGE_URL = window.BASE_URL + '/notulen-templates';
-    var tplListLoaded  = false;
+  /* ── Template picker ──────────────────────────────────────── */
+  var TPL_API_URL    = window.BASE_URL + '/api/notulen-templates';
+  var TPL_MANAGE_URL = window.BASE_URL + '/notulen-templates';
+  var tplListLoaded  = false;
 
-    var btnTpl = document.getElementById('btn-pick-template');
-    if (btnTpl) {
-      btnTpl.addEventListener('click', function () {
-        var modal = new bootstrap.Modal(document.getElementById('modalPickTemplate'));
-        modal.show();
-        if (tplListLoaded) return;
-        fetch(TPL_API_URL)
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            tplListLoaded = true;
-            var loading   = document.getElementById('tpl-list-loading');
-            var container = document.getElementById('tpl-list-container');
-            loading.style.display = 'none';
-            container.style.display = '';
-            if (!data.templates || !data.templates.length) {
-              container.innerHTML = '<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">Belum ada template. <a href="' + TPL_MANAGE_URL + '" target="_blank" style="color:var(--kb-primary);">Buat template</a></div>';
-              return;
-            }
-            data.templates.forEach(function (tpl) {
-              var col = document.createElement('div');
-              col.className = 'col-md-6';
-              col.innerHTML = '<div style="background:#fff;border:1px solid var(--kb-border-light);border-radius:var(--kb-radius);overflow:hidden;box-shadow:var(--kb-shadow-sm);height:100%;display:flex;flex-direction:column;"><div style="padding:.8rem 1rem;flex:1;"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.3rem;"><span style="font-size:14px;font-weight:700;color:var(--kb-text);">' + tpl.name + '</span>' + (tpl.is_default == 1 ? '<span class="ned-badge kb-badge-green">Default</span>' : '') + '</div><p style="font-size:12px;color:var(--kb-text-muted);margin:0;">' + (tpl.description || '—') + '</p></div><div style="padding:.55rem 1rem;background:var(--kb-surface);border-top:1px solid var(--kb-border-light);"><button style="width:100%;background:linear-gradient(135deg,var(--kb-primary),#9B2020);border:none;color:#fff;font-size:12.5px;font-weight:700;border-radius:7px;padding:.38rem .75rem;cursor:pointer;" class="btn-apply-tpl" data-tpl-id="' + tpl.id + '">Gunakan Template Ini</button></div></div>';
-              container.appendChild(col);
-            });
-            container.querySelectorAll('.btn-apply-tpl').forEach(function (btn) {
-              btn.addEventListener('click', function () {
-                var tplId = this.dataset.tplId;
-                fetch(TPL_API_URL + '/' + tplId)
-                  .then(function (r) { return r.json(); })
-                  .then(function (d) {
-                    if (!d.success) { alert(d.message || 'Gagal memuat template.'); return; }
-                    if (!window.quill) { alert('Editor belum siap.'); return; }
-                    window.quill.clipboard.dangerouslyPasteHTML(d.template.content);
-                    bootstrap.Modal.getInstance(document.getElementById('modalPickTemplate')).hide();
-                    var ss = document.getElementById('save-status');
-                    if (ss) { ss.textContent = '● Belum disimpan'; ss.style.color = 'rgba(255,200,50,.9)'; }
-                  });
-              });
-            });
-          })
-          .catch(function () {
-            document.getElementById('tpl-list-loading').innerHTML = '<p class="text-danger small">Gagal memuat template.</p>';
+  var btnTpl = document.getElementById('btn-pick-template');
+  if (btnTpl) {
+    btnTpl.addEventListener('click', function () {
+      var modal = new bootstrap.Modal(document.getElementById('modalPickTemplate'));
+      modal.show();
+      if (tplListLoaded) return;
+      fetch(TPL_API_URL)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          tplListLoaded = true;
+          var loading   = document.getElementById('tpl-list-loading');
+          var container = document.getElementById('tpl-list-container');
+          loading.style.display = 'none';
+          container.style.display = '';
+          if (!data.templates || !data.templates.length) {
+            container.innerHTML = '<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">Belum ada template. <a href="' + TPL_MANAGE_URL + '" target="_blank" style="color:var(--kb-primary);">Buat template</a></div>';
+            return;
+          }
+          data.templates.forEach(function (tpl) {
+            var col = document.createElement('div');
+            col.className = 'col-md-6';
+            col.innerHTML = '<div style="background:#fff;border:1px solid var(--kb-border-light);border-radius:var(--kb-radius);overflow:hidden;box-shadow:var(--kb-shadow-sm);height:100%;display:flex;flex-direction:column;"><div style="padding:.8rem 1rem;flex:1;"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.3rem;"><span style="font-size:14px;font-weight:700;color:var(--kb-text);">' + tpl.name + '</span>' + (tpl.is_default == 1 ? '<span class="ned-badge kb-badge-green">Default</span>' : '') + '</div><p style="font-size:12px;color:var(--kb-text-muted);margin:0;">' + (tpl.description || '—') + '</p></div><div style="padding:.55rem 1rem;background:var(--kb-surface);border-top:1px solid var(--kb-border-light);"><button style="width:100%;background:linear-gradient(135deg,var(--kb-primary),#9B2020);border:none;color:#fff;font-size:12.5px;font-weight:700;border-radius:7px;padding:.38rem .75rem;cursor:pointer;" class="btn-apply-tpl" data-tpl-id="' + tpl.id + '">Gunakan Template Ini</button></div></div>';
+            container.appendChild(col);
           });
-      });
-    }
+          container.querySelectorAll('.btn-apply-tpl').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var tplId = this.dataset.tplId;
+              fetch(TPL_API_URL + '/' + tplId)
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                  if (!d.success) { alert(d.message || 'Gagal memuat template.'); return; }
+                  if (!window.quill) { alert('Editor belum siap.'); return; }
+                  window.quill.clipboard.dangerouslyPasteHTML(d.template.content);
+                  bootstrap.Modal.getInstance(document.getElementById('modalPickTemplate')).hide();
+                  var ss = document.getElementById('save-status');
+                  if (ss) { ss.textContent = '● Belum disimpan'; ss.style.color = 'rgba(255,200,50,.9)'; }
+                });
+            });
+          });
+        })
+        .catch(function () {
+          document.getElementById('tpl-list-loading').innerHTML = '<p class="text-danger small">Gagal memuat template.</p>';
+        });
+    });
+  }
 <?php endif; ?>
 
-    /* FIX #3 — Load notulen-editor.js setelah globals tersedia */
+  /* Fix #3 — Quill guard: load dari CDN hanya jika belum ada */
+  function loadEditorScript() {
     var es = document.createElement('script');
-    es.src = <?= json_encode(rtrim(BASE_URL, '/') . '/assets/js/notulen-editor.js?v=' . filemtime(ROOT_PATH . '/assets/js/notulen-editor.js')) ?>;
+    es.src = <?= json_encode(rtrim(BASE_URL, '/') . '/assets/js/notulen-editor.js?v=' . $editorJsVer) ?>;
     document.body.appendChild(es);
   }
 
-  /* FIX #3 — Quill guard: jangan double-load jika base.php sudah include */
   if (typeof window.Quill === 'undefined') {
     var qs = document.createElement('script');
     qs.src = 'https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js';
-    qs.onload = initNotulenGlobals;
+    qs.onload = loadEditorScript;
+    qs.onerror = function () { console.error('Gagal memuat Quill dari CDN.'); };
     document.head.appendChild(qs);
   } else {
-    initNotulenGlobals();
+    loadEditorScript();
   }
 })();
 </script>
