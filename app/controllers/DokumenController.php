@@ -18,11 +18,7 @@ class DokumenController
         'application/zip','application/x-zip-compressed',
         'application/x-rar-compressed',
     ];
-    private const MAX_SIZE = 52428800; // 50 MB
-
-    /* ------------------------------------------------------------------ */
-    /*  HALAMAN UTAMA                                                       */
-    /* ------------------------------------------------------------------ */
+    private const MAX_SIZE = 52428800;
 
     public static function index(): void
     {
@@ -36,13 +32,18 @@ class DokumenController
         $filterType = $_GET['type']    ?? '';
         $search     = trim($_GET['q']  ?? '');
 
+        if ($folderId && !DokumenFolderShareModel::canAccess($folderId, $userId, $isAdmin)) {
+            Flash::set('danger', 'Anda tidak memiliki akses ke folder tersebut.');
+            redirect('/dokumen');
+        }
+
         $breadcrumb = [];
         if ($folderId) {
             $breadcrumb = self::buildBreadcrumb($folderId);
         }
 
         $folders = ($section === 'my-files')
-            ? DokumenModel::getFolders($folderId)
+            ? DokumenModel::getFolders($folderId, $userId, $isAdmin)
             : [];
 
         $files = match($section) {
@@ -60,6 +61,12 @@ class DokumenController
         }
         unset($f);
 
+        foreach ($folders as &$folder) {
+            $folder['can_manage_share'] = $isAdmin || (int)$folder['created_by'] === $userId;
+            $folder['can_delete'] = $isAdmin || (int)$folder['created_by'] === $userId;
+        }
+        unset($folder);
+
         $stats = DokumenModel::getStats($userId, $isAdmin);
         $stats['total_size_fmt'] = DokumenModel::formatSize($stats['total_size']);
 
@@ -76,10 +83,6 @@ class DokumenController
         ]);
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  API — UPLOAD FILE                                                   */
-    /* ------------------------------------------------------------------ */
-
     public static function upload(): void
     {
         Auth::requireLogin();
@@ -92,15 +95,16 @@ class DokumenController
 
         $file = $_FILES['file'] ?? null;
         if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
-            $codes = [1=>'Ukuran melebihi batas server',2=>'Ukuran melebihi MAX_FILE_SIZE',
-                      3=>'Upload tidak lengkap',4=>'Tidak ada file dipilih',
-                      6=>'Folder tmp tidak ada',7=>'Gagal tulis ke disk'];
+            $codes = [1=>'Ukuran melebihi batas server',2=>'Ukuran melebihi MAX_FILE_SIZE',3=>'Upload tidak lengkap',4=>'Tidak ada file dipilih',6=>'Folder tmp tidak ada',7=>'Gagal tulis ke disk'];
             echo json_encode(['success'=>false,'message'=>$codes[$file['error'] ?? 0] ?? 'Upload gagal']);
             exit;
         }
 
-        $folderId = isset($_POST['folder_id']) && $_POST['folder_id'] !== ''
-            ? (int)$_POST['folder_id'] : null;
+        $folderId = isset($_POST['folder_id']) && $_POST['folder_id'] !== '' ? (int)$_POST['folder_id'] : null;
+        if ($folderId && !DokumenFolderShareModel::canAccess($folderId, Auth::id(), Auth::hasRole('admin'))) {
+            echo json_encode(['success'=>false,'message'=>'Tidak punya akses ke folder tujuan.']);
+            exit;
+        }
 
         $mime = mime_content_type($file['tmp_name']);
         if (!in_array($mime, self::$ALLOWED_MIMES, true)) {
@@ -145,10 +149,6 @@ class DokumenController
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  API — PREVIEW (login required, Fase 3)                             */
-    /* ------------------------------------------------------------------ */
-
     public static function preview(int $id): void
     {
         Auth::requireLogin();
@@ -159,7 +159,10 @@ class DokumenController
         if (!$file) { http_response_code(404); echo 'File tidak ditemukan.'; exit; }
 
         if (!DokumenShareModel::canAccess($id, $userId, $isAdmin)) {
-            http_response_code(403); echo 'Akses ditolak.'; exit;
+            $folderId = isset($file['folder_id']) ? (int)$file['folder_id'] : 0;
+            if (!$folderId || !DokumenFolderShareModel::canAccess($folderId, $userId, $isAdmin)) {
+                http_response_code(403); echo 'Akses ditolak.'; exit;
+            }
         }
 
         if (!self::isPreviewable($file['mime_type'])) {
@@ -178,14 +181,8 @@ class DokumenController
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  API — PREVIEW PUBLIC (tanpa login, Fase 6)                         */
-    /*  Dipanggil dari halaman publik /d/{token} via ?token=xxx            */
-    /* ------------------------------------------------------------------ */
-
     public static function previewPublic(int $id): void
     {
-        // Tidak perlu Auth::requireLogin()
         $token = trim($_GET['token'] ?? '');
         if (!$token) { http_response_code(403); echo 'Token diperlukan.'; exit; }
 
@@ -197,7 +194,6 @@ class DokumenController
             http_response_code(403); echo 'Token tidak sesuai file.'; exit;
         }
 
-        // Cek password via session
         if (!empty($link['password_hash'])) {
             $session_key = 'pub_link_ok_' . $token;
             if (empty($_SESSION[$session_key])) {
@@ -224,10 +220,6 @@ class DokumenController
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  API — INFO FILE (Fase 3)                                           */
-    /* ------------------------------------------------------------------ */
-
     public static function info(int $id): void
     {
         Auth::requireLogin();
@@ -240,9 +232,12 @@ class DokumenController
             echo json_encode(['success'=>false,'message'=>'File tidak ditemukan.']); exit;
         }
         if (!DokumenShareModel::canAccess($id, $userId, $isAdmin)) {
-            http_response_code(403);
-            header('Content-Type: application/json');
-            echo json_encode(['success'=>false,'message'=>'Akses ditolak.']); exit;
+            $folderId = isset($file['folder_id']) ? (int)$file['folder_id'] : 0;
+            if (!$folderId || !DokumenFolderShareModel::canAccess($folderId, $userId, $isAdmin)) {
+                http_response_code(403);
+                header('Content-Type: application/json');
+                echo json_encode(['success'=>false,'message'=>'Akses ditolak.']); exit;
+            }
         }
 
         $shares = DokumenShareModel::getSharesByFile($id);
@@ -252,16 +247,13 @@ class DokumenController
         $file['previewable'] = self::isPreviewable($file['mime_type']);
         $file['can_delete']  = $isAdmin || (int)$file['uploaded_by'] === $userId;
         $file['can_share']   = $isAdmin || (int)$file['uploaded_by'] === $userId;
-        $file['can_download']= DokumenShareModel::canDownload($id, $userId, $isAdmin);
+        $file['can_download']= DokumenShareModel::canDownload($id, $userId, $isAdmin)
+            || ((int)($file['folder_id'] ?? 0) > 0 && DokumenFolderShareModel::canAccess((int)$file['folder_id'], $userId, $isAdmin));
 
         header('Content-Type: application/json');
         echo json_encode(['success'=>true,'file'=>$file,'shares'=>$shares]);
         exit;
     }
-
-    /* ------------------------------------------------------------------ */
-    /*  API — BUAT FOLDER                                                   */
-    /* ------------------------------------------------------------------ */
 
     public static function createFolder(): void
     {
@@ -277,8 +269,10 @@ class DokumenController
             echo json_encode(['success'=>false,'message'=>'Nama folder tidak boleh kosong.']); exit;
         }
 
-        $parentId = isset($_POST['parent_id']) && $_POST['parent_id'] !== ''
-            ? (int)$_POST['parent_id'] : null;
+        $parentId = isset($_POST['parent_id']) && $_POST['parent_id'] !== '' ? (int)$_POST['parent_id'] : null;
+        if ($parentId && !DokumenFolderShareModel::canAccess($parentId, Auth::id(), Auth::hasRole('admin'))) {
+            echo json_encode(['success'=>false,'message'=>'Tidak punya akses ke folder induk.']); exit;
+        }
 
         $id = DokumenModel::createFolder($name, $parentId, Auth::id());
         ActivityLog::record('dokumen.folder.create', 'Buat folder: ' . $name, 'dokumen_folder', $id);
@@ -287,15 +281,15 @@ class DokumenController
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  API — RENAME FOLDER                                                 */
-    /* ------------------------------------------------------------------ */
-
     public static function renameFolder(int $id): void
     {
         Auth::requireLogin();
         header('Content-Type: application/json');
-        if (!Auth::hasRole('admin', 'sekretaris')) {
+        $folder = DokumenModel::getFolderById($id);
+        if (!$folder) {
+            echo json_encode(['success'=>false,'message'=>'Folder tidak ditemukan.']); exit;
+        }
+        if (!Auth::hasRole('admin') && (int)$folder['created_by'] !== Auth::id()) {
             echo json_encode(['success'=>false,'message'=>'Tidak diizinkan.']); exit;
         }
         $name = trim($_POST['name'] ?? '');
@@ -307,21 +301,18 @@ class DokumenController
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  API — HAPUS FOLDER                                                  */
-    /* ------------------------------------------------------------------ */
-
     public static function deleteFolder(int $id): void
     {
         Auth::requireLogin();
         header('Content-Type: application/json');
-        if (!Auth::hasRole('admin')) {
-            echo json_encode(['success'=>false,'message'=>'Hanya admin yang dapat menghapus folder.']); exit;
-        }
         $folder = DokumenModel::getFolderById($id);
         if (!$folder) {
             echo json_encode(['success'=>false,'message'=>'Folder tidak ditemukan.']); exit;
         }
+        if (!DokumenFolderShareModel::canDelete($id, Auth::id(), Auth::hasRole('admin'))) {
+            echo json_encode(['success'=>false,'message'=>'Hanya admin atau pembuat folder yang dapat menghapus folder.']); exit;
+        }
+
         $files = DokumenModel::getFiles($id, Auth::id(), true);
         foreach ($files as $f) {
             $path = ROOT_PATH . $f['file_path'];
@@ -329,15 +320,12 @@ class DokumenController
             DokumenShareModel::removeAllByFile((int)$f['id']);
             DokumenModel::deleteFile((int)$f['id']);
         }
+        DokumenFolderShareModel::removeAllByFolder($id);
         DokumenModel::deleteFolder($id);
         ActivityLog::record('dokumen.folder.delete', 'Hapus folder: ' . $folder['name'], 'dokumen_folder', $id);
         echo json_encode(['success'=>true,'message'=>'Folder berhasil dihapus.']);
         exit;
     }
-
-    /* ------------------------------------------------------------------ */
-    /*  API — RENAME FILE                                                   */
-    /* ------------------------------------------------------------------ */
 
     public static function renameFile(int $id): void
     {
@@ -354,10 +342,6 @@ class DokumenController
         echo json_encode(['success'=>true,'message'=>'File berhasil diubah.','name'=>$name]);
         exit;
     }
-
-    /* ------------------------------------------------------------------ */
-    /*  API — HAPUS FILE                                                    */
-    /* ------------------------------------------------------------------ */
 
     public static function deleteFile(int $id): void
     {
@@ -377,10 +361,6 @@ class DokumenController
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  API — DOWNLOAD FILE                                                 */
-    /* ------------------------------------------------------------------ */
-
     public static function download(int $id): void
     {
         Auth::requireLogin();
@@ -390,7 +370,11 @@ class DokumenController
         $file = DokumenModel::getFileById($id);
         if (!$file) { http_response_code(404); echo '404 Not Found'; exit; }
 
-        if (!DokumenShareModel::canDownload($id, $userId, $isAdmin)) {
+        $canDownload = DokumenShareModel::canDownload($id, $userId, $isAdmin);
+        if (!$canDownload && (int)($file['folder_id'] ?? 0) > 0) {
+            $canDownload = DokumenFolderShareModel::canAccess((int)$file['folder_id'], $userId, $isAdmin);
+        }
+        if (!$canDownload) {
             http_response_code(403); echo '403 Forbidden'; exit;
         }
 
@@ -405,10 +389,6 @@ class DokumenController
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  HELPER: tipe yang bisa dipratinjau                                  */
-    /* ------------------------------------------------------------------ */
-
     public static function isPreviewable(string $mime): bool
     {
         return in_array(true, [
@@ -420,10 +400,6 @@ class DokumenController
             $mime === 'text/csv',
         ], true);
     }
-
-    /* ------------------------------------------------------------------ */
-    /*  HELPER PRIVATE                                                      */
-    /* ------------------------------------------------------------------ */
 
     private static function buildBreadcrumb(int $folderId): array
     {

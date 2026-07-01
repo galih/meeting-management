@@ -3,20 +3,33 @@ declare(strict_types=1);
 
 class DokumenModel
 {
-    /* ------------------------------------------------------------------ */
-    /*  FOLDER                                                              */
-    /* ------------------------------------------------------------------ */
-
-    public static function getFolders(?int $parentId = null): array
+    public static function getFolders(?int $parentId = null, ?int $userId = null, bool $isAdmin = false): array
     {
         $sql = "SELECT f.*, u.name AS creator_name,
                        (SELECT COUNT(*) FROM dokumen_files df WHERE df.folder_id = f.id) AS file_count,
                        (SELECT COALESCE(SUM(df2.file_size),0) FROM dokumen_files df2 WHERE df2.folder_id = f.id) AS total_size
                 FROM dokumen_folders f
-                LEFT JOIN users u ON u.id = f.created_by
-                WHERE f.parent_id " . ($parentId === null ? 'IS NULL' : '= ?') . "
-                ORDER BY f.name ASC";
-        $params = $parentId === null ? [] : [$parentId];
+                LEFT JOIN users u ON u.id = f.created_by";
+
+        if (!$isAdmin && $userId) {
+            $sql .= " LEFT JOIN dokumen_folder_shares dfs ON dfs.folder_id = f.id AND dfs.shared_to = ?";
+        }
+
+        $sql .= " WHERE f.parent_id " . ($parentId === null ? 'IS NULL' : '= ?');
+        $params = [];
+        if (!$isAdmin && $userId) {
+            $params[] = $userId;
+        }
+        if ($parentId !== null) {
+            $params[] = $parentId;
+        }
+
+        if (!$isAdmin && $userId) {
+            $sql .= " AND (f.created_by = ? OR dfs.id IS NOT NULL)";
+            $params[] = $userId;
+        }
+
+        $sql .= " ORDER BY f.name ASC";
         return Database::query($sql, $params);
     }
 
@@ -52,14 +65,6 @@ class DokumenModel
         )->execute([$id]);
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  FILE — LIST                                                         */
-    /* ------------------------------------------------------------------ */
-
-    /**
-     * Ambil file berdasarkan folder + filter opsional.
-     * Jika $userId diisi, hanya tampilkan file milik user atau yang di-share ke user.
-     */
     public static function getFiles(
         ?int $folderId,
         int  $userId,
@@ -70,14 +75,16 @@ class DokumenModel
         $params = [];
 
         $sql = "SELECT df.*, u.name AS uploader_name,
-                       ds.permission AS share_permission
+                       ds.permission AS share_permission,
+                       dfs.permission AS folder_share_permission
                 FROM dokumen_files df
                 LEFT JOIN users u  ON u.id  = df.uploaded_by
                 LEFT JOIN dokumen_shares ds ON ds.file_id = df.id AND ds.shared_to = ?
+                LEFT JOIN dokumen_folder_shares dfs ON dfs.folder_id = df.folder_id AND dfs.shared_to = ?
                 WHERE 1=1";
         $params[] = $userId;
+        $params[] = $userId;
 
-        // folder filter
         if ($folderId === null) {
             $sql .= " AND df.folder_id IS NULL";
         } else {
@@ -85,19 +92,16 @@ class DokumenModel
             $params[] = $folderId;
         }
 
-        // akses: admin lihat semua, user hanya milik sendiri + di-share
         if (!$isAdmin) {
-            $sql .= " AND (df.uploaded_by = ? OR ds.id IS NOT NULL)";
+            $sql .= " AND (df.uploaded_by = ? OR ds.id IS NOT NULL OR dfs.id IS NOT NULL)";
             $params[] = $userId;
         }
 
-        // filter tipe
         if ($filterType !== '') {
             $sql .= " AND df.mime_type LIKE ?";
             $params[] = '%' . $filterType . '%';
         }
 
-        // search
         if ($search !== '') {
             $sql .= " AND df.original_name LIKE ?";
             $params[] = '%' . $search . '%';
@@ -107,10 +111,9 @@ class DokumenModel
         return Database::query($sql, $params);
     }
 
-    /** Semua file yang di-share ke user tertentu */
     public static function getSharedWithMe(int $userId): array
     {
-        return Database::query(
+        $fileShares = Database::query(
             "SELECT df.*, u.name AS uploader_name, ds.permission AS share_permission
              FROM dokumen_shares ds
              JOIN dokumen_files df ON df.id = ds.file_id
@@ -119,9 +122,24 @@ class DokumenModel
              ORDER BY df.created_at DESC",
             [$userId]
         );
+
+        $folderFiles = Database::query(
+            "SELECT df.*, u.name AS uploader_name, dfs.permission AS share_permission
+             FROM dokumen_folder_shares dfs
+             JOIN dokumen_files df ON df.folder_id = dfs.folder_id
+             LEFT JOIN users u ON u.id = df.uploaded_by
+             WHERE dfs.shared_to = ?
+             ORDER BY df.created_at DESC",
+            [$userId]
+        );
+
+        $merged = [];
+        foreach (array_merge($fileShares, $folderFiles) as $row) {
+            $merged[(int)$row['id']] = $row;
+        }
+        return array_values($merged);
     }
 
-    /** File yang baru-baru ini diakses/diupload oleh user */
     public static function getRecent(int $userId, bool $isAdmin, int $limit = 20): array
     {
         if ($isAdmin) {
@@ -134,19 +152,17 @@ class DokumenModel
             );
         }
         return Database::query(
-            "SELECT df.*, u.name AS uploader_name
+            "SELECT df.*, u.name AS uploader_name,
+                    COALESCE(ds.permission, dfs.permission) AS share_permission
              FROM dokumen_files df
              LEFT JOIN users u ON u.id = df.uploaded_by
              LEFT JOIN dokumen_shares ds ON ds.file_id = df.id AND ds.shared_to = ?
-             WHERE df.uploaded_by = ? OR ds.id IS NOT NULL
+             LEFT JOIN dokumen_folder_shares dfs ON dfs.folder_id = df.folder_id AND dfs.shared_to = ?
+             WHERE df.uploaded_by = ? OR ds.id IS NOT NULL OR dfs.id IS NOT NULL
              ORDER BY df.updated_at DESC LIMIT ?",
-            [$userId, $userId, $limit]
+            [$userId, $userId, $userId, $limit]
         );
     }
-
-    /* ------------------------------------------------------------------ */
-    /*  FILE — CRUD                                                         */
-    /* ------------------------------------------------------------------ */
 
     public static function getFileById(int $id): ?array
     {
@@ -197,15 +213,10 @@ class DokumenModel
         Database::getInstance()->prepare(
             "DELETE FROM dokumen_files WHERE id=?"
         )->execute([$id]);
-        // hapus share record juga
         Database::getInstance()->prepare(
             "DELETE FROM dokumen_shares WHERE file_id=?"
         )->execute([$id]);
     }
-
-    /* ------------------------------------------------------------------ */
-    /*  STATS                                                               */
-    /* ------------------------------------------------------------------ */
 
     public static function getStats(int $userId, bool $isAdmin): array
     {
@@ -217,26 +228,29 @@ class DokumenModel
             );
         } else {
             $row = Database::queryOne(
-                "SELECT COUNT(*) AS total_files,
-                        COALESCE(SUM(file_size),0) AS total_size
-                 FROM dokumen_files WHERE uploaded_by = ?",
-                [$userId]
+                "SELECT COUNT(DISTINCT df.id) AS total_files,
+                        COALESCE(SUM(DISTINCT df.file_size),0) AS total_size
+                 FROM dokumen_files df
+                 LEFT JOIN dokumen_shares ds ON ds.file_id = df.id AND ds.shared_to = ?
+                 LEFT JOIN dokumen_folder_shares dfs ON dfs.folder_id = df.folder_id AND dfs.shared_to = ?
+                 WHERE df.uploaded_by = ? OR ds.id IS NOT NULL OR dfs.id IS NOT NULL",
+                [$userId, $userId, $userId]
             );
         }
         $shared = Database::queryOne(
             "SELECT COUNT(*) AS cnt FROM dokumen_shares WHERE shared_to = ?",
             [$userId]
         );
+        $sharedFolders = Database::queryOne(
+            "SELECT COUNT(*) AS cnt FROM dokumen_folder_shares WHERE shared_to = ?",
+            [$userId]
+        );
         return [
             'total_files'  => (int)($row['total_files']  ?? 0),
             'total_size'   => (int)($row['total_size']   ?? 0),
-            'shared_count' => (int)($shared['cnt']       ?? 0),
+            'shared_count' => (int)($shared['cnt']       ?? 0) + (int)($sharedFolders['cnt'] ?? 0),
         ];
     }
-
-    /* ------------------------------------------------------------------ */
-    /*  HELPERS                                                             */
-    /* ------------------------------------------------------------------ */
 
     public static function formatSize(int $bytes): string
     {
