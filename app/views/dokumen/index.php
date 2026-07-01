@@ -276,8 +276,9 @@ $currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
   padding:.3rem; background:#F7F1E8; border:1px solid #E9DDD0; border-radius:14px;
 }
 .dm-view-switch button {
-  height:34px; min-width:34px; padding:0 .7rem; border:none; border-radius:10px; cursor:pointer;
+  height:34px; min-width:34px; padding:0 .8rem; border:none; border-radius:10px; cursor:pointer;
   background:transparent; color:#7B6E5F; font-size:12px; font-weight:800;
+  display:inline-flex; align-items:center; justify-content:center; gap:.4rem;
 }
 .dm-view-switch button.active { background:#fff; color:var(--dm-text); box-shadow:0 4px 12px rgba(72,57,40,.08); }
 .dm-file-grid {
@@ -324,6 +325,40 @@ $currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
 .dm-meta-value { font-size:12.5px; color:#4D433B; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .dm-file-actions {
   display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.95rem;
+}
+.dm-file-grid.dm-view-list {
+  grid-template-columns:1fr !important;
+  gap:.8rem;
+}
+.dm-file-grid.dm-view-list .dm-file-card {
+  align-items:center;
+}
+.dm-file-grid.dm-view-list .dm-file-icon {
+  width:54px; height:54px; border-radius:18px;
+}
+.dm-file-grid.dm-view-list .dm-file-body {
+  display:grid;
+  grid-template-columns:minmax(0,1.2fr) minmax(220px,.95fr) auto;
+  gap:1rem;
+  align-items:center;
+}
+.dm-file-grid.dm-view-list .dm-file-top,
+.dm-file-grid.dm-view-list .dm-file-meta,
+.dm-file-grid.dm-view-list .dm-file-actions {
+  margin-top:0;
+}
+.dm-file-grid.dm-view-list .dm-file-top {
+  display:block;
+}
+.dm-file-grid.dm-view-list .dm-file-tags {
+  margin-top:.4rem;
+}
+.dm-file-grid.dm-view-list .dm-file-meta {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.4rem .9rem;
+}
+.dm-file-grid.dm-view-list .dm-file-actions {
+  justify-content:flex-end;
 }
 .dm-empty {
   padding:3rem 1.25rem; text-align:center;
@@ -461,6 +496,16 @@ $currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
   .dm-layout { grid-template-columns:1fr; }
   .dm-sidebar { position:static; }
   .dm-stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:900px) {
+  .dm-file-grid.dm-view-list .dm-file-body {
+    grid-template-columns:1fr;
+    gap:.85rem;
+    align-items:flex-start;
+  }
+  .dm-file-grid.dm-view-list .dm-file-actions {
+    justify-content:flex-start;
+  }
 }
 @media(max-width:768px) {
   .dm-page { padding:1rem; }
@@ -681,9 +726,15 @@ $currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
             <h2 class="dm-content-title"><?= $section==='shared' ? 'Daftar Dokumen yang Dibagikan' : ($section==='recent' ? 'Dokumen Terakhir Diakses' : 'Daftar File') ?></h2>
             <div class="dm-content-sub">Semua aksi utama tetap tersedia: preview, download, bagikan, link publik, dan hapus.</div>
           </div>
-          <div class="dm-view-switch" aria-hidden="true">
-            <button type="button" class="active">Card</button>
-            <button type="button">Modern</button>
+          <div class="dm-view-switch" role="group" aria-label="Mode tampilan file">
+            <button type="button" data-view-btn="grid" class="active" aria-pressed="true">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>
+              Grid
+            </button>
+            <button type="button" data-view-btn="list" aria-pressed="false">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+              List
+            </button>
           </div>
         </div>
 
@@ -702,7 +753,7 @@ $currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
           <?php endif; ?>
         </div>
         <?php else: ?>
-        <div class="dm-file-grid" id="file-tbody">
+        <div class="dm-file-grid dm-view-grid" id="file-tbody">
           <?php foreach ($files as $f):
             $isOwner    = (int)$f['uploaded_by'] === $myId;
             $canShare   = $isOwner || Auth::hasRole('admin');
@@ -1342,3 +1393,4 @@ $currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
   });
 })();
 </script>
+<script src="<?= $base ?>/app/views/dokumen/_grid_list_toggle.js"></script>
