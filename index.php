@@ -150,7 +150,7 @@ $router->get('/api/notulen-templates/{id}',          [NotulenTemplateController:
 $router->get('/admin/activity-log',        [ActivityLogController::class, 'index']);
 $router->post('/admin/activity-log/purge', [ActivityLogController::class, 'purge']);
 
-// === DOKUMEN (Fase 1) ===
+// === DOKUMEN Fase 1 — halaman & CRUD dasar ===
 $router->get('/dokumen',                          [DokumenController::class, 'index']);
 $router->post('/api/dokumen/upload',              [DokumenController::class, 'upload']);
 $router->post('/api/dokumen/folder/create',       [DokumenController::class, 'createFolder']);
@@ -159,6 +159,16 @@ $router->post('/api/dokumen/folder/{id}/delete',  [DokumenController::class, 'de
 $router->post('/api/dokumen/{id}/rename',         [DokumenController::class, 'renameFile']);
 $router->post('/api/dokumen/{id}/delete',         [DokumenController::class, 'deleteFile']);
 $router->get('/dokumen/{id}/download',            [DokumenController::class, 'download']);
+
+// === DOKUMEN Fase 2 — share & permission ===
+$router->get('/api/dokumen/{id}/shares',                       [DokumenShareController::class, 'index']);
+$router->post('/api/dokumen/{id}/shares',                      [DokumenShareController::class, 'store']);
+$router->post('/api/dokumen/{id}/shares/{uid}/delete',         [DokumenShareController::class, 'destroy']);
+$router->post('/api/dokumen/{id}/shares/{uid}/permission',     [DokumenShareController::class, 'updatePermission']);
+
+// === DOKUMEN Fase 3 — preview & rename inline ===
+$router->get('/api/dokumen/{id}/preview',         [DokumenController::class, 'preview']);
+$router->get('/api/dokumen/{id}/info',            [DokumenController::class, 'info']);
 
 AuthController::checkRememberToken();
 

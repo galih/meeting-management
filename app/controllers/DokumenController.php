@@ -32,17 +32,15 @@ class DokumenController
         $isAdmin = Auth::hasRole('admin');
 
         $folderId   = isset($_GET['folder']) ? (int)$_GET['folder'] : null;
-        $section    = $_GET['section'] ?? 'my-files'; // my-files | shared | recent
+        $section    = $_GET['section'] ?? 'my-files';
         $filterType = $_GET['type']    ?? '';
         $search     = trim($_GET['q']  ?? '');
 
-        // breadcrumb folder
         $breadcrumb = [];
         if ($folderId) {
             $breadcrumb = self::buildBreadcrumb($folderId);
         }
 
-        // data
         $folders = ($section === 'my-files')
             ? DokumenModel::getFolders($folderId)
             : [];
@@ -53,12 +51,12 @@ class DokumenController
             default  => DokumenModel::getFiles($folderId, $userId, $isAdmin, $filterType, $search),
         };
 
-        // tambah meta ke setiap file
         foreach ($files as &$f) {
             $f['size_fmt']   = DokumenModel::formatSize((int)$f['file_size']);
             $f['mime_label'] = DokumenModel::mimeLabel($f['mime_type']);
             $f['mime_color'] = DokumenModel::mimeColor($f['mime_type']);
             $f['can_delete'] = $isAdmin || $f['uploaded_by'] == $userId;
+            $f['previewable'] = self::isPreviewable($f['mime_type']);
         }
         unset($f);
 
@@ -114,9 +112,9 @@ class DokumenController
             exit;
         }
 
-        $ext        = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'bin');
-        $stored     = 'dok_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
-        $dir        = ROOT_PATH . '/assets/uploads/dokumen/';
+        $ext    = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'bin');
+        $stored = 'dok_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+        $dir    = ROOT_PATH . '/assets/uploads/dokumen/';
         if (!is_dir($dir)) @mkdir($dir, 0755, true);
 
         if (!move_uploaded_file($file['tmp_name'], $dir . $stored)) {
@@ -137,12 +135,85 @@ class DokumenController
         ActivityLog::record('dokumen.upload', 'Upload dokumen: ' . $file['name'], 'dokumen', $fileId);
 
         $row = DokumenModel::getFileById($fileId);
-        $row['size_fmt']   = DokumenModel::formatSize((int)$row['file_size']);
-        $row['mime_label'] = DokumenModel::mimeLabel($row['mime_type']);
-        $row['mime_color'] = DokumenModel::mimeColor($row['mime_type']);
-        $row['can_delete'] = true;
+        $row['size_fmt']    = DokumenModel::formatSize((int)$row['file_size']);
+        $row['mime_label']  = DokumenModel::mimeLabel($row['mime_type']);
+        $row['mime_color']  = DokumenModel::mimeColor($row['mime_type']);
+        $row['can_delete']  = true;
+        $row['previewable'] = self::isPreviewable($row['mime_type']);
 
         echo json_encode(['success'=>true,'message'=>'File berhasil diupload.','file'=>$row]);
+        exit;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  API — PREVIEW (Fase 3)                                             */
+    /*  Mengirim file langsung ke browser (inline) utk preview             */
+    /* ------------------------------------------------------------------ */
+
+    public static function preview(int $id): void
+    {
+        Auth::requireLogin();
+        $userId  = Auth::id();
+        $isAdmin = Auth::hasRole('admin');
+
+        $file = DokumenModel::getFileById($id);
+        if (!$file) { http_response_code(404); echo 'File tidak ditemukan.'; exit; }
+
+        // hak akses: owner, admin, atau sudah di-share (view/download)
+        if (!DokumenShareModel::canAccess($id, $userId, $isAdmin)) {
+            http_response_code(403); echo 'Akses ditolak.'; exit;
+        }
+
+        // hanya tipe yg bisa di-preview
+        if (!self::isPreviewable($file['mime_type'])) {
+            http_response_code(415); echo 'Tipe file tidak dapat dipratinjau.'; exit;
+        }
+
+        $path = ROOT_PATH . $file['file_path'];
+        if (!file_exists($path)) { http_response_code(404); echo 'File fisik tidak ditemukan.'; exit; }
+
+        header('Content-Type: ' . $file['mime_type']);
+        header('Content-Disposition: inline; filename="' . addslashes($file['original_name']) . '"');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: private, max-age=300');
+        header('X-Content-Type-Options: nosniff');
+        readfile($path);
+        exit;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  API — INFO FILE (Fase 3)                                           */
+    /*  Dipakai panel detail di sidebar preview                             */
+    /* ------------------------------------------------------------------ */
+
+    public static function info(int $id): void
+    {
+        Auth::requireLogin();
+        $userId  = Auth::id();
+        $isAdmin = Auth::hasRole('admin');
+
+        $file = DokumenModel::getFileById($id);
+        if (!$file) {
+            header('Content-Type: application/json');
+            echo json_encode(['success'=>false,'message'=>'File tidak ditemukan.']); exit;
+        }
+        if (!DokumenShareModel::canAccess($id, $userId, $isAdmin)) {
+            http_response_code(403);
+            header('Content-Type: application/json');
+            echo json_encode(['success'=>false,'message'=>'Akses ditolak.']); exit;
+        }
+
+        $shares = DokumenShareModel::getSharesByFile($id);
+        $file['size_fmt']    = DokumenModel::formatSize((int)$file['file_size']);
+        $file['mime_label']  = DokumenModel::mimeLabel($file['mime_type']);
+        $file['mime_color']  = DokumenModel::mimeColor($file['mime_type']);
+        $file['previewable'] = self::isPreviewable($file['mime_type']);
+        $file['can_delete']  = $isAdmin || (int)$file['uploaded_by'] === $userId;
+        $file['can_share']   = $isAdmin || (int)$file['uploaded_by'] === $userId;
+        $file['can_download']= DokumenShareModel::canDownload($id, $userId, $isAdmin);
+
+        header('Content-Type: application/json');
+        echo json_encode(['success'=>true,'file'=>$file,'shares'=>$shares]);
         exit;
     }
 
@@ -209,11 +280,11 @@ class DokumenController
         if (!$folder) {
             echo json_encode(['success'=>false,'message'=>'Folder tidak ditemukan.']); exit;
         }
-        // hapus semua file di dalam folder dari disk & DB
         $files = DokumenModel::getFiles($id, Auth::id(), true);
         foreach ($files as $f) {
             $path = ROOT_PATH . $f['file_path'];
             if (file_exists($path)) @unlink($path);
+            DokumenShareModel::removeAllByFile((int)$f['id']);
             DokumenModel::deleteFile((int)$f['id']);
         }
         DokumenModel::deleteFolder($id);
@@ -238,7 +309,7 @@ class DokumenController
         $name = trim($_POST['name'] ?? '');
         if ($name === '') { echo json_encode(['success'=>false,'message'=>'Nama tidak boleh kosong.']); exit; }
         DokumenModel::renameFile($id, $name);
-        echo json_encode(['success'=>true,'message'=>'File berhasil diubah.']);
+        echo json_encode(['success'=>true,'message'=>'File berhasil diubah.','name'=>$name]);
         exit;
     }
 
@@ -257,6 +328,7 @@ class DokumenController
         }
         $path = ROOT_PATH . $file['file_path'];
         if (file_exists($path)) @unlink($path);
+        DokumenShareModel::removeAllByFile($id);
         DokumenModel::deleteFile($id);
         ActivityLog::record('dokumen.delete', 'Hapus dokumen: ' . $file['original_name'], 'dokumen', $id);
         echo json_encode(['success'=>true,'message'=>'File berhasil dihapus.']);
@@ -276,13 +348,8 @@ class DokumenController
         $file = DokumenModel::getFileById($id);
         if (!$file) { http_response_code(404); echo '404 Not Found'; exit; }
 
-        // cek hak akses
-        if (!$isAdmin && $file['uploaded_by'] != $userId) {
-            $share = Database::queryOne(
-                "SELECT id FROM dokumen_shares WHERE file_id=? AND shared_to=?",
-                [$id, $userId]
-            );
-            if (!$share) { http_response_code(403); echo '403 Forbidden'; exit; }
+        if (!DokumenShareModel::canDownload($id, $userId, $isAdmin)) {
+            http_response_code(403); echo '403 Forbidden'; exit;
         }
 
         $path = ROOT_PATH . $file['file_path'];
@@ -297,12 +364,28 @@ class DokumenController
     }
 
     /* ------------------------------------------------------------------ */
+    /*  HELPER: tipe yang bisa dipratinjau                                  */
+    /* ------------------------------------------------------------------ */
+
+    public static function isPreviewable(string $mime): bool
+    {
+        return in_array(true, [
+            str_starts_with($mime, 'image/'),
+            str_starts_with($mime, 'video/'),
+            str_starts_with($mime, 'audio/'),
+            $mime === 'application/pdf',
+            $mime === 'text/plain',
+            $mime === 'text/csv',
+        ], true);
+    }
+
+    /* ------------------------------------------------------------------ */
     /*  HELPER PRIVATE                                                      */
     /* ------------------------------------------------------------------ */
 
     private static function buildBreadcrumb(int $folderId): array
     {
-        $crumbs = [];
+        $crumbs  = [];
         $current = $folderId;
         $safety  = 0;
         while ($current && $safety++ < 10) {
