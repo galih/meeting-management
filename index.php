@@ -51,7 +51,7 @@ $router->post('/profile/change-password',  [ProfileController::class, 'changePas
 
 // === MEETINGS ===
 $router->get('/meetings',                  [MeetingController::class, 'index']);
-$router->get('/meetings/create',           [MeetingController::class, 'create']);  // ← WAJIB sebelum {id}
+$router->get('/meetings/create',           [MeetingController::class, 'create']);
 $router->post('/meetings',                 [MeetingController::class, 'store']);
 $router->get('/meetings/{id}',             [MeetingController::class, 'show']);
 $router->get('/meetings/{id}/edit',        [MeetingController::class, 'edit']);
@@ -127,14 +127,16 @@ $router->post('/api/notifications/read',  [NotifikasiController::class, 'markRea
 $router->get('/notifications',            [NotifikasiController::class, 'page']);
 
 // === SETTINGS ===
-$router->get('/settings',                       [SettingController::class, 'index']);
-$router->post('/api/settings/upload-logo',      [SettingController::class, 'uploadLogo']);
-$router->post('/api/settings/upload-login-bg',  [SettingController::class, 'uploadLoginBg']);
-$router->post('/api/settings/remove-logo',      [SettingController::class, 'removeLogo']);
-$router->post('/api/settings/remove-login-bg',  [SettingController::class, 'removeLoginBg']);
-$router->post('/api/settings/save-smtp',        [SettingController::class, 'saveSMTP']);
-$router->post('/api/settings/test-smtp',        [SettingController::class, 'testSMTP']);
-$router->post('/api/settings/save-notulen',     [SettingController::class, 'saveNotulen']);
+$router->get('/settings',                           [SettingController::class, 'index']);
+$router->post('/api/settings/upload-logo',          [SettingController::class, 'uploadLogo']);
+$router->post('/api/settings/upload-login-bg',      [SettingController::class, 'uploadLoginBg']);
+$router->post('/api/settings/remove-logo',          [SettingController::class, 'removeLogo']);
+$router->post('/api/settings/remove-login-bg',      [SettingController::class, 'removeLoginBg']);
+$router->post('/api/settings/save-smtp',            [SettingController::class, 'saveSMTP']);
+$router->post('/api/settings/test-smtp',            [SettingController::class, 'testSMTP']);
+$router->post('/api/settings/save-notulen',         [SettingController::class, 'saveNotulen']);
+$router->post('/api/settings/upload-docx-template', [SettingController::class, 'uploadDocxTemplate']);
+$router->post('/api/settings/remove-docx-template', [SettingController::class, 'removeDocxTemplate']);
 
 // === TEMPLATE NOTULEN ===
 $router->get('/notulen-templates',                   [NotulenTemplateController::class, 'index']);
