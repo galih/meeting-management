@@ -150,6 +150,16 @@ $router->get('/api/notulen-templates/{id}',          [NotulenTemplateController:
 $router->get('/admin/activity-log',        [ActivityLogController::class, 'index']);
 $router->post('/admin/activity-log/purge', [ActivityLogController::class, 'purge']);
 
+// === DOKUMEN (Fase 1) ===
+$router->get('/dokumen',                          [DokumenController::class, 'index']);
+$router->post('/api/dokumen/upload',              [DokumenController::class, 'upload']);
+$router->post('/api/dokumen/folder/create',       [DokumenController::class, 'createFolder']);
+$router->post('/api/dokumen/folder/{id}/rename',  [DokumenController::class, 'renameFolder']);
+$router->post('/api/dokumen/folder/{id}/delete',  [DokumenController::class, 'deleteFolder']);
+$router->post('/api/dokumen/{id}/rename',         [DokumenController::class, 'renameFile']);
+$router->post('/api/dokumen/{id}/delete',         [DokumenController::class, 'deleteFile']);
+$router->get('/dokumen/{id}/download',            [DokumenController::class, 'download']);
+
 AuthController::checkRememberToken();
 
 // ── Dispatch ────────────────────────────────────────────────────────
