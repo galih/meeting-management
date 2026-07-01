@@ -19,11 +19,9 @@ $saveUrl        = $baseUrl . '/api/notulen/save';
 $syncUrl        = $baseUrl . '/api/notulen/sync';
 $currentUserId  = Auth::user()['id'] ?? 0;
 
-// Fix #7 — guard filemtime agar tidak fatal error jika file tidak ada
 $editorJsPath  = ROOT_PATH . '/assets/js/notulen-editor.js';
 $editorJsVer   = file_exists($editorJsPath) ? filemtime($editorJsPath) : time();
 
-// Fix #6 — fallback $users agar loop di modal TL tidak error
 $tlUsers = $users ?? $allUsers ?? [];
 ?>
 
@@ -395,7 +393,6 @@ $tlUsers = $users ?? $allUsers ?? [];
           Simpan
         </button>
         <?php endif; ?>
-        <!-- Export Word saja (PDF dihapus) -->
         <a href="<?= $docxUrl ?>" class="btn ned-btn-export">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Export Word
@@ -413,7 +410,6 @@ $tlUsers = $users ?? $allUsers ?? [];
 </div>
 
 <?php if (!$canEdit): ?>
-<!-- Fix #2: class="alert" wajib agar data-bs-dismiss="alert" Bootstrap berfungsi -->
 <div class="ned-readonly-alert alert mb-3" role="alert">
   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
   Anda hanya bisa membaca notulen ini. Edit tidak tersedia.
@@ -709,7 +705,6 @@ $tlUsers = $users ?? $allUsers ?? [];
 ============================================================ -->
 <script>
 (function () {
-  /* Expose semua globals ke window.* agar notulen-editor.js dapat akses */
   window.BASE_URL        = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
   window.MEETING_ID      = <?= (int)$meeting['id'] ?>;
   window.CURRENT_USER_ID = <?= (int)$currentUserId ?>;
@@ -718,36 +713,58 @@ $tlUsers = $users ?? $allUsers ?? [];
   window.SAVE_URL        = <?= json_encode($saveUrl) ?>;
   window.SYNC_URL        = <?= json_encode($syncUrl) ?>;
 
+  /* ── Loader ─────────────────────────────────────────────────── */
+  function initTemplatePicker() {
 <?php if ($canEdit): ?>
-  /* ── Template picker ──────────────────────────────────────── */
-  var TPL_API_URL    = window.BASE_URL + '/api/notulen-templates';
-  var TPL_MANAGE_URL = window.BASE_URL + '/notulen-templates';
-  var tplListLoaded  = false;
+    /* FIX: listener dipasang di sini, SETELAH notulen-editor.js selesai load,
+       sehingga tidak terkena race condition / overwrite oleh editor script. */
+    var TPL_API_URL    = window.BASE_URL + '/api/notulen-templates';
+    var TPL_MANAGE_URL = window.BASE_URL + '/notulen-templates';
+    var tplListLoaded  = false;
 
-  var btnTpl = document.getElementById('btn-pick-template');
-  if (btnTpl) {
+    var btnTpl = document.getElementById('btn-pick-template');
+    if (!btnTpl) return;
+
     btnTpl.addEventListener('click', function () {
-      var modal = new bootstrap.Modal(document.getElementById('modalPickTemplate'));
+      var modalEl = document.getElementById('modalPickTemplate');
+      if (!modalEl) return;
+      var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
       modal.show();
       if (tplListLoaded) return;
+
       fetch(TPL_API_URL)
         .then(function (r) { return r.json(); })
         .then(function (data) {
           tplListLoaded = true;
           var loading   = document.getElementById('tpl-list-loading');
           var container = document.getElementById('tpl-list-container');
-          loading.style.display = 'none';
-          container.style.display = '';
+          if (loading)   loading.style.display = 'none';
+          if (container) container.style.display = '';
+
           if (!data.templates || !data.templates.length) {
             container.innerHTML = '<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">Belum ada template. <a href="' + TPL_MANAGE_URL + '" target="_blank" style="color:var(--kb-primary);">Buat template</a></div>';
             return;
           }
+
           data.templates.forEach(function (tpl) {
             var col = document.createElement('div');
             col.className = 'col-md-6';
-            col.innerHTML = '<div style="background:#fff;border:1px solid var(--kb-border-light);border-radius:var(--kb-radius);overflow:hidden;box-shadow:var(--kb-shadow-sm);height:100%;display:flex;flex-direction:column;"><div style="padding:.8rem 1rem;flex:1;"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.3rem;"><span style="font-size:14px;font-weight:700;color:var(--kb-text);">' + tpl.name + '</span>' + (tpl.is_default == 1 ? '<span class="ned-badge kb-badge-green">Default</span>' : '') + '</div><p style="font-size:12px;color:var(--kb-text-muted);margin:0;">' + (tpl.description || '—') + '</p></div><div style="padding:.55rem 1rem;background:var(--kb-surface);border-top:1px solid var(--kb-border-light);"><button style="width:100%;background:linear-gradient(135deg,var(--kb-primary),#9B2020);border:none;color:#fff;font-size:12.5px;font-weight:700;border-radius:7px;padding:.38rem .75rem;cursor:pointer;" class="btn-apply-tpl" data-tpl-id="' + tpl.id + '">Gunakan Template Ini</button></div></div>';
+            col.innerHTML =
+              '<div style="background:#fff;border:1px solid var(--kb-border-light);border-radius:var(--kb-radius);overflow:hidden;box-shadow:var(--kb-shadow-sm);height:100%;display:flex;flex-direction:column;">' +
+                '<div style="padding:.8rem 1rem;flex:1;">' +
+                  '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.3rem;">' +
+                    '<span style="font-size:14px;font-weight:700;color:var(--kb-text);">' + tpl.name + '</span>' +
+                    (tpl.is_default == 1 ? '<span class="ned-badge kb-badge-green">Default</span>' : '') +
+                  '</div>' +
+                  '<p style="font-size:12px;color:var(--kb-text-muted);margin:0;">' + (tpl.description || '—') + '</p>' +
+                '</div>' +
+                '<div style="padding:.55rem 1rem;background:var(--kb-surface);border-top:1px solid var(--kb-border-light);">' +
+                  '<button style="width:100%;background:linear-gradient(135deg,var(--kb-primary),#9B2020);border:none;color:#fff;font-size:12.5px;font-weight:700;border-radius:7px;padding:.38rem .75rem;cursor:pointer;" class="btn-apply-tpl" data-tpl-id="' + tpl.id + '">Gunakan Template Ini</button>' +
+                '</div>' +
+              '</div>';
             container.appendChild(col);
           });
+
           container.querySelectorAll('.btn-apply-tpl').forEach(function (btn) {
             btn.addEventListener('click', function () {
               var tplId = this.dataset.tplId;
@@ -760,28 +777,33 @@ $tlUsers = $users ?? $allUsers ?? [];
                   bootstrap.Modal.getInstance(document.getElementById('modalPickTemplate')).hide();
                   var ss = document.getElementById('save-status');
                   if (ss) { ss.textContent = '● Belum disimpan'; ss.style.color = 'rgba(255,200,50,.9)'; }
-                });
+                })
+                .catch(function () { alert('Gagal memuat template.'); });
             });
           });
         })
         .catch(function () {
-          document.getElementById('tpl-list-loading').innerHTML = '<p class="text-danger small">Gagal memuat template.</p>';
+          var loading = document.getElementById('tpl-list-loading');
+          if (loading) loading.innerHTML = '<p class="text-danger small">Gagal memuat template.</p>';
         });
     });
-  }
 <?php endif; ?>
+  }
 
-  /* Fix #3 — Quill guard: load dari CDN hanya jika belum ada */
   function loadEditorScript() {
-    var es = document.createElement('script');
-    es.src = <?= json_encode(rtrim(BASE_URL, '/') . '/assets/js/notulen-editor.js?v=' . $editorJsVer) ?>;
+    var es   = document.createElement('script');
+    es.src   = <?= json_encode(rtrim(BASE_URL, '/') . '/assets/js/notulen-editor.js?v=' . $editorJsVer) ?>;
+    /* FIX: initTemplatePicker dipanggil di onload — SETELAH editor script
+       selesai dieksekusi, sehingga listener tombol Template tidak ditimpa. */
+    es.onload  = initTemplatePicker;
+    es.onerror = function () { console.error('Gagal memuat notulen-editor.js'); };
     document.body.appendChild(es);
   }
 
   if (typeof window.Quill === 'undefined') {
-    var qs = document.createElement('script');
-    qs.src = 'https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js';
-    qs.onload = loadEditorScript;
+    var qs   = document.createElement('script');
+    qs.src   = 'https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js';
+    qs.onload  = loadEditorScript;
     qs.onerror = function () { console.error('Gagal memuat Quill dari CDN.'); };
     document.head.appendChild(qs);
   } else {
