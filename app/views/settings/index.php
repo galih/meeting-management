@@ -1,7 +1,8 @@
 <?php
-$logo         = $settings['app_logo']   ?? '';
-$bg           = $settings['login_bg']   ?? '';
+$logo         = $settings['app_logo']      ?? '';
+$bg           = $settings['login_bg']      ?? '';
 $histLimit    = (int)($settings['notulen_history_limit'] ?? 10);
+$docxTemplate = $settings['docx_template'] ?? '';
 $apiBase      = rtrim(BASE_URL, '/');
 ?>
 <style>
@@ -235,6 +236,37 @@ select.st-ctrl {
 
 /* Divider */
 .st-divider { border: none; border-top: 1px solid #F0EBE2; margin: 1.25rem 0; }
+
+/* Template DOCX drop zone */
+.st-docx-dropzone {
+  border: 2px dashed #DDD5C4;
+  border-radius: 10px;
+  background: #FDFCFA;
+  padding: 1.75rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 180ms, background 180ms;
+}
+.st-docx-dropzone:hover,
+.st-docx-dropzone.dragover { border-color: #7B1C1C; background: rgba(123,28,28,.03); }
+.st-docx-dropzone svg { color: #DDD5C4; margin: 0 auto .6rem; display: block; }
+.st-docx-dropzone p { margin: 0; font-size: 13px; color: #6B6055; }
+.st-docx-dropzone small { font-size: 11.5px; color: #A89E90; }
+.st-docx-active {
+  background: #F5FCF7;
+  border: 2px solid #27A155;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  display: flex; align-items: center; gap: .85rem;
+}
+.st-docx-active-icon {
+  width: 42px; height: 42px; border-radius: 8px;
+  background: rgba(39,161,85,.12);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.st-docx-active-name { font-size: 13.5px; font-weight: 700; color: #1C1714; }
+.st-docx-active-sub  { font-size: 11.5px; color: #6B6055; margin-top: .1rem; }
 
 @media (max-width: 640px) {
   .st-hero { padding: 1.1rem; }
@@ -490,6 +522,8 @@ select.st-ctrl {
 
 <!-- Panel: Notulen -->
 <div class="st-panel" id="panel-notulen">
+
+  <!-- ── Riwayat Notulen ── -->
   <div class="st-card">
     <div class="st-card-header">
       <div class="st-card-title">
@@ -522,7 +556,6 @@ select.st-ctrl {
 
       <hr class="st-divider">
 
-      <!-- Preset cepat -->
       <div class="st-group">
         <label class="st-label">Preset Cepat</label>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
@@ -543,7 +576,6 @@ select.st-ctrl {
       </button>
       <div id="notulen-msg" class="st-msg"></div>
 
-      <!-- Info box -->
       <div class="st-infobox" style="margin-top:1.25rem">
         <div class="st-infobox-title">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
@@ -558,7 +590,110 @@ select.st-ctrl {
       </div>
     </div>
   </div>
-</div>
+
+  <!-- ── Template Ekspor DOCX ── -->
+  <div class="st-card">
+    <div class="st-card-header">
+      <div class="st-card-title">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/></svg>
+        Template Ekspor DOCX
+      </div>
+      <span class="st-admin-badge">Hanya Admin</span>
+    </div>
+    <div class="st-card-body">
+      <p class="st-hint" style="margin-bottom:1.25rem">
+        Upload file <strong>.docx</strong> sebagai template resmi. Sistem akan mengisi placeholder secara otomatis
+        saat admin mengekspor notula. Jika tidak ada template, ekspor menggunakan format bawaan.
+      </p>
+
+      <?php if ($docxTemplate): ?>
+      <!-- Template aktif -->
+      <div class="st-docx-active" id="docx-active-box">
+        <div class="st-docx-active-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#27A155" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div class="st-docx-active-name" id="docx-active-name">
+            <?= htmlspecialchars(basename($docxTemplate)) ?>
+          </div>
+          <div class="st-docx-active-sub">Template aktif — digunakan saat ekspor notula</div>
+        </div>
+        <button id="btn-remove-docx" class="st-btn st-btn-danger" style="flex-shrink:0">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          Hapus Template
+        </button>
+      </div>
+      <hr class="st-divider">
+      <p class="st-hint" style="margin-bottom:.75rem">Ganti dengan template baru:</p>
+      <?php endif; ?>
+
+      <!-- Drop zone -->
+      <div class="st-docx-dropzone" id="docx-dropzone">
+        <input type="file" id="input-docx-template" accept=".docx" style="display:none">
+        <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Klik atau <strong>seret file .docx</strong> ke sini</p>
+        <small>Maksimal 10 MB &bull; Hanya file .docx</small>
+      </div>
+
+      <div id="docx-selected-info" style="display:none;margin-top:.75rem">
+        <div style="display:flex;align-items:center;gap:.65rem;background:#F5F0E8;border:1px solid #E8E2D9;border-radius:8px;padding:.75rem 1rem">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7B1C1C" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span id="docx-selected-name" style="font-size:13.5px;font-weight:700;color:#1C1714;flex:1"></span>
+          <span id="docx-selected-size" style="font-size:12px;color:#6B6055"></span>
+        </div>
+        <div style="display:flex;gap:.5rem;margin-top:.6rem">
+          <button id="btn-upload-docx" class="st-btn st-btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Template
+          </button>
+          <button id="btn-cancel-docx" class="st-btn st-btn-outline">Batal</button>
+        </div>
+      </div>
+
+      <div id="docx-msg" class="st-msg"></div>
+
+      <!-- Panduan placeholder -->
+      <div class="st-infobox" style="margin-top:1.25rem">
+        <div class="st-infobox-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Placeholder yang Tersedia di Template
+        </div>
+        <div class="st-guide-grid">
+          <div class="st-guide-item">
+            <strong>Data Rapat</strong>
+            <code>${judul}</code> — Nama/judul rapat<br>
+            <code>${hari_tanggal}</code> — Senin, 01 Jan 2025<br>
+            <code>${pukul}</code> — 08.00 – 10.00 WIB<br>
+            <code>${tempat}</code> — Lokasi rapat
+          </div>
+          <div class="st-guide-item">
+            <strong>Personil</strong>
+            <code>${pemimpin}</code> — Pemimpin rapat<br>
+            <code>${notulis}</code> — Nama notulis<br>
+            <code>${unit_kerja}</code> — Unit kerja/dept
+          </div>
+          <div class="st-guide-item">
+            <strong>Konten</strong>
+            <code>${isi_notulen}</code> — Isi notulen (plain)<br>
+            <code>${tgl_export}</code> — Tanggal cetak
+          </div>
+          <div class="st-guide-item">
+            <strong>Tabel Peserta</strong>
+            Buat 1 baris di tabel, isi:<br>
+            <code>${p.no}</code> <code>${p.nama}</code> <code>${p.unit}</code>
+          </div>
+          <div class="st-guide-item">
+            <strong>Tabel Tindak Lanjut</strong>
+            Buat 1 baris di tabel, isi:<br>
+            <code>${tl.no}</code> <code>${tl.uraian}</code><br>
+            <code>${tl.pic}</code> <code>${tl.deadline}</code> <code>${tl.status}</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /panel-notulen -->
 
 <script>
 (function () {
@@ -574,7 +709,15 @@ select.st-ctrl {
     });
   });
 
-  /* ── Upload helper ── */
+  /* ── Shared message helper ── */
+  function setMsg(el, html, ok) {
+    const icon = ok
+      ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+      : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+    el.innerHTML = `<span class="${ok ? 'st-msg-ok' : 'st-msg-err'}">${icon} ${html}</span>`;
+  }
+
+  /* ── Upload image helper ── */
   function handleUpload(inputId, previewWrapId, uploadBtnId, uploadUrl, msgId, previewStyle) {
     const input     = document.getElementById(inputId);
     const uploadBtn = document.getElementById(uploadBtnId);
@@ -586,8 +729,7 @@ select.st-ctrl {
       if (!file) return;
       const reader = new FileReader();
       reader.onload = e => {
-        const wrap = document.getElementById(previewWrapId);
-        wrap.innerHTML = `<img src="${e.target.result}" style="${previewStyle}">`;
+        document.getElementById(previewWrapId).innerHTML = `<img src="${e.target.result}" style="${previewStyle}">`;
       };
       reader.readAsDataURL(file);
       uploadBtn.disabled = false;
@@ -596,22 +738,20 @@ select.st-ctrl {
     uploadBtn.addEventListener('click', async () => {
       const file = input.files[0];
       if (!file) return;
-      uploadBtn.disabled = true;
-      uploadBtn.textContent = 'Mengupload…';
+      uploadBtn.disabled = true; uploadBtn.textContent = 'Mengupload…';
       const fd = new FormData();
       fd.append(inputId === 'input-logo' ? 'logo' : 'login_bg', file);
       try {
-        const res  = await fetch(uploadUrl, { method: 'POST', body: fd });
-        const data = await res.json();
+        const data = await (await fetch(uploadUrl, { method: 'POST', body: fd })).json();
         if (data.success) {
-          msg.innerHTML = '<span class="st-msg-ok"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Berhasil diupload. Halaman akan dimuat ulang…</span>';
+          setMsg(msg, 'Berhasil diupload. Halaman akan dimuat ulang…', true);
           setTimeout(() => location.reload(), 1500);
         } else {
-          msg.innerHTML = `<span class="st-msg-err">✕ ${data.message}</span>`;
+          setMsg(msg, data.message, false);
           uploadBtn.disabled = false; uploadBtn.textContent = 'Upload';
         }
       } catch (e) {
-        msg.innerHTML = '<span class="st-msg-err">✕ Terjadi kesalahan jaringan.</span>';
+        setMsg(msg, 'Terjadi kesalahan jaringan.', false);
         uploadBtn.disabled = false; uploadBtn.textContent = 'Upload';
       }
     });
@@ -647,13 +787,6 @@ select.st-ctrl {
 
   /* ── Save SMTP ── */
   const smtpMsg = document.getElementById('smtp-msg');
-  function setMsg(el, html, ok) {
-    const icon = ok
-      ? '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
-      : '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-    el.innerHTML = `<span class="${ok ? 'st-msg-ok' : 'st-msg-err'}">${icon} ${html}</span>`;
-  }
-
   document.getElementById('btn-save-smtp').addEventListener('click', async function() {
     this.disabled = true; this.textContent = 'Menyimpan…';
     const fd = new FormData();
@@ -691,9 +824,7 @@ select.st-ctrl {
   const hint    = document.getElementById('hint-limit-val');
 
   function updateSlider(val) {
-    slider.value   = val;
-    display.textContent = val;
-    hint.textContent    = val;
+    slider.value = val; display.textContent = val; hint.textContent = val;
     document.querySelectorAll('.btn-preset').forEach(b => {
       const active = parseInt(b.dataset.val) === parseInt(val);
       b.style.borderColor = active ? '#7B1C1C' : '';
@@ -701,9 +832,7 @@ select.st-ctrl {
       b.style.background  = active ? 'rgba(123,28,28,.06)' : '';
     });
   }
-
   slider.addEventListener('input', () => updateSlider(slider.value));
-
   document.querySelectorAll('.btn-preset').forEach(b => {
     b.addEventListener('click', () => updateSlider(b.dataset.val));
   });
@@ -711,8 +840,7 @@ select.st-ctrl {
   const notulenMsg = document.getElementById('notulen-msg');
   document.getElementById('btn-save-notulen').addEventListener('click', async function() {
     this.disabled = true; this.textContent = 'Menyimpan…';
-    const fd = new FormData();
-    fd.append('notulen_history_limit', slider.value);
+    const fd = new FormData(); fd.append('notulen_history_limit', slider.value);
     try {
       const data = await (await fetch(`${BASE}/api/settings/save-notulen`, { method:'POST', body:fd })).json();
       setMsg(notulenMsg, data.message, data.success);
@@ -722,5 +850,92 @@ select.st-ctrl {
       this.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Simpan Pengaturan`;
     }
   });
+
+  /* ─────────────────────────────────────────────────────────────
+     Template DOCX
+  ───────────────────────────────────────────────────────────── */
+  const docxInput    = document.getElementById('input-docx-template');
+  const dropzone     = document.getElementById('docx-dropzone');
+  const selectedInfo = document.getElementById('docx-selected-info');
+  const selectedName = document.getElementById('docx-selected-name');
+  const selectedSize = document.getElementById('docx-selected-size');
+  const uploadBtn    = document.getElementById('btn-upload-docx');
+  const cancelBtn    = document.getElementById('btn-cancel-docx');
+  const docxMsg      = document.getElementById('docx-msg');
+
+  function fmtSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(2) + ' MB';
+  }
+
+  function showSelected(file) {
+    selectedName.textContent = file.name;
+    selectedSize.textContent = fmtSize(file.size);
+    selectedInfo.style.display = 'block';
+    dropzone.style.display = 'none';
+  }
+
+  // Click on dropzone → open file picker
+  dropzone.addEventListener('click', () => docxInput.click());
+  docxInput.addEventListener('change', () => {
+    if (docxInput.files[0]) showSelected(docxInput.files[0]);
+  });
+
+  // Drag & drop
+  ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('dragover'); }));
+  dropzone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const dt = new DataTransfer(); dt.items.add(file); docxInput.files = dt.files;
+    showSelected(file);
+  });
+
+  // Cancel
+  cancelBtn?.addEventListener('click', () => {
+    docxInput.value = '';
+    selectedInfo.style.display = 'none';
+    dropzone.style.display = '';
+    if (docxMsg) docxMsg.innerHTML = '';
+  });
+
+  // Upload
+  uploadBtn?.addEventListener('click', async () => {
+    const file = docxInput.files[0];
+    if (!file) return;
+    uploadBtn.disabled = true; uploadBtn.textContent = 'Mengupload…';
+    const fd = new FormData(); fd.append('docx_template', file);
+    try {
+      const data = await (await fetch(`${BASE}/api/settings/upload-docx-template`, { method:'POST', body:fd })).json();
+      if (data.success) {
+        setMsg(docxMsg, 'Template berhasil diupload. Halaman akan dimuat ulang…', true);
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        setMsg(docxMsg, data.message, false);
+        uploadBtn.disabled = false;
+        uploadBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload Template`;
+      }
+    } catch(e) {
+      setMsg(docxMsg, 'Terjadi kesalahan jaringan.', false);
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> Upload Template`;
+    }
+  });
+
+  // Hapus template
+  document.getElementById('btn-remove-docx')?.addEventListener('click', async () => {
+    if (!confirm('Hapus template DOCX? Ekspor berikutnya akan menggunakan format bawaan.')) return;
+    try {
+      const data = await (await fetch(`${BASE}/api/settings/remove-docx-template`, { method:'POST' })).json();
+      if (data.success) {
+        setMsg(docxMsg, 'Template dihapus. Halaman akan dimuat ulang…', true);
+        setTimeout(() => location.reload(), 1200);
+      } else {
+        setMsg(docxMsg, data.message, false);
+      }
+    } catch(e) { setMsg(docxMsg, 'Terjadi kesalahan jaringan.', false); }
+  });
+
 })();
 </script>
