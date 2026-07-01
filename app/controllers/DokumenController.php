@@ -65,9 +65,17 @@ class DokumenController
         $stats = DokumenModel::getStats($userId, $isAdmin);
         $stats['total_size_fmt'] = DokumenModel::formatSize($stats['total_size']);
 
-        $pageTitle = 'Dokumen';
-        $view      = 'dokumen/index';
-        require_once APP_PATH . '/views/layouts/main.php';
+        View::layout('dokumen/index', [
+            'pageTitle'   => 'Dokumen',
+            'folders'     => $folders,
+            'files'       => $files,
+            'stats'       => $stats,
+            'breadcrumb'  => $breadcrumb,
+            'section'     => $section,
+            'folderId'    => $folderId,
+            'filterType'  => $filterType,
+            'search'      => $search,
+        ]);
     }
 
     /* ------------------------------------------------------------------ */
