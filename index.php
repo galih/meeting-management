@@ -23,7 +23,6 @@ spl_autoload_register(function(string $class): void {
 
 require_once APP_PATH . '/config/app.php';
 
-// ── Global Error Handler ─────────────────────────────────────────────
 ErrorHandler::register();
 
 $router = new Router();
@@ -92,7 +91,7 @@ $router->post('/users/{id}/delete',   [UserController::class, 'delete']);
 $router->post('/users/{id}/destroy',  [UserController::class, 'destroy']);
 $router->get('/api/users',            [UserController::class, 'apiList']);
 
-// === UNIT KERJA (departments) ===
+// === UNIT KERJA ===
 $router->get('/departments',                     [DepartmentController::class, 'index']);
 $router->post('/departments',                    [DepartmentController::class, 'store']);
 $router->post('/departments/{id}/update',        [DepartmentController::class, 'update']);
@@ -146,7 +145,7 @@ $router->post('/notulen-templates/{id}/delete',      [NotulenTemplateController:
 $router->get('/api/notulen-templates',               [NotulenTemplateController::class, 'apiList']);
 $router->get('/api/notulen-templates/{id}',          [NotulenTemplateController::class, 'apiGet']);
 
-// === ACTIVITY LOG (admin only) ===
+// === ACTIVITY LOG ===
 $router->get('/admin/activity-log',        [ActivityLogController::class, 'index']);
 $router->post('/admin/activity-log/purge', [ActivityLogController::class, 'purge']);
 
@@ -161,25 +160,27 @@ $router->post('/api/dokumen/{id}/delete',         [DokumenController::class, 'de
 $router->get('/dokumen/{id}/download',            [DokumenController::class, 'download']);
 
 // === DOKUMEN Fase 2 — share & permission ===
-$router->get('/api/dokumen/{id}/shares',                       [DokumenShareController::class, 'index']);
-$router->post('/api/dokumen/{id}/shares',                      [DokumenShareController::class, 'store']);
-$router->post('/api/dokumen/{id}/shares/{uid}/delete',         [DokumenShareController::class, 'destroy']);
-$router->post('/api/dokumen/{id}/shares/{uid}/permission',     [DokumenShareController::class, 'updatePermission']);
+$router->get('/api/dokumen/{id}/shares',                   [DokumenShareController::class, 'index']);
+$router->post('/api/dokumen/{id}/shares',                  [DokumenShareController::class, 'store']);
+$router->post('/api/dokumen/{id}/shares/{uid}/delete',     [DokumenShareController::class, 'destroy']);
+$router->post('/api/dokumen/{id}/shares/{uid}/permission', [DokumenShareController::class, 'updatePermission']);
 
-// === DOKUMEN Fase 3 — preview & rename inline ===
+// === DOKUMEN Fase 3 — preview & info ===
 $router->get('/api/dokumen/{id}/preview',         [DokumenController::class, 'preview']);
 $router->get('/api/dokumen/{id}/info',            [DokumenController::class, 'info']);
 
+// === DOKUMEN Fase 4 — version history ===
+$router->get('/api/dokumen/{id}/versions',             [DokumenVersionController::class, 'index']);
+$router->post('/api/dokumen/{id}/versions/upload',     [DokumenVersionController::class, 'uploadNewVersion']);
+$router->get('/api/dokumen/versions/{vid}/download',   [DokumenVersionController::class, 'downloadVersion']);
+
 AuthController::checkRememberToken();
 
-// ── Dispatch ────────────────────────────────────────────────────────
 $method = $_SERVER['REQUEST_METHOD'];
 $uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-
 $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
 if ($scriptDir !== '' && strncmp($uri, $scriptDir, strlen($scriptDir)) === 0) {
     $uri = substr($uri, strlen($scriptDir));
 }
 $uri = $uri ?: '/';
-
 $router->dispatch($method, $uri);
