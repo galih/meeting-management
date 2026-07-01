@@ -1,6 +1,6 @@
 <?php
 /**
- * View: Fitur Dokumen — Fase 1 + 2 + 6
+ * Rebuild UI/UX Dokumen
  * Variabel dari DokumenController::index():
  *   $folders, $files, $stats, $breadcrumb
  *   $section (my-files|shared|recent)
@@ -10,625 +10,810 @@ $base      = rtrim(BASE_URL, '/');
 $isAdmin   = Auth::hasRole('admin', 'sekretaris');
 $canUpload = Auth::hasRole('admin', 'sekretaris');
 $myId      = (int)(Auth::user()['id'] ?? 0);
+$sectionTitles = [
+  'my-files' => 'Semua Dokumen',
+  'shared'   => 'Dibagikan ke Saya',
+  'recent'   => 'Akses Terbaru',
+];
+$sectionDescriptions = [
+  'my-files' => 'Kelola file, folder, dan distribusi dokumen dalam satu workspace yang lebih rapi.',
+  'shared'   => 'Lihat dokumen yang dibagikan ke Anda beserta level aksesnya.',
+  'recent'   => 'Akses cepat ke file yang terakhir dibuka atau diperbarui.',
+];
+$currentTitle = $sectionTitles[$section] ?? 'Dokumen';
+$currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
 ?>
 <style>
-/* ===== DM: Dokumen Namespace ===== */
-.dm-wrap   { display:flex; gap:0; min-height:calc(100vh - 64px); }
-
-/* Sidebar */
+:root {
+  --dm-bg:#F6F3EE;
+  --dm-panel:#FFFFFF;
+  --dm-panel-soft:#FBF8F4;
+  --dm-line:#E7DED2;
+  --dm-line-strong:#D8CCBC;
+  --dm-text:#1F1A17;
+  --dm-muted:#7A6F63;
+  --dm-maroon:#7B1C1C;
+  --dm-maroon-dark:#5B1212;
+  --dm-blue:#2B6CB0;
+  --dm-green:#276749;
+  --dm-orange:#C05621;
+  --dm-shadow:0 18px 40px rgba(46,33,20,.08);
+}
+* { box-sizing:border-box; }
+.dm-page {
+  padding:1.5rem;
+  background:linear-gradient(180deg,#F8F5F0 0%, #F4EFE7 100%);
+  min-height:calc(100vh - 64px);
+}
+.dm-layout {
+  display:grid;
+  grid-template-columns:260px minmax(0,1fr);
+  gap:1.25rem;
+  align-items:start;
+}
+.dm-panel {
+  background:var(--dm-panel);
+  border:1px solid var(--dm-line);
+  border-radius:22px;
+  box-shadow:var(--dm-shadow);
+}
 .dm-sidebar {
-  width:220px; flex-shrink:0;
-  background:#fff;
-  border-right:1px solid #E8E2D9;
-  padding:1.25rem .85rem;
-  display:flex; flex-direction:column; gap:.15rem;
+  padding:1rem;
+  position:sticky;
+  top:1rem;
 }
-.dm-sidebar-section { font-size:10.5px; font-weight:800; color:#A89E90; letter-spacing:.06em; text-transform:uppercase; padding:.55rem .6rem .25rem; margin-top:.5rem; }
-.dm-sidebar-link {
-  display:flex; align-items:center; gap:.6rem;
-  padding:.5rem .75rem; border-radius:8px;
-  font-size:13.5px; font-weight:600; color:#4A5568;
-  text-decoration:none; cursor:pointer; border:none; background:none; width:100%;
-  transition:background 140ms, color 140ms;
+.dm-brand {
+  padding:.55rem .55rem .95rem;
+  border-bottom:1px solid #EFE7DD;
+  margin-bottom:.9rem;
 }
-.dm-sidebar-link:hover  { background:#F5F0E8; color:#1C1714; }
-.dm-sidebar-link.active { background:#7B1C1C; color:#fff; }
-.dm-sidebar-link.active svg { stroke:#fff; opacity:1; }
-.dm-sidebar-link svg { opacity:.6; flex-shrink:0; }
-.dm-sidebar-badge {
-  margin-left:auto; background:rgba(123,28,28,.12); color:#7B1C1C;
-  font-size:10.5px; font-weight:800; border-radius:20px; padding:.1em .55em;
+.dm-brand-badge {
+  display:inline-flex;
+  align-items:center;
+  gap:.45rem;
+  font-size:11px;
+  font-weight:800;
+  color:var(--dm-maroon);
+  background:rgba(123,28,28,.08);
+  padding:.3rem .65rem;
+  border-radius:999px;
+  margin-bottom:.65rem;
 }
-.dm-sidebar-link.active .dm-sidebar-badge { background:rgba(255,255,255,.25); color:#fff; }
-
+.dm-brand-title { font-size:18px; font-weight:900; color:var(--dm-text); line-height:1.15; }
+.dm-brand-sub { margin-top:.35rem; font-size:12.5px; color:var(--dm-muted); line-height:1.5; }
 .dm-upload-btn {
-  display:flex; align-items:center; justify-content:center; gap:.5rem;
-  width:100%; height:40px; border-radius:10px;
-  background:#7B1C1C; color:#fff; font-size:13.5px; font-weight:700;
-  border:none; cursor:pointer; margin-bottom:.75rem;
-  transition:background 180ms;
+  width:100%; height:46px; border:none; border-radius:14px;
+  background:linear-gradient(135deg,var(--dm-maroon) 0%, #922727 100%);
+  color:#fff; font-size:13.5px; font-weight:800; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:.55rem;
+  box-shadow:0 12px 28px rgba(123,28,28,.22);
+  transition:transform .18s ease, box-shadow .18s ease;
+  margin-bottom:1rem;
 }
-.dm-upload-btn:hover { background:#5A1212; }
-
-/* Main */
-.dm-main    { flex:1; min-width:0; padding:1.5rem; overflow-y:auto; }
-.dm-toolbar {
-  display:flex; align-items:center; gap:.65rem; flex-wrap:wrap;
-  margin-bottom:1.25rem;
+.dm-upload-btn:hover { transform:translateY(-1px); box-shadow:0 16px 30px rgba(123,28,28,.28); }
+.dm-nav-group { margin-bottom:.95rem; }
+.dm-nav-label {
+  padding:.35rem .65rem; margin-bottom:.4rem;
+  font-size:10.5px; letter-spacing:.08em; text-transform:uppercase;
+  font-weight:800; color:#9B8F80;
 }
+.dm-nav-link {
+  display:flex; align-items:center; gap:.7rem;
+  width:100%; text-decoration:none; border:none; background:none;
+  border-radius:14px; padding:.78rem .8rem; margin-bottom:.25rem;
+  color:#4E463E; font-size:13.5px; font-weight:700; cursor:pointer;
+  transition:all .16s ease;
+}
+.dm-nav-link svg { opacity:.75; flex-shrink:0; }
+.dm-nav-link:hover { background:#F6F0E8; color:var(--dm-text); }
+.dm-nav-link.active {
+  background:linear-gradient(135deg,var(--dm-maroon) 0%, #8B2323 100%);
+  color:#fff;
+  box-shadow:0 12px 24px rgba(123,28,28,.18);
+}
+.dm-nav-link.active svg { opacity:1; }
+.dm-nav-badge {
+  margin-left:auto; min-width:24px; height:24px; border-radius:999px;
+  padding:0 .45rem; display:inline-flex; align-items:center; justify-content:center;
+  font-size:11px; font-weight:800;
+  background:rgba(123,28,28,.1); color:var(--dm-maroon);
+}
+.dm-nav-link.active .dm-nav-badge { background:rgba(255,255,255,.2); color:#fff; }
+.dm-side-note {
+  margin-top:.75rem; padding:.85rem .9rem;
+  background:linear-gradient(180deg,#FBF8F4 0%, #F7F2EB 100%);
+  border:1px solid #EEE3D7; border-radius:16px;
+}
+.dm-side-note-title { font-size:12.5px; font-weight:800; color:var(--dm-text); margin-bottom:.25rem; }
+.dm-side-note-text { font-size:12px; color:var(--dm-muted); line-height:1.55; }
+.dm-main { display:flex; flex-direction:column; gap:1rem; min-width:0; }
+.dm-hero {
+  padding:1.2rem 1.25rem;
+  background:
+    radial-gradient(circle at top right, rgba(123,28,28,.13) 0, rgba(123,28,28,0) 38%),
+    linear-gradient(135deg,#FFFFFF 0%, #FBF6F0 100%);
+}
+.dm-hero-top {
+  display:flex; gap:1rem; justify-content:space-between; align-items:flex-start; flex-wrap:wrap;
+}
+.dm-kicker {
+  display:inline-flex; align-items:center; gap:.45rem;
+  background:#F6EEE5; color:var(--dm-maroon); border:1px solid #E8D9C8;
+  font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+  padding:.35rem .65rem; border-radius:999px; margin-bottom:.75rem;
+}
+.dm-title { font-size:30px; line-height:1.08; letter-spacing:-.02em; color:var(--dm-text); font-weight:900; margin:0; }
+.dm-subtitle { margin:.55rem 0 0; max-width:760px; color:var(--dm-muted); font-size:14px; line-height:1.6; }
+.dm-hero-actions { display:flex; gap:.6rem; flex-wrap:wrap; }
+.dm-btn {
+  display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
+  min-height:40px; padding:0 .95rem; border-radius:12px; cursor:pointer;
+  border:1px solid transparent; text-decoration:none; white-space:nowrap;
+  font-size:13px; font-weight:800; transition:all .18s ease;
+}
+.dm-btn svg { flex-shrink:0; }
+.dm-btn-primary { background:var(--dm-maroon); color:#fff; border-color:var(--dm-maroon-dark); box-shadow:0 10px 20px rgba(123,28,28,.16); }
+.dm-btn-primary:hover { background:var(--dm-maroon-dark); }
+.dm-btn-outline { background:#fff; color:#5A5047; border-color:var(--dm-line-strong); }
+.dm-btn-outline:hover { color:var(--dm-maroon); border-color:var(--dm-maroon); }
+.dm-btn-share { background:#fff; color:var(--dm-blue); border-color:#D7E3F5; }
+.dm-btn-share:hover { background:var(--dm-blue); color:#fff; border-color:var(--dm-blue); }
+.dm-btn-public { background:#fff; color:var(--dm-green); border-color:#D9E9DF; }
+.dm-btn-public:hover { background:var(--dm-green); color:#fff; border-color:var(--dm-green); }
+.dm-btn-danger { background:#fff; color:var(--dm-orange); border-color:#F0D6C9; }
+.dm-btn-danger:hover { background:var(--dm-orange); color:#fff; border-color:var(--dm-orange); }
+.dm-btn-ghost { background:#F9F4EE; color:#665A4E; border-color:#EFE4D8; }
+.dm-btn-ghost:hover { color:var(--dm-text); border-color:#D7C7B5; }
+.dm-btn-sm { min-height:34px; padding:0 .75rem; font-size:12px; border-radius:10px; }
+.dm-stats-grid {
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0,1fr));
+  gap:.8rem;
+  margin-top:1rem;
+}
+.dm-stat-card {
+  background:linear-gradient(180deg,#fff 0%, #FBF7F2 100%);
+  border:1px solid #EEE3D7; border-radius:18px;
+  padding:1rem; min-width:0;
+}
+.dm-stat-label { font-size:11px; font-weight:800; color:#9D8E7E; letter-spacing:.06em; text-transform:uppercase; margin-bottom:.55rem; }
+.dm-stat-value { font-size:24px; font-weight:900; color:var(--dm-text); line-height:1; }
+.dm-stat-meta { margin-top:.35rem; font-size:12px; color:var(--dm-muted); line-height:1.45; }
+.dm-controls {
+  padding:1rem 1.1rem;
+  display:flex; gap:.9rem; flex-wrap:wrap; align-items:center; justify-content:space-between;
+}
+.dm-search-form { display:flex; gap:.75rem; flex:1; min-width:260px; flex-wrap:wrap; }
 .dm-search {
-  flex:1; min-width:180px; max-width:340px;
-  display:flex; align-items:center;
-  border:1.5px solid #DDD5C4; border-radius:9px;
-  background:#FDFCFA; overflow:hidden; transition:border-color 180ms;
+  flex:1; min-width:220px; display:flex; align-items:center; gap:.55rem;
+  background:#FCFAF7; border:1.5px solid var(--dm-line); border-radius:14px;
+  min-height:46px; padding:0 .85rem; transition:border-color .16s ease, box-shadow .16s ease;
 }
-.dm-search:focus-within { border-color:#7B1C1C; box-shadow:0 0 0 3px rgba(123,28,28,.07); }
-.dm-search svg    { flex-shrink:0; margin:0 .6rem; color:#A89E90; }
-.dm-search input  { border:none; background:none; outline:none; font-size:13.5px; color:#1C1714; height:38px; flex:1; padding-right:.75rem; }
-.dm-filter-select {
-  height:38px; border:1.5px solid #DDD5C4; border-radius:9px;
-  background:#FDFCFA; font-size:13px; color:#1C1714; padding:0 2rem 0 .75rem;
-  appearance:none; -webkit-appearance:none; outline:none; cursor:pointer;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B6055' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat:no-repeat; background-position:right .6rem center;
-  transition:border-color 180ms;
+.dm-search:focus-within { border-color:var(--dm-maroon); box-shadow:0 0 0 4px rgba(123,28,28,.07); }
+.dm-search svg { color:#A49382; flex-shrink:0; }
+.dm-search input {
+  flex:1; min-width:0; border:none; background:transparent; outline:none;
+  height:44px; font-size:13.5px; color:var(--dm-text);
 }
-.dm-filter-select:focus { border-color:#7B1C1C; }
-
-/* Breadcrumb */
-.dm-breadcrumb { display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; margin-bottom:1rem; }
-.dm-breadcrumb a  { font-size:12.5px; font-weight:600; color:#7B1C1C; text-decoration:none; }
+.dm-filter-select, .dm-filter-inline {
+  min-height:46px; border:1.5px solid var(--dm-line); border-radius:14px;
+  background:#FCFAF7; font-size:13px; color:var(--dm-text); outline:none;
+  padding:0 2.25rem 0 .95rem; appearance:none; -webkit-appearance:none; cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237A6F63' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right .8rem center;
+}
+.dm-filter-select:focus, .dm-filter-inline:focus { border-color:var(--dm-maroon); }
+.dm-breadcrumb-wrap {
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.8rem;
+  padding:0 .2rem;
+}
+.dm-breadcrumb { display:flex; align-items:center; gap:.45rem; flex-wrap:wrap; }
+.dm-breadcrumb a,
+.dm-breadcrumb span { font-size:12.5px; }
+.dm-breadcrumb a { color:var(--dm-maroon); text-decoration:none; font-weight:700; }
 .dm-breadcrumb a:hover { text-decoration:underline; }
-.dm-breadcrumb span { font-size:12px; color:#A89E90; }
-.dm-breadcrumb-cur { font-size:12.5px; font-weight:700; color:#1C1714; }
-
-/* Stats bar */
-.dm-stats {
-  display:flex; gap:.75rem; flex-wrap:wrap;
-  padding:.85rem 1rem;
-  background:#F5F0E8; border:1px solid #E8E2D9; border-radius:10px;
-  margin-bottom:1.25rem;
+.dm-breadcrumb-sep { color:#AB9D8D; }
+.dm-breadcrumb-current { color:var(--dm-text); font-weight:800; }
+.dm-toolbar-info { font-size:12.5px; color:var(--dm-muted); }
+.dm-section-card { padding:1.1rem; }
+.dm-section-head {
+  display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.9rem; flex-wrap:wrap;
 }
-.dm-stat-item { font-size:12px; color:#6B6055; }
-.dm-stat-item strong { font-weight:800; color:#1C1714; }
-
-/* Section title */
 .dm-section-title {
-  font-size:13.5px; font-weight:800; color:#1C1714;
-  display:flex; align-items:center; gap:.5rem; margin-bottom:.85rem;
+  display:flex; align-items:center; gap:.6rem;
+  font-size:14px; font-weight:900; color:var(--dm-text); letter-spacing:.01em;
 }
-.dm-section-title svg { color:#7B1C1C; }
-
-/* Folder grid */
+.dm-section-title svg { color:var(--dm-maroon); }
+.dm-section-hint { font-size:12px; color:var(--dm-muted); }
 .dm-folder-grid {
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(200px, 1fr));
-  gap:.75rem; margin-bottom:1.5rem;
+  grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+  gap:.9rem;
 }
 .dm-folder-card {
-  background:#fff; border:1px solid #E8E2D9; border-radius:10px;
-  padding:.85rem 1rem;
-  display:flex; align-items:center; gap:.75rem;
-  cursor:pointer; text-decoration:none;
-  transition:border-color 180ms, box-shadow 180ms;
-  position:relative;
+  position:relative; display:block; text-decoration:none;
+  background:linear-gradient(180deg,#FFFDF9 0%, #FBF6EF 100%);
+  border:1px solid #EEE1D3; border-radius:20px;
+  padding:1rem; min-height:152px; overflow:hidden;
+  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
 }
-.dm-folder-card:hover  { border-color:#7B1C1C; box-shadow:0 3px 12px rgba(123,28,28,.08); }
+.dm-folder-card:hover { transform:translateY(-2px); border-color:#D9C4AF; box-shadow:0 18px 30px rgba(102,78,52,.1); }
+.dm-folder-card::after {
+  content:''; position:absolute; inset:auto -20px -38px auto;
+  width:110px; height:110px; border-radius:50%; background:rgba(217,119,6,.08);
+}
+.dm-folder-top { display:flex; align-items:flex-start; justify-content:space-between; gap:.75rem; position:relative; z-index:1; }
 .dm-folder-icon {
-  width:40px; height:40px; flex-shrink:0;
-  background:#FEF3C7; border-radius:8px;
-  display:flex; align-items:center; justify-content:center;
+  width:48px; height:48px; border-radius:16px;
+  background:linear-gradient(180deg,#FFF2CC 0%, #FFE49C 100%);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  box-shadow:inset 0 0 0 1px rgba(217,119,6,.08);
 }
-.dm-folder-name { font-size:13px; font-weight:700; color:#1C1714; word-break:break-word; }
-.dm-folder-meta { font-size:11px; color:#A89E90; margin-top:.1rem; }
 .dm-folder-menu {
-  position:absolute; top:.5rem; right:.5rem;
-  width:26px; height:26px; display:flex; align-items:center; justify-content:center;
-  border-radius:6px; background:none; border:none; cursor:pointer; color:#A89E90;
-  opacity:0; transition:opacity 140ms, background 140ms;
+  width:34px; height:34px; border:none; border-radius:10px;
+  background:#fff; color:#8D7E6C; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  border:1px solid #E8DCCA; opacity:0; transition:all .18s ease;
 }
 .dm-folder-card:hover .dm-folder-menu { opacity:1; }
-.dm-folder-menu:hover { background:#F5F0E8; color:#1C1714; }
-
-/* File table */
-.dm-table-wrap {
-  background:#fff; border:1px solid #E8E2D9;
-  border-radius:12px; overflow:hidden;
-  box-shadow:0 2px 10px rgba(28,23,20,.05);
+.dm-folder-menu:hover { color:var(--dm-text); border-color:#DCC7AF; }
+.dm-folder-name { margin-top:.85rem; font-size:15px; font-weight:900; color:var(--dm-text); line-height:1.35; word-break:break-word; position:relative; z-index:1; }
+.dm-folder-meta { margin-top:.45rem; font-size:12.5px; color:var(--dm-muted); line-height:1.5; position:relative; z-index:1; }
+.dm-folder-footer { margin-top:1rem; display:flex; align-items:center; justify-content:space-between; position:relative; z-index:1; }
+.dm-folder-badge {
+  display:inline-flex; align-items:center; gap:.35rem; border-radius:999px;
+  background:#fff; border:1px solid #E9DCCB; color:#6A5F54;
+  padding:.28rem .65rem; font-size:11px; font-weight:800;
 }
-.dm-table { width:100%; border-collapse:collapse; }
-.dm-table thead th {
-  padding:.75rem 1rem; font-size:11px; font-weight:800;
-  color:#6B6055; letter-spacing:.04em; text-transform:uppercase;
-  background:#F9F7F4; border-bottom:1px solid #E8E2D9;
-  white-space:nowrap;
+.dm-content-card { padding:1rem 1.1rem 1.1rem; }
+.dm-content-head {
+  display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;
+  margin-bottom:1rem;
 }
-.dm-table tbody tr {
-  border-bottom:1px solid #F0EBE2;
-  transition:background 120ms;
+.dm-content-title { font-size:16px; font-weight:900; color:var(--dm-text); margin:0; }
+.dm-content-sub { font-size:12.5px; color:var(--dm-muted); margin-top:.3rem; }
+.dm-view-switch {
+  display:flex; align-items:center; gap:.35rem;
+  padding:.3rem; background:#F7F1E8; border:1px solid #E9DDD0; border-radius:14px;
 }
-.dm-table tbody tr:last-child { border-bottom:none; }
-.dm-table tbody tr:hover { background:#FDFCFA; }
-.dm-table td { padding:.75rem 1rem; font-size:13.5px; color:#1C1714; vertical-align:middle; }
+.dm-view-switch button {
+  height:34px; min-width:34px; padding:0 .7rem; border:none; border-radius:10px; cursor:pointer;
+  background:transparent; color:#7B6E5F; font-size:12px; font-weight:800;
+}
+.dm-view-switch button.active { background:#fff; color:var(--dm-text); box-shadow:0 4px 12px rgba(72,57,40,.08); }
+.dm-file-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:.9rem;
+}
+.dm-file-card {
+  display:flex; gap:.9rem; align-items:flex-start;
+  background:linear-gradient(180deg,#FFFFFF 0%, #FCF8F4 100%);
+  border:1px solid #EEE3D7; border-radius:20px; padding:1rem;
+  transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.dm-file-card:hover { transform:translateY(-2px); border-color:#DACBB9; box-shadow:0 16px 28px rgba(74,53,31,.08); }
 .dm-file-icon {
-  width:34px; height:34px; border-radius:7px;
-  display:inline-flex; align-items:center; justify-content:center;
-  font-size:10.5px; font-weight:800; color:#fff; flex-shrink:0;
+  width:48px; height:48px; border-radius:16px;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:11px; font-weight:900; flex-shrink:0;
+  box-shadow:inset 0 -8px 18px rgba(0,0,0,.08);
 }
-.dm-file-name { font-weight:600; color:#1C1714; word-break:break-word; cursor:pointer; }
-.dm-file-name:hover { color:#7B1C1C; text-decoration:underline; }
-.dm-file-size  { font-size:12px; color:#A89E90; }
-.dm-badge {
-  display:inline-flex; align-items:center;
-  font-size:10.5px; font-weight:700; border-radius:5px;
-  padding:.2em .55em; color:#fff;
+.dm-file-body { flex:1; min-width:0; }
+.dm-file-top { display:flex; align-items:flex-start; gap:.65rem; justify-content:space-between; }
+.dm-file-name {
+  font-size:14px; font-weight:900; color:var(--dm-text); line-height:1.45;
+  word-break:break-word; cursor:pointer;
 }
-.dm-perm-badge {
-  display:inline-flex; align-items:center; gap:.25rem;
-  font-size:11px; font-weight:700; border-radius:6px;
-  padding:.2em .6em;
-}
-.dm-perm-view     { background:#EBF8FF; color:#2B6CB0; }
-.dm-perm-download { background:#F0FFF4; color:#276749; }
-
-/* Shared-by chip */
-.dm-shared-chip {
+.dm-file-name:hover { color:var(--dm-maroon); }
+.dm-file-tags { display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.55rem; }
+.dm-chip {
   display:inline-flex; align-items:center; gap:.3rem;
-  background:#F5F0E8; border-radius:20px;
-  font-size:11.5px; font-weight:600; color:#6B6055;
-  padding:.15em .65em;
+  min-height:26px; padding:0 .65rem; border-radius:999px; font-size:11px; font-weight:800;
+  border:1px solid transparent;
 }
-
-/* Buttons */
-.dm-btn {
-  display:inline-flex; align-items:center; gap:.35rem;
-  font-size:12.5px; font-weight:700;
-  height:32px; padding:0 .85rem;
-  border-radius:7px; cursor:pointer;
-  border:1.5px solid transparent;
-  transition:all 180ms; white-space:nowrap;
+.dm-chip-soft { background:#F5EEE6; color:#6A5E52; border-color:#E8D9C8; }
+.dm-chip-view { background:#EAF4FF; color:#2B6CB0; border-color:#D8E9FA; }
+.dm-chip-download { background:#E8F7EE; color:#276749; border-color:#D4EBDA; }
+.dm-chip-owner { background:#FFF2E7; color:#B45309; border-color:#F3DEC7; }
+.dm-file-meta {
+  display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:.5rem .8rem; margin-top:.85rem;
 }
-.dm-btn-outline { background:#fff; color:#6B6055; border-color:#DDD5C4; }
-.dm-btn-outline:hover { border-color:#7B1C1C; color:#7B1C1C; }
-.dm-btn-danger  { background:#fff; color:#C05621; border-color:#DDD5C4; }
-.dm-btn-danger:hover  { background:#C05621; color:#fff; }
-.dm-btn-share   { background:#fff; color:#2B6CB0; border-color:#DDD5C4; }
-.dm-btn-share:hover   { background:#2B6CB0; color:#fff; }
-.dm-btn-public  { background:#fff; color:#276749; border-color:#DDD5C4; }
-.dm-btn-public:hover  { background:#276749; color:#fff; }
-.dm-btn-sm { height:28px; font-size:12px; padding:0 .65rem; }
-
-/* Msg */
-.dm-msg { margin-top:.6rem; font-size:12.5px; }
-.dm-msg-ok  { color:#27A155; display:flex; align-items:center; gap:.35rem; }
-.dm-msg-err { color:#C05621; display:flex; align-items:center; gap:.35rem; }
-
-/* Empty state */
+.dm-meta-item { min-width:0; }
+.dm-meta-label { font-size:10.5px; font-weight:800; color:#A08F7D; text-transform:uppercase; letter-spacing:.06em; margin-bottom:.18rem; }
+.dm-meta-value { font-size:12.5px; color:#4D433B; line-height:1.45; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dm-file-actions {
+  display:flex; gap:.45rem; flex-wrap:wrap; margin-top:.95rem;
+}
 .dm-empty {
-  text-align:center; padding:3.5rem 1rem;
-  color:#A89E90;
+  padding:3rem 1.25rem; text-align:center;
+  background:linear-gradient(180deg,#FFFDFB 0%, #FAF5EF 100%);
+  border:1px dashed #E7D8C8; border-radius:22px;
 }
-.dm-empty svg { display:block; margin:0 auto 1rem; color:#DDD5C4; }
-.dm-empty p { font-size:13.5px; margin:.25rem 0 0; }
-
-/* Modal */
+.dm-empty-icon {
+  width:72px; height:72px; margin:0 auto 1rem;
+  border-radius:22px; background:#F4EBE1; color:#B39B85;
+  display:flex; align-items:center; justify-content:center;
+}
+.dm-empty h3 { margin:0; font-size:18px; font-weight:900; color:var(--dm-text); }
+.dm-empty p { margin:.55rem auto 0; max-width:520px; font-size:13.5px; color:var(--dm-muted); line-height:1.65; }
+.dm-empty .dm-btn { margin-top:1rem; }
+.dm-msg { margin-top:.75rem; font-size:12.5px; }
+.dm-msg-ok, .dm-msg-err { display:inline-flex; align-items:center; gap:.4rem; font-weight:700; }
+.dm-msg-ok { color:#1E8B4D; }
+.dm-msg-err { color:#C05621; }
 .dm-modal-overlay {
-  position:fixed; inset:0; background:rgba(0,0,0,.45);
+  position:fixed; inset:0; background:rgba(17,12,8,.5); backdrop-filter:blur(3px);
   z-index:1050; display:flex; align-items:center; justify-content:center;
-  opacity:0; pointer-events:none; transition:opacity 180ms;
+  opacity:0; pointer-events:none; transition:opacity .2s ease;
 }
 .dm-modal-overlay.open { opacity:1; pointer-events:auto; }
 .dm-modal {
-  background:#fff; border-radius:14px;
-  width:100%; max-width:460px; max-height:90vh; overflow-y:auto;
-  box-shadow:0 20px 60px rgba(0,0,0,.18);
-  transform:translateY(16px) scale(.97); transition:transform 180ms;
+  width:100%; max-width:470px; max-height:90vh; overflow:auto;
+  background:#fff; border-radius:22px; border:1px solid #EEE4D9;
+  box-shadow:0 28px 70px rgba(15,10,7,.24);
+  transform:translateY(18px) scale(.98); transition:transform .2s ease;
 }
 .dm-modal-overlay.open .dm-modal { transform:none; }
 .dm-modal-header {
-  padding:1.1rem 1.25rem .85rem;
-  border-bottom:1px solid #F0EBE2;
-  display:flex; align-items:center; justify-content:space-between;
+  display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;
+  padding:1.15rem 1.2rem .9rem; border-bottom:1px solid #F1E8DD;
 }
-.dm-modal-title { font-size:15px; font-weight:800; color:#1C1714; }
+.dm-modal-title { font-size:16px; font-weight:900; color:var(--dm-text); }
 .dm-modal-close {
-  background:none; border:none; cursor:pointer; color:#A89E90;
-  width:28px; height:28px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+  width:34px; height:34px; border:none; border-radius:12px; cursor:pointer;
+  background:#F8F3EC; color:#847563; display:flex; align-items:center; justify-content:center;
 }
-.dm-modal-close:hover { background:#F5F0E8; color:#1C1714; }
-.dm-modal-body { padding:1.25rem; }
-.dm-modal-footer { padding:.85rem 1.25rem 1.25rem; display:flex; gap:.5rem; justify-content:flex-end; }
-
-/* Label / Input in modal */
-.dm-label { display:block; font-size:11.5px; font-weight:700; color:#6B6055; letter-spacing:.03em; text-transform:uppercase; margin-bottom:.3rem; }
-.dm-ctrl  { width:100%; height:40px; border:1.5px solid #DDD5C4; border-radius:8px; padding:0 .85rem; font-size:13.5px; color:#1C1714; background:#FDFCFA; outline:none; transition:border-color 180ms; }
-.dm-ctrl:focus { border-color:#7B1C1C; box-shadow:0 0 0 3px rgba(123,28,28,.07); }
-
-/* User search dropdown */
+.dm-modal-close:hover { color:var(--dm-text); background:#F0E6DB; }
+.dm-modal-body { padding:1.2rem; }
+.dm-modal-footer { padding:0 1.2rem 1.2rem; display:flex; gap:.6rem; justify-content:flex-end; flex-wrap:wrap; }
+.dm-label { display:block; margin-bottom:.38rem; font-size:11px; font-weight:800; color:#8E7F6D; text-transform:uppercase; letter-spacing:.07em; }
+.dm-ctrl {
+  width:100%; min-height:44px; border:1.5px solid var(--dm-line); border-radius:14px;
+  background:#FCFAF7; outline:none; padding:0 .95rem; color:var(--dm-text); font-size:13.5px;
+  transition:border-color .16s ease, box-shadow .16s ease;
+}
+.dm-ctrl:focus { border-color:var(--dm-maroon); box-shadow:0 0 0 4px rgba(123,28,28,.07); }
+.dm-dropzone {
+  border:2px dashed #DECDBC; border-radius:18px; background:#FCFAF7;
+  padding:2rem 1.25rem; text-align:center; cursor:pointer; transition:all .18s ease;
+}
+.dm-dropzone:hover, .dm-dropzone.dragover { border-color:var(--dm-maroon); background:#FBF4F1; }
+.dm-dropzone svg { display:block; margin:0 auto .8rem; color:#C8B5A0; }
+.dm-dropzone p { margin:0; font-size:14px; color:#5E5348; }
+.dm-dropzone small { display:block; margin-top:.35rem; font-size:12px; color:#9C8F80; }
+.dm-progress { background:#E9DED1; border-radius:999px; height:8px; margin-top:1rem; overflow:hidden; display:none; }
+.dm-progress-bar { height:100%; width:0; background:linear-gradient(90deg,var(--dm-maroon) 0%, #B43737 100%); border-radius:999px; }
 .dm-user-search-wrap { position:relative; }
 .dm-user-dropdown {
-  position:absolute; top:calc(100% + 4px); left:0; right:0;
-  background:#fff; border:1.5px solid #DDD5C4; border-radius:8px;
-  box-shadow:0 8px 24px rgba(0,0,0,.1); z-index:100;
-  max-height:200px; overflow-y:auto; display:none;
+  position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:50;
+  background:#fff; border:1px solid #E8DDD1; border-radius:14px;
+  box-shadow:0 18px 30px rgba(45,30,17,.12); max-height:220px; overflow:auto; display:none;
 }
 .dm-user-dropdown.open { display:block; }
 .dm-user-option {
-  padding:.55rem .85rem; cursor:pointer;
-  font-size:13px; color:#1C1714;
-  display:flex; align-items:center; gap:.5rem;
-  transition:background 120ms;
+  padding:.7rem .85rem; font-size:13px; color:var(--dm-text); cursor:pointer;
+  display:flex; align-items:center; gap:.45rem; transition:background .16s ease;
 }
-.dm-user-option:hover { background:#F5F0E8; }
-.dm-user-option small { color:#A89E90; font-size:11.5px; }
-
-/* Share list */
-.dm-share-list { margin-top:1rem; display:flex; flex-direction:column; gap:.4rem; }
-.dm-share-item {
-  display:flex; align-items:center; gap:.65rem;
-  background:#F9F7F4; border:1px solid #EDE8DF;
-  border-radius:8px; padding:.55rem .75rem;
+.dm-user-option:hover { background:#F8F2EB; }
+.dm-user-option small { color:#9B8E80; }
+.dm-share-list, .dm-pub-link-list { display:flex; flex-direction:column; gap:.55rem; margin-top:.95rem; }
+.dm-share-item, .dm-pub-link-item {
+  background:#FBF8F4; border:1px solid #EEE2D5; border-radius:16px; padding:.75rem .85rem;
 }
+.dm-share-item { display:flex; align-items:center; gap:.7rem; }
 .dm-share-avatar {
-  width:30px; height:30px; border-radius:50%;
-  background:#7B1C1C; color:#fff;
-  display:flex; align-items:center; justify-content:center;
-  font-size:12px; font-weight:800; flex-shrink:0;
+  width:34px; height:34px; border-radius:50%; background:var(--dm-maroon); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; flex-shrink:0;
 }
 .dm-share-info { flex:1; min-width:0; }
-.dm-share-name { font-size:13px; font-weight:700; color:#1C1714; }
-.dm-share-role { font-size:11px; color:#A89E90; }
+.dm-share-name { font-size:13px; font-weight:800; color:var(--dm-text); }
+.dm-share-role { font-size:11.5px; color:#9A8D7F; }
 .dm-share-perm-select {
-  border:1.5px solid #DDD5C4; border-radius:6px;
-  background:#fff; font-size:12px; font-weight:700;
-  padding:.25rem .5rem; cursor:pointer; outline:none;
-  transition:border-color 180ms;
+  min-height:34px; border-radius:10px; border:1px solid #DDCFBE; background:#fff;
+  padding:0 .65rem; font-size:12px; font-weight:800; color:var(--dm-text); outline:none;
 }
-.dm-share-perm-select:focus { border-color:#7B1C1C; }
 .dm-share-revoke {
-  background:none; border:none; cursor:pointer;
-  color:#A89E90; width:24px; height:24px;
-  border-radius:5px; display:flex; align-items:center; justify-content:center;
-  flex-shrink:0; transition:background 120ms, color 120ms;
+  width:30px; height:30px; border:none; border-radius:10px; cursor:pointer;
+  color:#9E9183; background:transparent; display:flex; align-items:center; justify-content:center;
 }
-.dm-share-revoke:hover { background:#FEE2E2; color:#C05621; }
-
-/* Dropzone */
-.dm-dropzone {
-  border:2px dashed #DDD5C4; border-radius:10px;
-  background:#FDFCFA; padding:2rem 1.25rem; text-align:center;
-  cursor:pointer; transition:border-color 180ms, background 180ms;
+.dm-share-revoke:hover { background:#FDE9E2; color:var(--dm-orange); }
+.dm-pub-form {
+  background:#FCFAF7; border:1px solid #EEE2D5; border-radius:18px; padding:1rem;
+  display:flex; flex-direction:column; gap:.8rem;
 }
-.dm-dropzone:hover,.dm-dropzone.dragover { border-color:#7B1C1C; background:rgba(123,28,28,.025); }
-.dm-dropzone svg   { display:block; margin:0 auto .75rem; color:#DDD5C4; }
-.dm-dropzone p     { margin:0; font-size:13.5px; color:#6B6055; }
-.dm-dropzone small { font-size:11.5px; color:#A89E90; }
-
-/* Progress bar */
-.dm-progress { background:#E8E2D9; border-radius:99px; height:6px; margin-top:.85rem; overflow:hidden; display:none; }
-.dm-progress-bar { height:100%; background:#7B1C1C; border-radius:99px; transition:width 120ms; width:0%; }
-
-/* Public link list */
-.dm-pub-link-list { display:flex; flex-direction:column; gap:.55rem; margin-top:.85rem; }
-.dm-pub-link-item {
-  background:#F9F7F4; border:1px solid #EDE8DF; border-radius:9px;
-  padding:.65rem .85rem; display:flex; flex-direction:column; gap:.4rem;
-}
-.dm-pub-link-url {
-  display:flex; align-items:center; gap:.5rem;
-}
+.dm-pub-form-row { display:flex; gap:.7rem; flex-wrap:wrap; }
+.dm-pub-form-col { flex:1; min-width:140px; }
+.dm-pub-link-url { display:flex; gap:.55rem; align-items:center; }
 .dm-pub-link-url input {
-  flex:1; border:1.5px solid #DDD5C4; border-radius:7px;
-  padding:.3rem .65rem; font-size:12px; color:#1C1714;
-  background:#fff; outline:none; font-family:monospace;
+  flex:1; min-width:0; min-height:38px; border:1px solid #DECFBD; border-radius:12px;
+  background:#fff; color:#403831; padding:0 .8rem; font-size:12px; font-family:ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .dm-pub-link-copy {
-  height:30px; padding:0 .7rem; border-radius:7px;
-  background:#276749; color:#fff; border:none; cursor:pointer;
-  font-size:12px; font-weight:700; white-space:nowrap;
-  transition:background 160ms; flex-shrink:0;
+  min-height:38px; border:none; border-radius:12px; background:var(--dm-green); color:#fff;
+  padding:0 .8rem; font-size:12px; font-weight:800; cursor:pointer;
 }
-.dm-pub-link-copy:hover { background:#1e4f37; }
-.dm-pub-link-copy.copied { background:#27A155; }
+.dm-pub-link-copy:hover { background:#1F5339; }
+.dm-pub-link-copy.copied { background:#1E8B4D; }
 .dm-pub-link-meta {
-  display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
-  font-size:11px; color:#6B6055;
+  margin-top:.55rem; display:flex; gap:.45rem; align-items:center; flex-wrap:wrap;
+  font-size:11px; color:#7B6F63;
 }
 .dm-pub-link-badge {
-  display:inline-flex; align-items:center; gap:.2rem;
-  background:#E0F5EA; color:#276749; border-radius:5px;
-  font-size:10.5px; font-weight:700; padding:.15em .5em;
+  display:inline-flex; align-items:center; gap:.25rem; border-radius:999px;
+  padding:.2rem .55rem; font-size:10.5px; font-weight:800;
+  background:#E8F7EE; color:var(--dm-green);
 }
-.dm-pub-link-badge.expired { background:#FEE2E2; color:#C05621; }
-.dm-pub-link-badge.locked  { background:#EBF8FF; color:#2B6CB0; }
+.dm-pub-link-badge.locked { background:#EAF4FF; color:var(--dm-blue); }
+.dm-pub-link-badge.expired { background:#FDE9E2; color:var(--dm-orange); }
 .dm-pub-link-del {
-  margin-left:auto; background:none; border:none; cursor:pointer;
-  color:#A89E90; font-size:12px; font-weight:700; padding:.2rem .4rem;
-  border-radius:5px; transition:color 140ms, background 140ms;
+  margin-left:auto; border:none; background:transparent; color:#948678; font-size:12px; font-weight:800; cursor:pointer;
+  padding:.2rem .45rem; border-radius:8px;
 }
-.dm-pub-link-del:hover { color:#C05621; background:#FEE2E2; }
-
-/* new-link form inside modal */
-.dm-pub-form {
-  background:#fff; border:1.5px solid #E8E2D9; border-radius:10px;
-  padding:1rem; display:flex; flex-direction:column; gap:.75rem;
+.dm-pub-link-del:hover { background:#FDE9E2; color:var(--dm-orange); }
+.spinner-border {
+  width:18px; height:18px; border:2px solid #E0D4C8; border-top-color:var(--dm-maroon); border-radius:50%;
+  display:inline-block; animation:dmspin .8s linear infinite;
 }
-.dm-pub-form-row { display:flex; gap:.65rem; flex-wrap:wrap; }
-.dm-pub-form-col { flex:1; min-width:120px; }
-
+.spinner-border-sm { width:16px; height:16px; }
+@keyframes dmspin { to { transform:rotate(360deg); } }
+@media(max-width:1180px) {
+  .dm-layout { grid-template-columns:1fr; }
+  .dm-sidebar { position:static; }
+  .dm-stats-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
 @media(max-width:768px) {
-  .dm-wrap     { flex-direction:column; }
-  .dm-sidebar  { width:100%; flex-direction:row; flex-wrap:wrap; padding:.75rem; border-right:none; border-bottom:1px solid #E8E2D9; }
-  .dm-main     { padding:1rem; }
-  .dm-folder-grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); }
-  .dm-table thead { display:none; }
-  .dm-table td    { display:block; padding:.4rem 1rem; }
-  .dm-table td:first-child { padding-top:.75rem; }
-  .dm-table td:last-child  { padding-bottom:.75rem; }
+  .dm-page { padding:1rem; }
+  .dm-title { font-size:24px; }
+  .dm-controls { padding:.9rem; }
+  .dm-search-form { min-width:0; }
+  .dm-folder-grid, .dm-file-grid { grid-template-columns:1fr; }
+  .dm-stats-grid { grid-template-columns:1fr; }
+  .dm-file-meta { grid-template-columns:1fr; }
+  .dm-file-card { padding:.9rem; }
+  .dm-sidebar { padding:.9rem; }
 }
 </style>
 
-<div class="dm-wrap">
-
-  <!-- ======================== SIDEBAR ======================== -->
-  <aside class="dm-sidebar">
-
-    <?php if ($canUpload): ?>
-    <button class="dm-upload-btn" id="btn-open-upload">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Upload File
-    </button>
-    <?php endif; ?>
-
-    <a href="<?= $base ?>/dokumen" class="dm-sidebar-link <?= $section==='my-files' ? 'active' : '' ?>">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      My Files
-      <span class="dm-sidebar-badge"><?= $stats['total_files'] ?></span>
-    </a>
-
-    <a href="<?= $base ?>/dokumen?section=shared" class="dm-sidebar-link <?= $section==='shared' ? 'active' : '' ?>">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-      Shared with Me
-      <?php if ($stats['shared_count'] > 0): ?>
-      <span class="dm-sidebar-badge"><?= $stats['shared_count'] ?></span>
-      <?php endif; ?>
-    </a>
-
-    <a href="<?= $base ?>/dokumen?section=recent" class="dm-sidebar-link <?= $section==='recent' ? 'active' : '' ?>">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      Recent
-    </a>
-
-    <div class="dm-sidebar-section">Filter Tipe</div>
-    <?php
-    $types = [
-      ''          => ['label'=>'Semua',   'icon'=>'<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/>'],
-      'pdf'       => ['label'=>'PDF',     'icon'=>'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'],
-      'word'      => ['label'=>'Word',    'icon'=>'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'],
-      'sheet'     => ['label'=>'Excel',   'icon'=>'<rect x="3" y="3" width="18" height="18" rx="2"/>'],
-      'image'     => ['label'=>'Gambar',  'icon'=>'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>'],
-      'video'     => ['label'=>'Video',   'icon'=>'<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>'],
-      'zip'       => ['label'=>'ZIP',     'icon'=>'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>'],
-    ];
-    foreach ($types as $val => $t):
-    ?>
-    <a href="<?= $base ?>/dokumen?type=<?= $val ?><?= $folderId ? '&folder='.$folderId : '' ?>"
-       class="dm-sidebar-link <?= $filterType===$val ? 'active' : '' ?>">
-      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $t['icon'] ?></svg>
-      <?= $t['label'] ?>
-    </a>
-    <?php endforeach; ?>
-
-  </aside>
-
-  <!-- ======================== MAIN ======================== -->
-  <main class="dm-main">
-
-    <!-- Toolbar -->
-    <div class="dm-toolbar">
-      <form method="GET" action="<?= $base ?>/dokumen" style="display:contents">
-        <input type="hidden" name="section" value="<?= htmlspecialchars($section) ?>">
-        <?php if ($folderId): ?><input type="hidden" name="folder" value="<?= $folderId ?>"> <?php endif; ?>
-        <div class="dm-search">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Cari file...">
+<div class="dm-page">
+  <div class="dm-layout">
+    <aside class="dm-sidebar dm-panel">
+      <div class="dm-brand">
+        <div class="dm-brand-badge">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+          Workspace Dokumen
         </div>
-        <select name="type" class="dm-filter-select" onchange="this.form.submit()">
-          <option value="">Semua Tipe</option>
-          <option value="pdf"   <?= $filterType==='pdf'   ?'selected':''?>>PDF</option>
-          <option value="word"  <?= $filterType==='word'  ?'selected':''?>>Word</option>
-          <option value="sheet" <?= $filterType==='sheet' ?'selected':''?>>Excel</option>
-          <option value="image" <?= $filterType==='image' ?'selected':''?>>Gambar</option>
-          <option value="video" <?= $filterType==='video' ?'selected':''?>>Video</option>
-          <option value="zip"   <?= $filterType==='zip'   ?'selected':''?>>ZIP</option>
-        </select>
-        <?php if ($canUpload): ?>
-        <button type="button" class="dm-btn dm-btn-outline" id="btn-open-folder">
-          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-          Buat Folder
-        </button>
-        <?php endif; ?>
-      </form>
-    </div>
+        <div class="dm-brand-title">Arsip lebih tertata, akses lebih cepat.</div>
+        <div class="dm-brand-sub">Navigasi ringkas untuk file pribadi, dokumen yang dibagikan, dan akses terbaru.</div>
+      </div>
 
-    <!-- Breadcrumb -->
-    <?php if (!empty($breadcrumb)): ?>
-    <div class="dm-breadcrumb">
-      <a href="<?= $base ?>/dokumen">My Files</a>
-      <?php foreach ($breadcrumb as $crumb): ?>
-      <span>›</span>
-      <?php if ($crumb['id'] == $folderId): ?>
-        <span class="dm-breadcrumb-cur"><?= htmlspecialchars($crumb['name']) ?></span>
-      <?php else: ?>
-        <a href="<?= $base ?>/dokumen?folder=<?= $crumb['id'] ?>"><?= htmlspecialchars($crumb['name']) ?></a>
+      <?php if ($canUpload): ?>
+      <button class="dm-upload-btn" id="btn-open-upload">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload Dokumen
+      </button>
       <?php endif; ?>
-      <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
 
-    <!-- Stats bar -->
-    <div class="dm-stats">
-      <div class="dm-stat-item"><strong><?= $stats['total_files'] ?></strong> file</div>
-      <div class="dm-stat-item"><strong><?= $stats['total_size_fmt'] ?></strong> digunakan</div>
-      <?php if ($stats['shared_count'] > 0): ?>
-      <div class="dm-stat-item"><strong><?= $stats['shared_count'] ?></strong> dibagikan ke saya</div>
-      <?php endif; ?>
-    </div>
-
-    <!-- Folder grid -->
-    <?php if ($section === 'my-files' && !empty($folders)): ?>
-    <div class="dm-section-title">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-      Folder
-    </div>
-    <div class="dm-folder-grid" id="folder-grid">
-      <?php foreach ($folders as $folder): ?>
-      <a href="<?= $base ?>/dokumen?folder=<?= $folder['id'] ?>" class="dm-folder-card" data-folder-id="<?= $folder['id'] ?>">
-        <div class="dm-folder-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#D97706" stroke="#D97706" stroke-width="0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        </div>
-        <div style="flex:1;min-width:0">
-          <div class="dm-folder-name"><?= htmlspecialchars($folder['name']) ?></div>
-          <div class="dm-folder-meta"><?= $folder['file_count'] ?> file · <?= DokumenModel::formatSize((int)$folder['total_size']) ?></div>
-        </div>
-        <?php if ($canUpload): ?>
-        <button class="dm-folder-menu" data-folder-id="<?= $folder['id'] ?>" data-folder-name="<?= htmlspecialchars($folder['name']) ?>" title="Opsi" onclick="event.preventDefault();openFolderMenu(this)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
-        </button>
-        <?php endif; ?>
-      </a>
-      <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-
-    <!-- File table -->
-    <div class="dm-section-title" style="margin-top:<?= (!empty($folders) && $section==='my-files') ? '.5rem' : '0' ?>">
-      <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-      <?= $section==='shared' ? 'Dibagikan ke Saya' : ($section==='recent' ? 'Baru Diakses' : 'File') ?>
-    </div>
-
-    <?php if (empty($files)): ?>
-    <div class="dm-empty">
-      <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-      <p><?= $search ? 'Tidak ada file yang cocok.' : 'Belum ada file di sini.' ?></p>
-      <?php if ($canUpload && !$search && $section==='my-files'): ?>
-      <p style="margin-top:.5rem"><button class="dm-btn dm-btn-outline" onclick="openUploadModal()">Upload File Pertama</button></p>
-      <?php endif; ?>
-    </div>
-    <?php else: ?>
-    <div class="dm-table-wrap">
-      <table class="dm-table">
-        <thead>
-          <tr>
-            <th style="width:40px"></th>
-            <th>Nama File</th>
-            <th>Tipe</th>
-            <th>Ukuran</th>
-            <th>Diupload Oleh</th>
-            <?php if ($section==='shared'): ?>
-            <th>Akses</th>
-            <?php endif; ?>
-            <th>Tanggal</th>
-            <th style="text-align:right">Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="file-tbody">
-        <?php foreach ($files as $f):
-          $isOwner    = (int)$f['uploaded_by'] === $myId;
-          $canShare   = $isOwner || Auth::hasRole('admin');
-          $canDl      = $isOwner || Auth::hasRole('admin') || ($f['share_permission'] ?? '') === 'download';
-          $canDelete  = $f['can_delete'];
-        ?>
-        <tr id="file-row-<?= $f['id'] ?>">
-          <td>
-            <span class="dm-file-icon" style="background:<?= htmlspecialchars($f['mime_color']) ?>">
-              <?= htmlspecialchars($f['mime_label']) ?>
-            </span>
-          </td>
-          <td>
-            <div class="dm-file-name" onclick="openPreview(<?= $f['id'] ?>)"><?= htmlspecialchars($f['original_name']) ?></div>
-          </td>
-          <td><span style="font-size:12px;color:#6B6055"><?= htmlspecialchars($f['mime_label']) ?></span></td>
-          <td class="dm-file-size"><?= htmlspecialchars($f['size_fmt']) ?></td>
-          <td style="font-size:12.5px;color:#6B6055"><?= htmlspecialchars($f['uploader_name'] ?? '-') ?></td>
-          <?php if ($section==='shared'): ?>
-          <td>
-            <?php $perm = $f['share_permission'] ?? 'view'; ?>
-            <span class="dm-perm-badge <?= $perm==='download' ? 'dm-perm-download' : 'dm-perm-view' ?>">
-              <?php if ($perm==='download'): ?>
-              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Download
-              <?php else: ?>
-              <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              View Only
-              <?php endif; ?>
-            </span>
-          </td>
+      <div class="dm-nav-group">
+        <div class="dm-nav-label">Navigasi</div>
+        <a href="<?= $base ?>/dokumen" class="dm-nav-link <?= $section==='my-files' ? 'active' : '' ?>">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Semua File
+          <span class="dm-nav-badge"><?= (int)$stats['total_files'] ?></span>
+        </a>
+        <a href="<?= $base ?>/dokumen?section=shared" class="dm-nav-link <?= $section==='shared' ? 'active' : '' ?>">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Dibagikan ke Saya
+          <?php if (!empty($stats['shared_count'])): ?>
+          <span class="dm-nav-badge"><?= (int)$stats['shared_count'] ?></span>
           <?php endif; ?>
-          <td style="font-size:12px;color:#A89E90;white-space:nowrap"><?= date('d M Y', strtotime($f['created_at'])) ?></td>
-          <td style="text-align:right;white-space:nowrap">
+        </a>
+        <a href="<?= $base ?>/dokumen?section=recent" class="dm-nav-link <?= $section==='recent' ? 'active' : '' ?>">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Terbaru
+        </a>
+      </div>
 
-            <?php if ($canShare && $section !== 'shared'): ?>
-            <!-- Tombol Link Publik (Fase 6) -->
-            <button class="dm-btn dm-btn-public dm-btn-sm"
-                    onclick="openPublicLinkModal(<?= $f['id'] ?>, '<?= addslashes($f['original_name']) ?>')"
-                    title="Link Publik">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            </button>
-            <!-- Tombol Bagikan ke User (Fase 2) -->
-            <button class="dm-btn dm-btn-share dm-btn-sm"
-                    onclick="openShareModal(<?= $f['id'] ?>, '<?= addslashes($f['original_name']) ?>')"
-                    title="Bagikan ke User">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
-            </button>
-            <?php endif; ?>
-
-            <?php if ($canDl): ?>
-            <a href="<?= $base ?>/dokumen/<?= $f['id'] ?>/download" class="dm-btn dm-btn-outline dm-btn-sm" title="Download">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </a>
-            <?php endif; ?>
-
-            <?php if ($canDelete): ?>
-            <button class="dm-btn dm-btn-danger dm-btn-sm" onclick="deleteFile(<?= $f['id'] ?>, '<?= addslashes($f['original_name']) ?>')" title="Hapus">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-            </button>
-            <?php endif; ?>
-
-          </td>
-        </tr>
+      <div class="dm-nav-group">
+        <div class="dm-nav-label">Filter File</div>
+        <?php
+        $types = [
+          ''          => ['label'=>'Semua Tipe', 'icon'=>'<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/>'],
+          'pdf'       => ['label'=>'PDF',        'icon'=>'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'],
+          'word'      => ['label'=>'Word',       'icon'=>'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>'],
+          'sheet'     => ['label'=>'Excel',      'icon'=>'<rect x="3" y="3" width="18" height="18" rx="2"/>'],
+          'image'     => ['label'=>'Gambar',     'icon'=>'<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>'],
+          'video'     => ['label'=>'Video',      'icon'=>'<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>'],
+          'zip'       => ['label'=>'ZIP',        'icon'=>'<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>'],
+        ];
+        foreach ($types as $val => $t):
+          $qs = '?type=' . urlencode($val);
+          if ($folderId) $qs .= '&folder=' . (int)$folderId;
+          if ($section && $section !== 'my-files') $qs .= '&section=' . urlencode($section);
+          if ($search) $qs .= '&q=' . urlencode($search);
+        ?>
+        <a href="<?= $base ?>/dokumen<?= $qs ?>" class="dm-nav-link <?= $filterType===$val ? 'active' : '' ?>">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $t['icon'] ?></svg>
+          <?= $t['label'] ?>
+        </a>
         <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php endif; ?>
+      </div>
 
-    <div id="page-msg" class="dm-msg" style="margin-top:.85rem"></div>
+      <div class="dm-side-note">
+        <div class="dm-side-note-title">Tips cepat</div>
+        <div class="dm-side-note-text">Klik nama file untuk preview, gunakan Link Publik untuk akses eksternal, dan buka Bagikan untuk distribusi internal.</div>
+      </div>
+    </aside>
 
-  </main>
+    <main class="dm-main">
+      <section class="dm-hero dm-panel">
+        <div class="dm-hero-top">
+          <div>
+            <div class="dm-kicker">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Area Dokumen
+            </div>
+            <h1 class="dm-title"><?= htmlspecialchars($currentTitle) ?></h1>
+            <p class="dm-subtitle"><?= htmlspecialchars($currentDesc) ?></p>
+          </div>
+          <div class="dm-hero-actions">
+            <?php if ($canUpload): ?>
+            <button type="button" class="dm-btn dm-btn-primary" onclick="openUploadModal()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload
+            </button>
+            <button type="button" class="dm-btn dm-btn-outline" id="btn-open-folder">
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Folder Baru
+            </button>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <div class="dm-stats-grid">
+          <div class="dm-stat-card">
+            <div class="dm-stat-label">Total File</div>
+            <div class="dm-stat-value"><?= (int)$stats['total_files'] ?></div>
+            <div class="dm-stat-meta">Jumlah dokumen yang tersedia pada workspace saat ini.</div>
+          </div>
+          <div class="dm-stat-card">
+            <div class="dm-stat-label">Total Penyimpanan</div>
+            <div class="dm-stat-value" style="font-size:22px"><?= htmlspecialchars($stats['total_size_fmt']) ?></div>
+            <div class="dm-stat-meta">Akumulasi kapasitas file yang sudah diunggah.</div>
+          </div>
+          <div class="dm-stat-card">
+            <div class="dm-stat-label">Shared</div>
+            <div class="dm-stat-value"><?= (int)($stats['shared_count'] ?? 0) ?></div>
+            <div class="dm-stat-meta">Dokumen yang dibagikan ke akun Anda oleh pengguna lain.</div>
+          </div>
+          <div class="dm-stat-card">
+            <div class="dm-stat-label">Lokasi</div>
+            <div class="dm-stat-value" style="font-size:18px;line-height:1.2"><?= $folderId ? 'Dalam Folder' : 'Semua File' ?></div>
+            <div class="dm-stat-meta"><?= $folderId ? 'Sedang menampilkan isi folder aktif.' : 'Tampilan root workspace dokumen.' ?></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="dm-panel dm-controls">
+        <form method="GET" action="<?= $base ?>/dokumen" class="dm-search-form">
+          <input type="hidden" name="section" value="<?= htmlspecialchars($section) ?>">
+          <?php if ($folderId): ?><input type="hidden" name="folder" value="<?= (int)$folderId ?>"><?php endif; ?>
+          <div class="dm-search">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Cari nama file, tipe dokumen, atau folder...">
+          </div>
+          <select name="type" class="dm-filter-select">
+            <option value="">Semua Tipe</option>
+            <option value="pdf" <?= $filterType==='pdf'?'selected':'' ?>>PDF</option>
+            <option value="word" <?= $filterType==='word'?'selected':'' ?>>Word</option>
+            <option value="sheet" <?= $filterType==='sheet'?'selected':'' ?>>Excel</option>
+            <option value="image" <?= $filterType==='image'?'selected':'' ?>>Gambar</option>
+            <option value="video" <?= $filterType==='video'?'selected':'' ?>>Video</option>
+            <option value="zip" <?= $filterType==='zip'?'selected':'' ?>>ZIP</option>
+          </select>
+          <button class="dm-btn dm-btn-ghost" type="submit">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+            Terapkan
+          </button>
+        </form>
+        <div class="dm-toolbar-info"><?= count($files) ?> file ditampilkan<?= $filterType ? ' · filter ' . htmlspecialchars(strtoupper($filterType)) : '' ?></div>
+      </section>
+
+      <?php if (!empty($breadcrumb)): ?>
+      <section class="dm-breadcrumb-wrap">
+        <div class="dm-breadcrumb">
+          <a href="<?= $base ?>/dokumen">Root</a>
+          <?php foreach ($breadcrumb as $crumb): ?>
+            <span class="dm-breadcrumb-sep">›</span>
+            <?php if ((int)$crumb['id'] === (int)$folderId): ?>
+              <span class="dm-breadcrumb-current"><?= htmlspecialchars($crumb['name']) ?></span>
+            <?php else: ?>
+              <a href="<?= $base ?>/dokumen?folder=<?= (int)$crumb['id'] ?>"><?= htmlspecialchars($crumb['name']) ?></a>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </div>
+        <div class="dm-toolbar-info">Gunakan breadcrumb untuk berpindah folder lebih cepat.</div>
+      </section>
+      <?php endif; ?>
+
+      <?php if ($section === 'my-files' && !empty($folders)): ?>
+      <section class="dm-panel dm-section-card">
+        <div class="dm-section-head">
+          <div>
+            <div class="dm-section-title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              Folder
+            </div>
+            <div class="dm-section-hint">Tampilan folder dibuat lebih visual agar navigasi lebih mudah dipindai.</div>
+          </div>
+          <div class="dm-toolbar-info"><?= count($folders) ?> folder</div>
+        </div>
+        <div class="dm-folder-grid" id="folder-grid">
+          <?php foreach ($folders as $folder): ?>
+          <a href="<?= $base ?>/dokumen?folder=<?= (int)$folder['id'] ?>" class="dm-folder-card" data-folder-id="<?= (int)$folder['id'] ?>">
+            <div class="dm-folder-top">
+              <div class="dm-folder-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="#D97706" stroke="#D97706" stroke-width="0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+              </div>
+              <?php if ($canUpload): ?>
+              <button class="dm-folder-menu" data-folder-id="<?= (int)$folder['id'] ?>" data-folder-name="<?= htmlspecialchars($folder['name']) ?>" onclick="event.preventDefault();openFolderMenu(this)" title="Ubah nama folder">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+              </button>
+              <?php endif; ?>
+            </div>
+            <div class="dm-folder-name"><?= htmlspecialchars($folder['name']) ?></div>
+            <div class="dm-folder-meta"><?= (int)$folder['file_count'] ?> file · <?= DokumenModel::formatSize((int)$folder['total_size']) ?></div>
+            <div class="dm-folder-footer">
+              <span class="dm-folder-badge">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path></svg>
+                Buka folder
+              </span>
+            </div>
+          </a>
+          <?php endforeach; ?>
+        </div>
+      </section>
+      <?php endif; ?>
+
+      <section class="dm-panel dm-content-card">
+        <div class="dm-content-head">
+          <div>
+            <h2 class="dm-content-title"><?= $section==='shared' ? 'Daftar Dokumen yang Dibagikan' : ($section==='recent' ? 'Dokumen Terakhir Diakses' : 'Daftar File') ?></h2>
+            <div class="dm-content-sub">Semua aksi utama tetap tersedia: preview, download, bagikan, link publik, dan hapus.</div>
+          </div>
+          <div class="dm-view-switch" aria-hidden="true">
+            <button type="button" class="active">Card</button>
+            <button type="button">Modern</button>
+          </div>
+        </div>
+
+        <?php if (empty($files)): ?>
+        <div class="dm-empty">
+          <div class="dm-empty-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+          </div>
+          <h3><?= $search ? 'Tidak ada hasil yang cocok' : 'Belum ada dokumen di area ini' ?></h3>
+          <p><?= $search ? 'Coba ubah kata kunci pencarian atau hapus filter tipe file agar hasil yang relevan muncul kembali.' : 'Mulai dengan mengunggah file pertama atau buat folder untuk menata arsip berdasarkan kategori, periode, atau unit kerja.' ?></p>
+          <?php if ($canUpload && !$search && $section==='my-files'): ?>
+          <button type="button" class="dm-btn dm-btn-primary" onclick="openUploadModal()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload File Pertama
+          </button>
+          <?php endif; ?>
+        </div>
+        <?php else: ?>
+        <div class="dm-file-grid" id="file-tbody">
+          <?php foreach ($files as $f):
+            $isOwner    = (int)$f['uploaded_by'] === $myId;
+            $canShare   = $isOwner || Auth::hasRole('admin');
+            $canDl      = $isOwner || Auth::hasRole('admin') || ($f['share_permission'] ?? '') === 'download';
+            $canDelete  = $f['can_delete'];
+            $perm       = $f['share_permission'] ?? 'view';
+          ?>
+          <article class="dm-file-card" id="file-row-<?= (int)$f['id'] ?>">
+            <div class="dm-file-icon" style="background:<?= htmlspecialchars($f['mime_color']) ?>">
+              <?= htmlspecialchars($f['mime_label']) ?>
+            </div>
+            <div class="dm-file-body">
+              <div class="dm-file-top">
+                <div style="min-width:0;flex:1">
+                  <div class="dm-file-name" onclick="openPreview(<?= (int)$f['id'] ?>)"><?= htmlspecialchars($f['original_name']) ?></div>
+                  <div class="dm-file-tags">
+                    <span class="dm-chip dm-chip-soft"><?= htmlspecialchars($f['mime_label']) ?></span>
+                    <?php if ($section==='shared'): ?>
+                      <span class="dm-chip <?= $perm==='download' ? 'dm-chip-download' : 'dm-chip-view' ?>"><?= $perm==='download' ? 'Download' : 'View Only' ?></span>
+                    <?php elseif ($isOwner): ?>
+                      <span class="dm-chip dm-chip-owner">Milik Saya</span>
+                    <?php endif; ?>
+                  </div>
+                </div>
+              </div>
+
+              <div class="dm-file-meta">
+                <div class="dm-meta-item">
+                  <div class="dm-meta-label">Ukuran</div>
+                  <div class="dm-meta-value"><?= htmlspecialchars($f['size_fmt']) ?></div>
+                </div>
+                <div class="dm-meta-item">
+                  <div class="dm-meta-label">Tanggal</div>
+                  <div class="dm-meta-value"><?= date('d M Y', strtotime($f['created_at'])) ?></div>
+                </div>
+                <div class="dm-meta-item">
+                  <div class="dm-meta-label">Uploader</div>
+                  <div class="dm-meta-value"><?= htmlspecialchars($f['uploader_name'] ?? '-') ?></div>
+                </div>
+                <div class="dm-meta-item">
+                  <div class="dm-meta-label">Akses</div>
+                  <div class="dm-meta-value"><?= $section==='shared' ? ($perm==='download' ? 'View + Download' : 'View Only') : ($canShare ? 'Kelola & Bagikan' : 'Akses terbatas') ?></div>
+                </div>
+              </div>
+
+              <div class="dm-file-actions">
+                <button class="dm-btn dm-btn-outline dm-btn-sm" type="button" onclick="openPreview(<?= (int)$f['id'] ?>)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  Preview
+                </button>
+
+                <?php if ($canShare && $section !== 'shared'): ?>
+                <button class="dm-btn dm-btn-public dm-btn-sm" type="button" onclick="openPublicLinkModal(<?= (int)$f['id'] ?>, '<?= addslashes($f['original_name']) ?>')">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  Link Publik
+                </button>
+                <button class="dm-btn dm-btn-share dm-btn-sm" type="button" onclick="openShareModal(<?= (int)$f['id'] ?>, '<?= addslashes($f['original_name']) ?>')">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                  Bagikan
+                </button>
+                <?php endif; ?>
+
+                <?php if ($canDl): ?>
+                <a href="<?= $base ?>/dokumen/<?= (int)$f['id'] ?>/download" class="dm-btn dm-btn-ghost dm-btn-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Download
+                </a>
+                <?php endif; ?>
+
+                <?php if ($canDelete): ?>
+                <button class="dm-btn dm-btn-danger dm-btn-sm" type="button" onclick="deleteFile(<?= (int)$f['id'] ?>, '<?= addslashes($f['original_name']) ?>')">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                  Hapus
+                </button>
+                <?php endif; ?>
+              </div>
+            </div>
+          </article>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+        <div id="page-msg" class="dm-msg"></div>
+      </section>
+    </main>
+  </div>
 </div>
 
-<!-- ======================== MODAL: UPLOAD ======================== -->
 <div class="dm-modal-overlay" id="modal-upload">
   <div class="dm-modal">
     <div class="dm-modal-header">
-      <div class="dm-modal-title">Upload File</div>
+      <div>
+        <div class="dm-modal-title">Upload Dokumen</div>
+        <div style="font-size:12px;color:#9A8D7F;margin-top:.2rem">Tambahkan satu atau beberapa file ke workspace aktif.</div>
+      </div>
       <button class="dm-modal-close" onclick="closeModal('modal-upload')">&times;</button>
     </div>
     <div class="dm-modal-body">
       <div class="dm-dropzone" id="upload-dropzone">
         <input type="file" id="input-file-upload" multiple style="display:none">
-        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-        <p>Klik atau <strong>seret file</strong> ke sini</p>
-        <small>Maks 50 MB/file · PDF, Word, Excel, PPT, Gambar, Video, ZIP</small>
+        <svg xmlns="http://www.w3.org/2000/svg" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Klik atau <strong>seret file</strong> ke area ini</p>
+        <small>Maksimal 50 MB per file · PDF, Word, Excel, PPT, gambar, video, ZIP</small>
       </div>
       <div class="dm-progress" id="upload-progress"><div class="dm-progress-bar" id="upload-progress-bar"></div></div>
-      <div id="upload-file-list" style="margin-top:.75rem"></div>
+      <div id="upload-file-list" style="margin-top:.85rem"></div>
       <div id="upload-msg" class="dm-msg"></div>
     </div>
     <div class="dm-modal-footer">
       <button class="dm-btn dm-btn-outline" onclick="closeModal('modal-upload')">Tutup</button>
-      <button class="dm-btn" id="btn-do-upload" style="background:#7B1C1C;color:#fff;border-color:#5A1212" disabled>
+      <button class="dm-btn dm-btn-primary" id="btn-do-upload" disabled>
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         Upload
       </button>
@@ -636,78 +821,62 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   </div>
 </div>
 
-<!-- ======================== MODAL: BUAT FOLDER ======================== -->
 <div class="dm-modal-overlay" id="modal-folder">
   <div class="dm-modal">
     <div class="dm-modal-header">
-      <div class="dm-modal-title" id="folder-modal-title">Buat Folder Baru</div>
+      <div>
+        <div class="dm-modal-title" id="folder-modal-title">Buat Folder Baru</div>
+        <div style="font-size:12px;color:#9A8D7F;margin-top:.2rem">Gunakan folder untuk merapikan arsip berdasarkan kategori atau periode.</div>
+      </div>
       <button class="dm-modal-close" onclick="closeModal('modal-folder')">&times;</button>
     </div>
     <div class="dm-modal-body">
       <div style="margin-bottom:1rem">
         <label class="dm-label">Nama Folder <span style="color:#C05621">*</span></label>
-        <input type="text" class="dm-ctrl" id="input-folder-name" placeholder="contoh: Laporan 2025" maxlength="100">
+        <input type="text" class="dm-ctrl" id="input-folder-name" placeholder="Contoh: Laporan 2026" maxlength="100">
       </div>
       <input type="hidden" id="folder-action-id" value="">
       <div id="folder-msg" class="dm-msg"></div>
     </div>
     <div class="dm-modal-footer">
       <button class="dm-btn dm-btn-outline" onclick="closeModal('modal-folder')">Batal</button>
-      <button class="dm-btn" id="btn-do-folder" style="background:#7B1C1C;color:#fff;border-color:#5A1212" onclick="submitFolder()">Simpan</button>
+      <button class="dm-btn dm-btn-primary" id="btn-do-folder" onclick="submitFolder()">Simpan</button>
     </div>
   </div>
 </div>
 
-<!-- ======================== MODAL: SHARE FILE ======================== -->
 <div class="dm-modal-overlay" id="modal-share">
-  <div class="dm-modal" style="max-width:500px">
+  <div class="dm-modal" style="max-width:560px">
     <div class="dm-modal-header">
       <div>
-        <div class="dm-modal-title">Bagikan File</div>
-        <div id="share-modal-filename" style="font-size:12px;color:#A89E90;margin-top:.15rem"></div>
+        <div class="dm-modal-title">Bagikan Dokumen</div>
+        <div id="share-modal-filename" style="font-size:12px;color:#9A8D7F;margin-top:.2rem"></div>
       </div>
       <button class="dm-modal-close" onclick="closeModal('modal-share')">&times;</button>
     </div>
     <div class="dm-modal-body">
-
-      <!-- Form tambah share -->
-      <div style="display:flex;gap:.5rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.75rem">
-        <div style="flex:1;min-width:160px">
+      <div style="display:flex;gap:.65rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:.75rem">
+        <div style="flex:1;min-width:180px">
           <label class="dm-label">Cari User</label>
           <div class="dm-user-search-wrap">
-            <input type="text" class="dm-ctrl" id="share-user-search"
-                   placeholder="Ketik nama / username..." autocomplete="off">
+            <input type="text" class="dm-ctrl" id="share-user-search" placeholder="Ketik nama atau username..." autocomplete="off">
             <div class="dm-user-dropdown" id="share-user-dropdown"></div>
             <input type="hidden" id="share-selected-user-id">
-            <div id="share-selected-user-name" style="font-size:12px;color:#7B1C1C;font-weight:700;margin-top:.25rem;min-height:16px"></div>
+            <div id="share-selected-user-name" style="font-size:12px;color:var(--dm-maroon);font-weight:800;margin-top:.3rem;min-height:16px"></div>
           </div>
         </div>
         <div>
           <label class="dm-label">Akses</label>
-          <select class="dm-ctrl" id="share-permission" style="width:130px">
+          <select class="dm-ctrl" id="share-permission" style="width:150px">
             <option value="view">View Only</option>
             <option value="download">View + Download</option>
           </select>
         </div>
-        <button class="dm-btn" id="btn-do-share"
-                style="background:#2B6CB0;color:#fff;border-color:#2a4a7f;height:40px"
-                onclick="submitShare()">
-          Bagikan
-        </button>
+        <button class="dm-btn dm-btn-share" id="btn-do-share" onclick="submitShare()">Bagikan</button>
       </div>
-
       <div id="share-msg" class="dm-msg"></div>
-
-      <!-- Daftar yang sudah di-share -->
-      <div style="font-size:11.5px;font-weight:800;color:#A89E90;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.5rem;margin-top:1rem">
-        Sudah Dibagikan ke
-      </div>
-      <div class="dm-share-list" id="share-list">
-        <div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0">
-          <div class="spinner-border spinner-border-sm"></div>
-        </div>
-      </div>
-
+      <div style="font-size:11px;font-weight:800;color:#9A8D7F;text-transform:uppercase;letter-spacing:.07em;margin:1rem 0 .4rem">Sudah Dibagikan ke</div>
+      <div class="dm-share-list" id="share-list"><div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0"><div class="spinner-border spinner-border-sm"></div></div></div>
     </div>
     <div class="dm-modal-footer">
       <button class="dm-btn dm-btn-outline" onclick="closeModal('modal-share')">Tutup</button>
@@ -715,25 +884,17 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   </div>
 </div>
 
-<!-- ======================== MODAL: LINK PUBLIK ======================== -->
 <div class="dm-modal-overlay" id="modal-public-link">
-  <div class="dm-modal" style="max-width:540px">
+  <div class="dm-modal" style="max-width:600px">
     <div class="dm-modal-header">
       <div>
-        <div class="dm-modal-title">
-          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#276749" stroke-width="2" style="vertical-align:middle;margin-right:.3rem"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          Link Publik
-        </div>
-        <div id="pub-modal-filename" style="font-size:12px;color:#A89E90;margin-top:.15rem"></div>
+        <div class="dm-modal-title">Link Publik</div>
+        <div id="pub-modal-filename" style="font-size:12px;color:#9A8D7F;margin-top:.2rem"></div>
       </div>
       <button class="dm-modal-close" onclick="closeModal('modal-public-link')">&times;</button>
     </div>
     <div class="dm-modal-body">
-
-      <!-- Form buat link baru -->
-      <div style="font-size:11.5px;font-weight:800;color:#6B6055;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem">
-        Buat Link Baru
-      </div>
+      <div style="font-size:11px;font-weight:800;color:#8E7F6D;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.55rem">Buat Link Baru</div>
       <div class="dm-pub-form">
         <div class="dm-pub-form-row">
           <div class="dm-pub-form-col">
@@ -744,42 +905,30 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
             </select>
           </div>
           <div class="dm-pub-form-col">
-            <label class="dm-label">Kadaluarsa (opsional)</label>
+            <label class="dm-label">Kadaluarsa</label>
             <input type="datetime-local" class="dm-ctrl" id="pub-expires-at">
           </div>
         </div>
         <div class="dm-pub-form-row">
           <div class="dm-pub-form-col">
-            <label class="dm-label">Password (opsional)</label>
-            <input type="text" class="dm-ctrl" id="pub-password" placeholder="Kosongkan jika tidak perlu">
+            <label class="dm-label">Password</label>
+            <input type="text" class="dm-ctrl" id="pub-password" placeholder="Opsional">
           </div>
           <div class="dm-pub-form-col">
-            <label class="dm-label">Maks. Download (opsional)</label>
+            <label class="dm-label">Maks. Download</label>
             <input type="number" class="dm-ctrl" id="pub-max-dl" min="1" placeholder="Tidak terbatas">
           </div>
         </div>
         <div style="text-align:right">
-          <button class="dm-btn" id="btn-create-pub-link"
-                  style="background:#276749;color:#fff;border-color:#1e4f37"
-                  onclick="createPublicLink()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <button class="dm-btn dm-btn-primary" id="btn-create-pub-link" onclick="createPublicLink()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
             Buat Link
           </button>
         </div>
       </div>
-
-      <div id="pub-link-msg" class="dm-msg" style="margin-top:.5rem"></div>
-
-      <!-- Daftar link yang sudah ada -->
-      <div style="font-size:11.5px;font-weight:800;color:#A89E90;text-transform:uppercase;letter-spacing:.05em;margin-top:1.25rem;margin-bottom:.4rem">
-        Link Aktif
-      </div>
-      <div class="dm-pub-link-list" id="pub-link-list">
-        <div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0">
-          <div class="spinner-border spinner-border-sm"></div>
-        </div>
-      </div>
-
+      <div id="pub-link-msg" class="dm-msg"></div>
+      <div style="font-size:11px;font-weight:800;color:#9A8D7F;text-transform:uppercase;letter-spacing:.07em;margin:1.1rem 0 .45rem">Link Aktif</div>
+      <div class="dm-pub-link-list" id="pub-link-list"><div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0"><div class="spinner-border spinner-border-sm"></div></div></div>
     </div>
     <div class="dm-modal-footer">
       <button class="dm-btn dm-btn-outline" onclick="closeModal('modal-public-link')">Tutup</button>
@@ -791,13 +940,11 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
 
 <script>
 (function(){
-  const BASE    = '<?= $base ?>';
+  const BASE = '<?= $base ?>';
   const FOLDER_ID = <?= $folderId ?? 'null' ?>;
-  const MY_ID   = <?= $myId ?>;
 
-  /* ── Helpers ── */
-  function openModal(id)  { document.getElementById(id).classList.add('open'); }
-  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  function openModal(id){ document.getElementById(id)?.classList.add('open'); }
+  function closeModal(id){ document.getElementById(id)?.classList.remove('open'); }
   window.closeModal = closeModal;
 
   function setMsg(elId, html, ok) {
@@ -805,54 +952,54 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     const icon = ok
       ? '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
       : '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-    el.innerHTML = '<span class="dm-msg-' + (ok?'ok':'err') + '">' + icon + ' ' + html + '</span>';
+    el.innerHTML = '<span class="dm-msg-' + (ok ? 'ok' : 'err') + '">' + icon + ' ' + html + '</span>';
   }
-  function escHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
-  function fmtSize(b) {
-    if (b<1024) return b+'B';
-    if (b<1048576) return (b/1024).toFixed(1)+'KB';
-    return (b/1048576).toFixed(2)+'MB';
-  }
+  function escHtml(s){ const d=document.createElement('div'); d.textContent=String(s||''); return d.innerHTML; }
+  function fmtSize(b){ if(b<1024) return b+'B'; if(b<1048576) return (b/1024).toFixed(1)+'KB'; return (b/1048576).toFixed(2)+'MB'; }
 
-  const dropzone   = document.getElementById('upload-dropzone');
-  const fileInput  = document.getElementById('input-file-upload');
-  const uploadBtn  = document.getElementById('btn-do-upload');
-  const fileList   = document.getElementById('upload-file-list');
+  const dropzone = document.getElementById('upload-dropzone');
+  const fileInput = document.getElementById('input-file-upload');
+  const uploadBtn = document.getElementById('btn-do-upload');
+  const fileList = document.getElementById('upload-file-list');
   const progressWrap = document.getElementById('upload-progress');
-  const progressBar  = document.getElementById('upload-progress-bar');
-  let pendingFiles   = [];
+  const progressBar = document.getElementById('upload-progress-bar');
+  let pendingFiles = [];
 
   function openUploadModal() {
-    pendingFiles = []; fileList.innerHTML = ''; progressWrap.style.display='none';
+    pendingFiles = [];
+    fileList.innerHTML = '';
     document.getElementById('upload-msg').innerHTML = '';
-    fileInput.value = ''; uploadBtn.disabled = true;
+    fileInput.value = '';
+    uploadBtn.disabled = true;
+    progressWrap.style.display = 'none';
+    progressBar.style.width = '0%';
     openModal('modal-upload');
   }
   window.openUploadModal = openUploadModal;
-
   document.getElementById('btn-open-upload')?.addEventListener('click', openUploadModal);
 
-  dropzone.addEventListener('click', () => fileInput.click());
-  ['dragenter','dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('dragover'); }));
-  ['dragleave','drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('dragover'); }));
-  dropzone.addEventListener('drop', e => addFiles(e.dataTransfer.files));
-  fileInput.addEventListener('change', () => addFiles(fileInput.files));
+  dropzone?.addEventListener('click', () => fileInput.click());
+  ['dragenter','dragover'].forEach(ev => dropzone?.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('dragover'); }));
+  ['dragleave','drop'].forEach(ev => dropzone?.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('dragover'); }));
+  dropzone?.addEventListener('drop', e => addFiles(e.dataTransfer.files));
+  fileInput?.addEventListener('change', () => addFiles(fileInput.files));
 
   function addFiles(list) {
     Array.from(list).forEach(f => pendingFiles.push(f));
     renderFileList();
     uploadBtn.disabled = pendingFiles.length === 0;
   }
+
   function renderFileList() {
-    fileList.innerHTML = pendingFiles.map((f,i) =>
-      '<div style="display:flex;align-items:center;gap:.5rem;padding:.4rem .5rem;background:#F9F7F4;border-radius:6px;margin-bottom:.3rem;font-size:12.5px">'
-      + '<span style="flex:1;color:#1C1714;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(f.name) + '</span>'
-      + '<span style="color:#A89E90;flex-shrink:0">' + fmtSize(f.size) + '</span>'
-      + '<button onclick="removePending(' + i + ')" style="background:none;border:none;cursor:pointer;color:#A89E90;padding:0 .2rem">×</button>'
+    fileList.innerHTML = pendingFiles.map((f, i) =>
+      '<div style="display:flex;align-items:center;gap:.6rem;padding:.7rem .8rem;background:#FBF8F4;border:1px solid #EEE2D5;border-radius:14px;margin-bottom:.45rem;font-size:12.5px">'
+      + '<span style="flex:1;color:#1F1A17;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(f.name) + '</span>'
+      + '<span style="color:#8C7E70;flex-shrink:0">' + fmtSize(f.size) + '</span>'
+      + '<button onclick="removePending(' + i + ')" style="border:none;background:#F3E7DB;color:#8A7867;width:28px;height:28px;border-radius:9px;cursor:pointer">×</button>'
       + '</div>'
     ).join('');
   }
-  window.removePending = function(i) { pendingFiles.splice(i,1); renderFileList(); uploadBtn.disabled=pendingFiles.length===0; };
+  window.removePending = function(i){ pendingFiles.splice(i,1); renderFileList(); uploadBtn.disabled = pendingFiles.length === 0; };
 
   uploadBtn?.addEventListener('click', async () => {
     if (!pendingFiles.length) return;
@@ -860,61 +1007,58 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     progressWrap.style.display = 'block';
     let done = 0;
     const total = pendingFiles.length;
-
     for (const file of pendingFiles) {
       const fd = new FormData();
       fd.append('file', file);
       if (FOLDER_ID) fd.append('folder_id', FOLDER_ID);
       try {
-        const res  = await fetch(BASE + '/api/dokumen/upload', { method:'POST', body:fd });
-        const data = await res.json();
+        const data = await (await fetch(BASE + '/api/dokumen/upload', { method:'POST', body:fd })).json();
         if (data.success && data.file) appendFileRow(data.file);
       } catch(e) {}
       done++;
-      progressBar.style.width = Math.round(done/total*100) + '%';
+      progressBar.style.width = Math.round(done / total * 100) + '%';
     }
     setMsg('upload-msg', 'Upload selesai.', true);
-    setTimeout(() => { closeModal('modal-upload'); location.reload(); }, 1000);
+    setTimeout(() => { closeModal('modal-upload'); location.reload(); }, 900);
   });
 
   function appendFileRow(f) {
     const tbody = document.getElementById('file-tbody'); if (!tbody) return;
-    const tr = document.createElement('tr');
-    tr.id = 'file-row-' + f.id;
+    const card = document.createElement('article');
+    card.className = 'dm-file-card';
+    card.id = 'file-row-' + f.id;
     const name = f.original_name.replace(/'/g, "\\'");
-    tr.innerHTML =
-      '<td><span class="dm-file-icon" style="background:'+escHtml(f.mime_color)+'">'+escHtml(f.mime_label)+'</span></td>'
-      +'<td><div class="dm-file-name" onclick="openPreview('+f.id+')">'+escHtml(f.original_name)+'</div></td>'
-      +'<td><span style="font-size:12px;color:#6B6055">'+escHtml(f.mime_label)+'</span></td>'
-      +'<td class="dm-file-size">'+escHtml(f.size_fmt)+'</td>'
-      +'<td style="font-size:12.5px;color:#6B6055">—</td>'
-      +'<td style="font-size:12px;color:#A89E90">'+new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+'</td>'
-      +'<td style="text-align:right;white-space:nowrap">'
-      +'<button class="dm-btn dm-btn-public dm-btn-sm" onclick="openPublicLinkModal('+f.id+',\''+name+'\')" title="Link Publik">'
-      +'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
-      +'</button> '
-      +'<button class="dm-btn dm-btn-share dm-btn-sm" onclick="openShareModal('+f.id+',\''+name+'\')" title="Bagikan">'
-      +'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'
-      +'</button> '
-      +'<a href="'+BASE+'/dokumen/'+f.id+'/download" class="dm-btn dm-btn-outline dm-btn-sm" title="Download">'
-      +'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
-      +'</a> '
-      +'<button class="dm-btn dm-btn-danger dm-btn-sm" onclick="deleteFile('+f.id+',\''+name+'\')" title="Hapus">'
-      +'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>'
-      +'</button>'
-      +'</td>';
-    tbody.insertBefore(tr, tbody.firstChild);
+    card.innerHTML =
+      '<div class="dm-file-icon" style="background:'+escHtml(f.mime_color)+'">'+escHtml(f.mime_label)+'</div>'
+      + '<div class="dm-file-body">'
+      + '  <div class="dm-file-top"><div style="min-width:0;flex:1"><div class="dm-file-name" onclick="openPreview('+f.id+')">'+escHtml(f.original_name)+'</div><div class="dm-file-tags"><span class="dm-chip dm-chip-soft">'+escHtml(f.mime_label)+'</span><span class="dm-chip dm-chip-owner">Baru diupload</span></div></div></div>'
+      + '  <div class="dm-file-meta">'
+      + '    <div class="dm-meta-item"><div class="dm-meta-label">Ukuran</div><div class="dm-meta-value">'+escHtml(f.size_fmt)+'</div></div>'
+      + '    <div class="dm-meta-item"><div class="dm-meta-label">Tanggal</div><div class="dm-meta-value">'+new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+'</div></div>'
+      + '    <div class="dm-meta-item"><div class="dm-meta-label">Uploader</div><div class="dm-meta-value">-</div></div>'
+      + '    <div class="dm-meta-item"><div class="dm-meta-label">Akses</div><div class="dm-meta-value">Kelola & Bagikan</div></div>'
+      + '  </div>'
+      + '  <div class="dm-file-actions">'
+      + '    <button class="dm-btn dm-btn-outline dm-btn-sm" type="button" onclick="openPreview('+f.id+')">Preview</button>'
+      + '    <button class="dm-btn dm-btn-public dm-btn-sm" type="button" onclick="openPublicLinkModal('+f.id+',\''+name+'\')">Link Publik</button>'
+      + '    <button class="dm-btn dm-btn-share dm-btn-sm" type="button" onclick="openShareModal('+f.id+',\''+name+'\')">Bagikan</button>'
+      + '    <a href="'+BASE+'/dokumen/'+f.id+'/download" class="dm-btn dm-btn-ghost dm-btn-sm">Download</a>'
+      + '    <button class="dm-btn dm-btn-danger dm-btn-sm" type="button" onclick="deleteFile('+f.id+',\''+name+'\')">Hapus</button>'
+      + '  </div>'
+      + '</div>';
+    tbody.prepend(card);
   }
 
   let folderMode = 'create';
-  document.getElementById('btn-open-folder')?.addEventListener('click', () => {
+  document.querySelectorAll('#btn-open-folder').forEach(btn => btn.addEventListener('click', () => {
     folderMode = 'create';
     document.getElementById('folder-modal-title').textContent = 'Buat Folder Baru';
     document.getElementById('input-folder-name').value = '';
     document.getElementById('folder-action-id').value = '';
     document.getElementById('folder-msg').innerHTML = '';
     openModal('modal-folder');
-  });
+  }));
+
   window.openFolderMenu = function(btn) {
     folderMode = 'rename';
     document.getElementById('folder-modal-title').textContent = 'Ubah Nama Folder';
@@ -923,12 +1067,14 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     document.getElementById('folder-msg').innerHTML = '';
     openModal('modal-folder');
   };
+
   window.submitFolder = async function() {
     const name = document.getElementById('input-folder-name').value.trim();
-    if (!name) { setMsg('folder-msg','Nama tidak boleh kosong.',false); return; }
+    if (!name) { setMsg('folder-msg', 'Nama tidak boleh kosong.', false); return; }
     const btn = document.getElementById('btn-do-folder');
     btn.disabled = true; btn.textContent = 'Menyimpan...';
-    const fd = new FormData(); fd.append('name', name);
+    const fd = new FormData();
+    fd.append('name', name);
     let url;
     if (folderMode === 'create') {
       url = BASE + '/api/dokumen/folder/create';
@@ -937,23 +1083,28 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
       url = BASE + '/api/dokumen/folder/' + document.getElementById('folder-action-id').value + '/rename';
     }
     try {
-      const data = await (await fetch(url,{method:'POST',body:fd})).json();
-      if (data.success) { setMsg('folder-msg',data.message,true); setTimeout(()=>location.reload(),900); }
-      else { setMsg('folder-msg',data.message,false); btn.disabled=false; btn.textContent='Simpan'; }
-    } catch(e) { setMsg('folder-msg','Gagal koneksi.',false); btn.disabled=false; btn.textContent='Simpan'; }
+      const data = await (await fetch(url, { method:'POST', body:fd })).json();
+      if (data.success) { setMsg('folder-msg', data.message, true); setTimeout(() => location.reload(), 900); }
+      else { setMsg('folder-msg', data.message, false); btn.disabled = false; btn.textContent = 'Simpan'; }
+    } catch(e) { setMsg('folder-msg', 'Gagal koneksi.', false); btn.disabled = false; btn.textContent = 'Simpan'; }
   };
 
   window.deleteFile = function(id, name) {
     if (!confirm('Hapus file "' + name + '"?')) return;
-    fetch(BASE + '/api/dokumen/' + id + '/delete', {method:'POST'})
-      .then(r=>r.json())
+    fetch(BASE + '/api/dokumen/' + id + '/delete', { method:'POST' })
+      .then(r => r.json())
       .then(data => {
-        if (data.success) { document.getElementById('file-row-'+id)?.remove(); setMsg('page-msg','File dihapus.',true); }
-        else setMsg('page-msg', data.message, false);
-      }).catch(()=>setMsg('page-msg','Gagal koneksi.',false));
+        if (data.success) {
+          document.getElementById('file-row-' + id)?.remove();
+          setMsg('page-msg', 'File berhasil dihapus.', true);
+        } else {
+          setMsg('page-msg', data.message || 'Gagal menghapus file.', false);
+        }
+      })
+      .catch(() => setMsg('page-msg', 'Gagal koneksi.', false));
   };
 
-  let shareFileId   = null;
+  let shareFileId = null;
   let shareDebounce = null;
 
   window.openShareModal = function(fileId, fileName) {
@@ -968,7 +1119,7 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     openModal('modal-share');
   };
 
-  document.getElementById('share-user-search').addEventListener('input', function() {
+  document.getElementById('share-user-search')?.addEventListener('input', function() {
     clearTimeout(shareDebounce);
     const q = this.value.trim();
     if (q.length < 1) { document.getElementById('share-user-dropdown').classList.remove('open'); return; }
@@ -978,15 +1129,16 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   async function searchUsers(q) {
     try {
       const data = await (await fetch(BASE + '/api/users?q=' + encodeURIComponent(q))).json();
-      const dd   = document.getElementById('share-user-dropdown');
+      const dd = document.getElementById('share-user-dropdown');
       if (!data.users || !data.users.length) {
-        dd.innerHTML = '<div class="dm-user-option" style="color:#A89E90;cursor:default">Tidak ada user ditemukan</div>';
-        dd.classList.add('open'); return;
+        dd.innerHTML = '<div class="dm-user-option" style="color:#9A8D7F;cursor:default">Tidak ada user ditemukan</div>';
+        dd.classList.add('open');
+        return;
       }
       dd.innerHTML = data.users.map(u =>
         '<div class="dm-user-option" data-id="'+u.id+'" data-name="'+escHtml(u.name)+'" onclick="selectUser(this)">'
         + '<strong>'+escHtml(u.name)+'</strong>'
-        + ' <small>@'+escHtml(u.username)+' · '+escHtml(u.role)+'</small>'
+        + '<small>@'+escHtml(u.username)+' · '+escHtml(u.role)+'</small>'
         + '</div>'
       ).join('');
       dd.classList.add('open');
@@ -994,7 +1146,7 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   }
 
   window.selectUser = function(el) {
-    document.getElementById('share-selected-user-id').value  = el.dataset.id;
+    document.getElementById('share-selected-user-id').value = el.dataset.id;
     document.getElementById('share-selected-user-name').textContent = '✓ ' + el.dataset.name;
     document.getElementById('share-user-search').value = el.dataset.name;
     document.getElementById('share-user-dropdown').classList.remove('open');
@@ -1002,33 +1154,32 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
 
   window.submitShare = async function() {
     const userId = document.getElementById('share-selected-user-id').value;
-    const perm   = document.getElementById('share-permission').value;
-    if (!userId) { setMsg('share-msg','Pilih user terlebih dahulu.',false); return; }
+    const perm = document.getElementById('share-permission').value;
+    if (!userId) { setMsg('share-msg', 'Pilih user terlebih dahulu.', false); return; }
     const btn = document.getElementById('btn-do-share');
     btn.disabled = true; btn.textContent = 'Membagikan...';
     const fd = new FormData();
     fd.append('user_id', userId);
     fd.append('permission', perm);
     try {
-      const data = await (await fetch(BASE+'/api/dokumen/'+shareFileId+'/shares',{method:'POST',body:fd})).json();
+      const data = await (await fetch(BASE + '/api/dokumen/' + shareFileId + '/shares', { method:'POST', body:fd })).json();
       if (data.success) {
         setMsg('share-msg', data.message, true);
-        renderShareList(data.shares);
+        renderShareList(data.shares || []);
         document.getElementById('share-user-search').value = '';
         document.getElementById('share-selected-user-id').value = '';
         document.getElementById('share-selected-user-name').textContent = '';
       } else {
         setMsg('share-msg', data.message, false);
       }
-    } catch(e) { setMsg('share-msg','Gagal koneksi.',false); }
+    } catch(e) { setMsg('share-msg', 'Gagal koneksi.', false); }
     btn.disabled = false; btn.textContent = 'Bagikan';
   };
 
   async function loadShareList(fileId) {
-    document.getElementById('share-list').innerHTML =
-      '<div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0"><div class="spinner-border spinner-border-sm"></div></div>';
+    document.getElementById('share-list').innerHTML = '<div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0"><div class="spinner-border spinner-border-sm"></div></div>';
     try {
-      const data = await (await fetch(BASE+'/api/dokumen/'+fileId+'/shares')).json();
+      const data = await (await fetch(BASE + '/api/dokumen/' + fileId + '/shares')).json();
       renderShareList(data.shares || []);
     } catch(e) {
       document.getElementById('share-list').innerHTML = '<div style="color:#C05621;font-size:13px">Gagal memuat data.</div>';
@@ -1037,20 +1188,20 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
 
   function renderShareList(shares) {
     const el = document.getElementById('share-list');
-    if (!shares || !shares.length) {
-      el.innerHTML = '<div style="text-align:center;color:#A89E90;font-size:13px;padding:.5rem">Belum dibagikan ke siapapun.</div>';
+    if (!shares.length) {
+      el.innerHTML = '<div style="text-align:center;color:#9A8D7F;font-size:13px;padding:.6rem">Belum dibagikan ke siapa pun.</div>';
       return;
     }
     el.innerHTML = shares.map(s =>
       '<div class="dm-share-item" id="share-item-'+s.shared_to+'">'
-      + '<div class="dm-share-avatar">'+escHtml(s.user_name.charAt(0).toUpperCase())+'</div>'
+      + '<div class="dm-share-avatar">'+escHtml((s.user_name || '?').charAt(0).toUpperCase())+'</div>'
       + '<div class="dm-share-info">'
-      + '<div class="dm-share-name">'+escHtml(s.user_name)+'</div>'
-      + '<div class="dm-share-role">@'+escHtml(s.username)+' · '+escHtml(s.role)+'</div>'
+      + '  <div class="dm-share-name">'+escHtml(s.user_name)+'</div>'
+      + '  <div class="dm-share-role">@'+escHtml(s.username)+' · '+escHtml(s.role)+'</div>'
       + '</div>'
       + '<select class="dm-share-perm-select" onchange="updatePerm('+shareFileId+','+s.shared_to+',this.value)">'
-      + '<option value="view"'+(s.permission==='view'?' selected':'')+'>View Only</option>'
-      + '<option value="download"'+(s.permission==='download'?' selected':'')+'>Download</option>'
+      + '  <option value="view"'+(s.permission==='view'?' selected':'')+'>View Only</option>'
+      + '  <option value="download"'+(s.permission==='download'?' selected':'')+'>Download</option>'
       + '</select>'
       + '<button class="dm-share-revoke" title="Cabut akses" onclick="revokeShare('+shareFileId+','+s.shared_to+')">'
       + '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
@@ -1062,34 +1213,30 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   window.updatePerm = async function(fileId, userId, perm) {
     const fd = new FormData(); fd.append('permission', perm);
     try {
-      const data = await (await fetch(BASE+'/api/dokumen/'+fileId+'/shares/'+userId+'/permission',{method:'POST',body:fd})).json();
-      if (!data.success) alert(data.message);
-      else renderShareList(data.shares);
+      const data = await (await fetch(BASE + '/api/dokumen/' + fileId + '/shares/' + userId + '/permission', { method:'POST', body:fd })).json();
+      if (!data.success) alert(data.message || 'Gagal memperbarui izin.');
+      else renderShareList(data.shares || []);
     } catch(e) { alert('Gagal koneksi.'); }
   };
 
   window.revokeShare = async function(fileId, userId) {
     if (!confirm('Cabut akses user ini?')) return;
     try {
-      const data = await (await fetch(BASE+'/api/dokumen/'+fileId+'/shares/'+userId+'/delete',{method:'POST'})).json();
-      if (data.success) renderShareList(data.shares);
-      else alert(data.message);
+      const data = await (await fetch(BASE + '/api/dokumen/' + fileId + '/shares/' + userId + '/delete', { method:'POST' })).json();
+      if (data.success) renderShareList(data.shares || []);
+      else alert(data.message || 'Gagal mencabut akses.');
     } catch(e) { alert('Gagal koneksi.'); }
   };
 
-  /* ============================================================
-     LINK PUBLIK
-  ============================================================ */
   let pubFileId = null;
-
   window.openPublicLinkModal = function(fileId, fileName) {
     pubFileId = fileId;
     document.getElementById('pub-modal-filename').textContent = fileName;
     document.getElementById('pub-link-msg').innerHTML = '';
     document.getElementById('pub-permission').value = 'view';
     document.getElementById('pub-expires-at').value = '';
-    document.getElementById('pub-password').value   = '';
-    document.getElementById('pub-max-dl').value     = '';
+    document.getElementById('pub-password').value = '';
+    document.getElementById('pub-max-dl').value = '';
     loadPublicLinks(fileId);
     openModal('modal-public-link');
   };
@@ -1108,48 +1255,41 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   function renderPublicLinks(links) {
     const list = document.getElementById('pub-link-list');
     if (!links.length) {
-      list.innerHTML = '<div style="text-align:center;color:#A89E90;font-size:13px;padding:.6rem">Belum ada link publik.</div>';
+      list.innerHTML = '<div style="text-align:center;color:#9A8D7F;font-size:13px;padding:.6rem">Belum ada link publik.</div>';
       return;
     }
     list.innerHTML = links.map(lk => {
       const isExpired = !lk.is_valid;
-      const expLabel  = lk.expires_at
-        ? (isExpired ? '⚠ Kadaluarsa' : 'Exp: ' + new Date(lk.expires_at).toLocaleDateString('id-ID'))
-        : 'Tanpa batas';
-      const dlInfo    = lk.max_downloads
-        ? (lk.download_count + '/' + lk.max_downloads + ' download')
-        : (lk.download_count + ' download');
+      const expLabel = lk.expires_at ? (isExpired ? 'Kadaluarsa' : 'Exp: ' + new Date(lk.expires_at).toLocaleDateString('id-ID')) : 'Tanpa batas';
+      const dlInfo = lk.max_downloads ? (lk.download_count + '/' + lk.max_downloads + ' download') : (lk.download_count + ' download');
       return '<div class="dm-pub-link-item">'
         + '<div class="dm-pub-link-url">'
         + '<input type="text" readonly value="' + escHtml(lk.url) + '" id="pub-url-' + lk.id + '">'
         + '<button class="dm-pub-link-copy" id="pub-copy-' + lk.id + '" onclick="copyPubLink(' + lk.id + ')">Salin</button>'
         + '</div>'
         + '<div class="dm-pub-link-meta">'
-        + '<span class="dm-pub-link-badge' + (lk.permission==='download' ? '' : '') + '">'
-        + (lk.permission === 'download' ? '⬇ Download' : '👁 View')
-        + '</span>'
-        + (lk.has_password ? '<span class="dm-pub-link-badge locked">🔒 Password</span>' : '')
+        + '<span class="dm-pub-link-badge">' + (lk.permission === 'download' ? 'Download' : 'View') + '</span>'
+        + (lk.has_password ? '<span class="dm-pub-link-badge locked">Password</span>' : '')
         + '<span class="dm-pub-link-badge' + (isExpired ? ' expired' : '') + '">' + escHtml(expLabel) + '</span>'
-        + '<span style="color:#A89E90">' + escHtml(dlInfo) + '</span>'
-        + '<button class="dm-pub-link-del" onclick="deletePublicLink(' + lk.id + ')" title="Hapus link">Hapus</button>'
-        + '</div>'
-        + '</div>';
+        + '<span style="color:#8D8072">' + escHtml(dlInfo) + '</span>'
+        + '<button class="dm-pub-link-del" onclick="deletePublicLink(' + lk.id + ')">Hapus</button>'
+        + '</div></div>';
     }).join('');
   }
 
   window.copyPubLink = function(linkId) {
     const input = document.getElementById('pub-url-' + linkId);
-    const btn   = document.getElementById('pub-copy-' + linkId);
+    const btn = document.getElementById('pub-copy-' + linkId);
     if (!input) return;
     navigator.clipboard.writeText(input.value).then(() => {
-      btn.textContent = '✓ Tersalin';
+      btn.textContent = 'Tersalin';
       btn.classList.add('copied');
-      setTimeout(() => { btn.textContent = 'Salin'; btn.classList.remove('copied'); }, 2000);
+      setTimeout(() => { btn.textContent = 'Salin'; btn.classList.remove('copied'); }, 1800);
     }).catch(() => {
       input.select();
       document.execCommand('copy');
-      btn.textContent = '✓ Tersalin';
-      setTimeout(() => { btn.textContent = 'Salin'; }, 2000);
+      btn.textContent = 'Tersalin';
+      setTimeout(() => { btn.textContent = 'Salin'; }, 1800);
     });
   };
 
@@ -1157,33 +1297,30 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     const btn = document.getElementById('btn-create-pub-link');
     btn.disabled = true; btn.textContent = 'Membuat...';
     const fd = new FormData();
-    fd.append('permission',   document.getElementById('pub-permission').value);
-    fd.append('expires_at',   document.getElementById('pub-expires-at').value);
-    fd.append('password',     document.getElementById('pub-password').value);
-    fd.append('max_downloads',document.getElementById('pub-max-dl').value);
+    fd.append('permission', document.getElementById('pub-permission').value);
+    fd.append('expires_at', document.getElementById('pub-expires-at').value);
+    fd.append('password', document.getElementById('pub-password').value);
+    fd.append('max_downloads', document.getElementById('pub-max-dl').value);
     try {
       const data = await (await fetch(BASE + '/api/dokumen/' + pubFileId + '/public-links', { method:'POST', body:fd })).json();
       if (data.success) {
         setMsg('pub-link-msg', data.message, true);
         document.getElementById('pub-expires-at').value = '';
-        document.getElementById('pub-password').value   = '';
-        document.getElementById('pub-max-dl').value     = '';
+        document.getElementById('pub-password').value = '';
+        document.getElementById('pub-max-dl').value = '';
         loadPublicLinks(pubFileId);
       } else {
         setMsg('pub-link-msg', data.message, false);
       }
     } catch(e) { setMsg('pub-link-msg', 'Gagal koneksi.', false); }
-    btn.disabled = false; btn.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Buat Link';
+    btn.disabled = false;
+    btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>Buat Link';
   };
 
   window.deletePublicLink = async function(linkId) {
     if (!confirm('Hapus link publik ini?')) return;
     try {
-      const data = await (await fetch(
-        BASE + '/api/dokumen/' + pubFileId + '/public-links/' + linkId + '/delete',
-        { method:'POST' }
-      )).json();
+      const data = await (await fetch(BASE + '/api/dokumen/' + pubFileId + '/public-links/' + linkId + '/delete', { method:'POST' })).json();
       if (data.success) {
         setMsg('pub-link-msg', 'Link dihapus.', true);
         renderPublicLinks(data.links || []);
@@ -1193,19 +1330,15 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     } catch(e) { setMsg('pub-link-msg', 'Gagal koneksi.', false); }
   };
 
-  /* ── Close modal on overlay click / Escape ── */
   document.querySelectorAll('.dm-modal-overlay').forEach(ov => {
-    ov.addEventListener('click', e => { if (e.target===ov) closeModal(ov.id); });
+    ov.addEventListener('click', e => { if (e.target === ov) closeModal(ov.id); });
   });
   document.addEventListener('keydown', e => {
-    if (e.key==='Escape') document.querySelectorAll('.dm-modal-overlay.open').forEach(m=>m.classList.remove('open'));
+    if (e.key === 'Escape') document.querySelectorAll('.dm-modal-overlay.open').forEach(m => m.classList.remove('open'));
   });
   document.addEventListener('click', e => {
     const dd = document.getElementById('share-user-dropdown');
-    if (dd && !dd.contains(e.target) && e.target.id !== 'share-user-search') {
-      dd.classList.remove('open');
-    }
+    if (dd && !dd.contains(e.target) && e.target.id !== 'share-user-search') dd.classList.remove('open');
   });
-
 })();
 </script>
