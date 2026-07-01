@@ -384,7 +384,9 @@ $tlUsers = $users ?? $allUsers ?? [];
       <!-- Right: action buttons -->
       <div class="ned-hero-actions">
         <?php if ($canEdit): ?>
-        <button type="button" class="btn ned-btn-tpl" id="btn-pick-template">
+        <!-- FIX: gunakan data-bs-toggle native Tabler, TANPA new bootstrap.Modal() di JS -->
+        <button type="button" class="btn ned-btn-tpl"
+                data-bs-toggle="modal" data-bs-target="#modalPickTemplate">
           <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
           Template
         </button>
@@ -560,7 +562,8 @@ $tlUsers = $users ?? $allUsers ?? [];
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         Tindak Lanjut
         <?php if ($canEdit): ?>
-        <button class="btn ned-btn-add-sm ms-auto" data-bs-toggle="modal" data-bs-target="#modalTL">
+        <button class="btn ned-btn-add-sm ms-auto"
+                data-bs-toggle="modal" data-bs-target="#modalTL">
           <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Tambah
         </button>
@@ -713,25 +716,20 @@ $tlUsers = $users ?? $allUsers ?? [];
   window.SAVE_URL        = <?= json_encode($saveUrl) ?>;
   window.SYNC_URL        = <?= json_encode($syncUrl) ?>;
 
-  /* ── Loader ─────────────────────────────────────────────────── */
-  function initTemplatePicker() {
 <?php if ($canEdit): ?>
-    /* FIX: listener dipasang di sini, SETELAH notulen-editor.js selesai load,
-       sehingga tidak terkena race condition / overwrite oleh editor script. */
-    var TPL_API_URL    = window.BASE_URL + '/api/notulen-templates';
-    var TPL_MANAGE_URL = window.BASE_URL + '/notulen-templates';
-    var tplListLoaded  = false;
+  /* ── Template picker ───────────────────────────────────────────────── */
+  var TPL_API_URL    = window.BASE_URL + '/api/notulen-templates';
+  var TPL_MANAGE_URL = window.BASE_URL + '/notulen-templates';
+  var tplListLoaded  = false;
 
-    var btnTpl = document.getElementById('btn-pick-template');
-    if (!btnTpl) return;
-
-    btnTpl.addEventListener('click', function () {
-      var modalEl = document.getElementById('modalPickTemplate');
-      if (!modalEl) return;
-      var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-      modal.show();
+  /* FIX ROOT CAUSE: gunakan event 'show.bs.modal' pada elemen modal,
+     bukan new bootstrap.Modal() / getOrCreateInstance().
+     Tabler men-dispatch event ini secara native setiap kali modal dibuka
+     via data-bs-toggle, tanpa perlu window.bootstrap tersedia. */
+  var modalEl = document.getElementById('modalPickTemplate');
+  if (modalEl) {
+    modalEl.addEventListener('show.bs.modal', function () {
       if (tplListLoaded) return;
-
       fetch(TPL_API_URL)
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -742,7 +740,9 @@ $tlUsers = $users ?? $allUsers ?? [];
           if (container) container.style.display = '';
 
           if (!data.templates || !data.templates.length) {
-            container.innerHTML = '<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">Belum ada template. <a href="' + TPL_MANAGE_URL + '" target="_blank" style="color:var(--kb-primary);">Buat template</a></div>';
+            container.innerHTML =
+              '<div class="col-12 text-center py-3" style="color:var(--kb-text-muted);font-size:13px;">' +
+              'Belum ada template. <a href="' + TPL_MANAGE_URL + '" target="_blank" style="color:var(--kb-primary);">Buat template</a></div>';
             return;
           }
 
@@ -759,7 +759,8 @@ $tlUsers = $users ?? $allUsers ?? [];
                   '<p style="font-size:12px;color:var(--kb-text-muted);margin:0;">' + (tpl.description || '—') + '</p>' +
                 '</div>' +
                 '<div style="padding:.55rem 1rem;background:var(--kb-surface);border-top:1px solid var(--kb-border-light);">' +
-                  '<button style="width:100%;background:linear-gradient(135deg,var(--kb-primary),#9B2020);border:none;color:#fff;font-size:12.5px;font-weight:700;border-radius:7px;padding:.38rem .75rem;cursor:pointer;" class="btn-apply-tpl" data-tpl-id="' + tpl.id + '">Gunakan Template Ini</button>' +
+                  '<button style="width:100%;background:linear-gradient(135deg,var(--kb-primary),#9B2020);border:none;color:#fff;font-size:12.5px;font-weight:700;border-radius:7px;padding:.38rem .75rem;cursor:pointer;" ' +
+                  'class="btn-apply-tpl" data-tpl-id="' + tpl.id + '">Gunakan Template Ini</button>' +
                 '</div>' +
               '</div>';
             container.appendChild(col);
@@ -774,7 +775,9 @@ $tlUsers = $users ?? $allUsers ?? [];
                   if (!d.success) { alert(d.message || 'Gagal memuat template.'); return; }
                   if (!window.quill) { alert('Editor belum siap.'); return; }
                   window.quill.clipboard.dangerouslyPasteHTML(d.template.content);
-                  bootstrap.Modal.getInstance(document.getElementById('modalPickTemplate')).hide();
+                  /* Tutup modal pakai data-bs-dismiss native, tanpa window.bootstrap */
+                  var closeBtn = modalEl.querySelector('[data-bs-dismiss="modal"]');
+                  if (closeBtn) closeBtn.click();
                   var ss = document.getElementById('save-status');
                   if (ss) { ss.textContent = '● Belum disimpan'; ss.style.color = 'rgba(255,200,50,.9)'; }
                 })
@@ -784,18 +787,16 @@ $tlUsers = $users ?? $allUsers ?? [];
         })
         .catch(function () {
           var loading = document.getElementById('tpl-list-loading');
-          if (loading) loading.innerHTML = '<p class="text-danger small">Gagal memuat template.</p>';
+          if (loading) loading.innerHTML = '<p class="text-danger small mb-0">Gagal memuat template.</p>';
         });
     });
-<?php endif; ?>
   }
+<?php endif; ?>
 
+  /* ── Quill + editor script loader ───────────────────────────────── */
   function loadEditorScript() {
     var es   = document.createElement('script');
     es.src   = <?= json_encode(rtrim(BASE_URL, '/') . '/assets/js/notulen-editor.js?v=' . $editorJsVer) ?>;
-    /* FIX: initTemplatePicker dipanggil di onload — SETELAH editor script
-       selesai dieksekusi, sehingga listener tombol Template tidak ditimpa. */
-    es.onload  = initTemplatePicker;
     es.onerror = function () { console.error('Gagal memuat notulen-editor.js'); };
     document.body.appendChild(es);
   }
