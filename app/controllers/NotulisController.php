@@ -35,8 +35,6 @@ class NotulisController
         ) ?: [];
 
         // Tindak lanjut terkait
-        // FIX: nama variable sekarang 'tindakLanjutList' konsisten dengan view
-        // FIX: kolom alias 'assigned_name' sesuai yang dipakai di editor.php
         $tindakLanjutList = Database::query(
             "SELECT tl.*, u.name AS assigned_name
              FROM tindak_lanjut tl
@@ -46,7 +44,6 @@ class NotulisController
             [$meetingId]
         ) ?: [];
 
-        // FIX: kirim $users untuk dropdown assignee di modal Tambah TL
         $users = Database::query(
             "SELECT id, name FROM users WHERE is_active=1 ORDER BY name"
         ) ?: [];
@@ -73,9 +70,11 @@ class NotulisController
         $meeting = Database::queryOne("SELECT * FROM meetings WHERE id=?", [$meetingId]);
         if (!$meeting) { http_response_code(404); echo 'Meeting tidak ditemukan.'; exit; }
 
-        $historyRows = [];
+        // FIX: key diubah dari 'historyRows' → 'histories' agar sesuai
+        // dengan $histories yang dibaca di view history.php ($list = $histories ?? [])
+        $histories = [];
         try {
-            $historyRows = Database::query(
+            $histories = Database::query(
                 "SELECT nh.*, u.name AS editor_name, u.avatar AS editor_avatar
                  FROM notulen_history nh
                  LEFT JOIN users u ON u.id = nh.edited_by
@@ -94,10 +93,10 @@ class NotulisController
         );
 
         View::layout('notulen/history', [
-            'pageTitle'   => 'Riwayat Notulen \u2014 ' . $meeting['title'],
-            'meeting'     => $meeting,
-            'notulen'     => $notulen,
-            'historyRows' => $historyRows,
+            'pageTitle'  => 'Riwayat Notulen \u2014 ' . $meeting['title'],
+            'meeting'    => $meeting,
+            'notulen'    => $notulen,
+            'histories'  => $histories,
         ]);
     }
 
@@ -137,7 +136,6 @@ class NotulisController
         if (!$body) { echo json_encode(['success'=>false,'message'=>'Payload tidak valid']); exit; }
 
         $meetingId   = (int)($body['meeting_id'] ?? 0);
-        // FIX: JS mengirim key 'content' berisi HTML dari quill.root.innerHTML
         $htmlContent = $body['content'] ?? '';
 
         if (!$meetingId) { echo json_encode(['success'=>false,'message'=>'meeting_id diperlukan']); exit; }
@@ -202,7 +200,6 @@ class NotulisController
             exit;
         }
 
-        // FIX: 'content' adalah HTML dari Quill, bukan JSON
         echo json_encode([
             'success' => true,
             'content' => $notulen['content'] ?? '',
@@ -244,7 +241,6 @@ class NotulisController
             'success'     => true,
             'updated_at'  => $notulen['updated_at'] ?? null,
             'version'     => $serverVersion,
-            // Hanya kirim content jika ada versi baru (hemat bandwidth)
             'content'     => ($serverVersion > $clientVersion) ? ($notulen['content'] ?? '') : null,
             'editor_name' => $notulen['editor_name'] ?? null,
             'editor_id'   => $notulen['editor_id']   ?? null,
