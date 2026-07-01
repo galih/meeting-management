@@ -1,6 +1,6 @@
 <?php
 /**
- * View: Fitur Dokumen — Fase 1 + 2
+ * View: Fitur Dokumen — Fase 1 + 2 + 6
  * Variabel dari DokumenController::index():
  *   $folders, $files, $stats, $breadcrumb
  *   $section (my-files|shared|recent)
@@ -194,6 +194,8 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
 .dm-btn-danger:hover  { background:#C05621; color:#fff; }
 .dm-btn-share   { background:#fff; color:#2B6CB0; border-color:#DDD5C4; }
 .dm-btn-share:hover   { background:#2B6CB0; color:#fff; }
+.dm-btn-public  { background:#fff; color:#276749; border-color:#DDD5C4; }
+.dm-btn-public:hover  { background:#276749; color:#fff; }
 .dm-btn-sm { height:28px; font-size:12px; padding:0 .65rem; }
 
 /* Msg */
@@ -517,23 +519,34 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
           <?php endif; ?>
           <td style="font-size:12px;color:#A89E90;white-space:nowrap"><?= date('d M Y', strtotime($f['created_at'])) ?></td>
           <td style="text-align:right;white-space:nowrap">
+
             <?php if ($canShare && $section !== 'shared'): ?>
+            <!-- Tombol Link Publik (Fase 6) -->
+            <button class="dm-btn dm-btn-public dm-btn-sm"
+                    onclick="openPublicLinkModal(<?= $f['id'] ?>, '<?= addslashes($f['original_name']) ?>')"
+                    title="Link Publik">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            </button>
+            <!-- Tombol Bagikan ke User (Fase 2) -->
             <button class="dm-btn dm-btn-share dm-btn-sm"
                     onclick="openShareModal(<?= $f['id'] ?>, '<?= addslashes($f['original_name']) ?>')"
-                    title="Bagikan">
+                    title="Bagikan ke User">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             </button>
             <?php endif; ?>
+
             <?php if ($canDl): ?>
             <a href="<?= $base ?>/dokumen/<?= $f['id'] ?>/download" class="dm-btn dm-btn-outline dm-btn-sm" title="Download">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             </a>
             <?php endif; ?>
+
             <?php if ($canDelete): ?>
             <button class="dm-btn dm-btn-danger dm-btn-sm" onclick="deleteFile(<?= $f['id'] ?>, '<?= addslashes($f['original_name']) ?>')" title="Hapus">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
             </button>
             <?php endif; ?>
+
           </td>
         </tr>
         <?php endforeach; ?>
@@ -748,6 +761,7 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     const tbody = document.getElementById('file-tbody'); if (!tbody) return;
     const tr = document.createElement('tr');
     tr.id = 'file-row-' + f.id;
+    const name = f.original_name.replace(/'/g, "\\'");
     tr.innerHTML =
       '<td><span class="dm-file-icon" style="background:'+escHtml(f.mime_color)+'">'+escHtml(f.mime_label)+'</span></td>'
       +'<td><div class="dm-file-name" onclick="openPreview('+f.id+')">'+escHtml(f.original_name)+'</div></td>'
@@ -755,10 +769,11 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
       +'<td class="dm-file-size">'+escHtml(f.size_fmt)+'</td>'
       +'<td style="font-size:12.5px;color:#6B6055">—</td>'
       +'<td style="font-size:12px;color:#A89E90">'+new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+'</td>'
-      +'<td style="text-align:right">'
-      +'<button class="dm-btn dm-btn-share dm-btn-sm" onclick="openShareModal('+f.id+',\''+f.original_name.replace(/'/g,"\\'")+'\')" title="Bagikan">&#x2197;</button> '
-      +'<a href="'+BASE+'/dokumen/'+f.id+'/download" class="dm-btn dm-btn-outline dm-btn-sm" title="Download">↓</a> '
-      +'<button class="dm-btn dm-btn-danger dm-btn-sm" onclick="deleteFile('+f.id+',\''+f.original_name.replace(/'/g,"\\'")+'\')" title="Hapus">🗑</button>'
+      +'<td style="text-align:right;white-space:nowrap">'
+      +'<button class="dm-btn dm-btn-public dm-btn-sm" onclick="openPublicLinkModal('+f.id+',\''+name+'\')" title="Link Publik">&#127760;</button> '
+      +'<button class="dm-btn dm-btn-share dm-btn-sm" onclick="openShareModal('+f.id+',\''+name+'\')" title="Bagikan">&#8599;</button> '
+      +'<a href="'+BASE+'/dokumen/'+f.id+'/download" class="dm-btn dm-btn-outline dm-btn-sm" title="Download">&#8595;</a> '
+      +'<button class="dm-btn dm-btn-danger dm-btn-sm" onclick="deleteFile('+f.id+',\''+name+'\')" title="Hapus">&#128465;</button>'
       +'</td>';
     tbody.insertBefore(tr, tbody.firstChild);
   }
