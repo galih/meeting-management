@@ -308,6 +308,54 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
 .dm-progress { background:#E8E2D9; border-radius:99px; height:6px; margin-top:.85rem; overflow:hidden; display:none; }
 .dm-progress-bar { height:100%; background:#7B1C1C; border-radius:99px; transition:width 120ms; width:0%; }
 
+/* Public link list */
+.dm-pub-link-list { display:flex; flex-direction:column; gap:.55rem; margin-top:.85rem; }
+.dm-pub-link-item {
+  background:#F9F7F4; border:1px solid #EDE8DF; border-radius:9px;
+  padding:.65rem .85rem; display:flex; flex-direction:column; gap:.4rem;
+}
+.dm-pub-link-url {
+  display:flex; align-items:center; gap:.5rem;
+}
+.dm-pub-link-url input {
+  flex:1; border:1.5px solid #DDD5C4; border-radius:7px;
+  padding:.3rem .65rem; font-size:12px; color:#1C1714;
+  background:#fff; outline:none; font-family:monospace;
+}
+.dm-pub-link-copy {
+  height:30px; padding:0 .7rem; border-radius:7px;
+  background:#276749; color:#fff; border:none; cursor:pointer;
+  font-size:12px; font-weight:700; white-space:nowrap;
+  transition:background 160ms; flex-shrink:0;
+}
+.dm-pub-link-copy:hover { background:#1e4f37; }
+.dm-pub-link-copy.copied { background:#27A155; }
+.dm-pub-link-meta {
+  display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+  font-size:11px; color:#6B6055;
+}
+.dm-pub-link-badge {
+  display:inline-flex; align-items:center; gap:.2rem;
+  background:#E0F5EA; color:#276749; border-radius:5px;
+  font-size:10.5px; font-weight:700; padding:.15em .5em;
+}
+.dm-pub-link-badge.expired { background:#FEE2E2; color:#C05621; }
+.dm-pub-link-badge.locked  { background:#EBF8FF; color:#2B6CB0; }
+.dm-pub-link-del {
+  margin-left:auto; background:none; border:none; cursor:pointer;
+  color:#A89E90; font-size:12px; font-weight:700; padding:.2rem .4rem;
+  border-radius:5px; transition:color 140ms, background 140ms;
+}
+.dm-pub-link-del:hover { color:#C05621; background:#FEE2E2; }
+
+/* new-link form inside modal */
+.dm-pub-form {
+  background:#fff; border:1.5px solid #E8E2D9; border-radius:10px;
+  padding:1rem; display:flex; flex-direction:column; gap:.75rem;
+}
+.dm-pub-form-row { display:flex; gap:.65rem; flex-wrap:wrap; }
+.dm-pub-form-col { flex:1; min-width:120px; }
+
 @media(max-width:768px) {
   .dm-wrap     { flex-direction:column; }
   .dm-sidebar  { width:100%; flex-direction:row; flex-wrap:wrap; padding:.75rem; border-right:none; border-bottom:1px solid #E8E2D9; }
@@ -667,6 +715,78 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
   </div>
 </div>
 
+<!-- ======================== MODAL: LINK PUBLIK ======================== -->
+<div class="dm-modal-overlay" id="modal-public-link">
+  <div class="dm-modal" style="max-width:540px">
+    <div class="dm-modal-header">
+      <div>
+        <div class="dm-modal-title">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#276749" stroke-width="2" style="vertical-align:middle;margin-right:.3rem"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          Link Publik
+        </div>
+        <div id="pub-modal-filename" style="font-size:12px;color:#A89E90;margin-top:.15rem"></div>
+      </div>
+      <button class="dm-modal-close" onclick="closeModal('modal-public-link')">&times;</button>
+    </div>
+    <div class="dm-modal-body">
+
+      <!-- Form buat link baru -->
+      <div style="font-size:11.5px;font-weight:800;color:#6B6055;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.6rem">
+        Buat Link Baru
+      </div>
+      <div class="dm-pub-form">
+        <div class="dm-pub-form-row">
+          <div class="dm-pub-form-col">
+            <label class="dm-label">Izin Akses</label>
+            <select class="dm-ctrl" id="pub-permission">
+              <option value="view">View Only</option>
+              <option value="download">View + Download</option>
+            </select>
+          </div>
+          <div class="dm-pub-form-col">
+            <label class="dm-label">Kadaluarsa (opsional)</label>
+            <input type="datetime-local" class="dm-ctrl" id="pub-expires-at">
+          </div>
+        </div>
+        <div class="dm-pub-form-row">
+          <div class="dm-pub-form-col">
+            <label class="dm-label">Password (opsional)</label>
+            <input type="text" class="dm-ctrl" id="pub-password" placeholder="Kosongkan jika tidak perlu">
+          </div>
+          <div class="dm-pub-form-col">
+            <label class="dm-label">Maks. Download (opsional)</label>
+            <input type="number" class="dm-ctrl" id="pub-max-dl" min="1" placeholder="Tidak terbatas">
+          </div>
+        </div>
+        <div style="text-align:right">
+          <button class="dm-btn" id="btn-create-pub-link"
+                  style="background:#276749;color:#fff;border-color:#1e4f37"
+                  onclick="createPublicLink()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Buat Link
+          </button>
+        </div>
+      </div>
+
+      <div id="pub-link-msg" class="dm-msg" style="margin-top:.5rem"></div>
+
+      <!-- Daftar link yang sudah ada -->
+      <div style="font-size:11.5px;font-weight:800;color:#A89E90;text-transform:uppercase;letter-spacing:.05em;margin-top:1.25rem;margin-bottom:.4rem">
+        Link Aktif
+      </div>
+      <div class="dm-pub-link-list" id="pub-link-list">
+        <div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0">
+          <div class="spinner-border spinner-border-sm"></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="dm-modal-footer">
+      <button class="dm-btn dm-btn-outline" onclick="closeModal('modal-public-link')">Tutup</button>
+    </div>
+  </div>
+</div>
+
 <?php include __DIR__ . '/preview_modal.php'; ?>
 
 <script>
@@ -770,10 +890,18 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
       +'<td style="font-size:12.5px;color:#6B6055">—</td>'
       +'<td style="font-size:12px;color:#A89E90">'+new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})+'</td>'
       +'<td style="text-align:right;white-space:nowrap">'
-      +'<button class="dm-btn dm-btn-public dm-btn-sm" onclick="openPublicLinkModal('+f.id+',\''+name+'\')" title="Link Publik">&#127760;</button> '
-      +'<button class="dm-btn dm-btn-share dm-btn-sm" onclick="openShareModal('+f.id+',\''+name+'\')" title="Bagikan">&#8599;</button> '
-      +'<a href="'+BASE+'/dokumen/'+f.id+'/download" class="dm-btn dm-btn-outline dm-btn-sm" title="Download">&#8595;</a> '
-      +'<button class="dm-btn dm-btn-danger dm-btn-sm" onclick="deleteFile('+f.id+',\''+name+'\')" title="Hapus">&#128465;</button>'
+      +'<button class="dm-btn dm-btn-public dm-btn-sm" onclick="openPublicLinkModal('+f.id+',\''+name+'\')" title="Link Publik">'
+      +'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
+      +'</button> '
+      +'<button class="dm-btn dm-btn-share dm-btn-sm" onclick="openShareModal('+f.id+',\''+name+'\')" title="Bagikan">'
+      +'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>'
+      +'</button> '
+      +'<a href="'+BASE+'/dokumen/'+f.id+'/download" class="dm-btn dm-btn-outline dm-btn-sm" title="Download">'
+      +'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+      +'</a> '
+      +'<button class="dm-btn dm-btn-danger dm-btn-sm" onclick="deleteFile('+f.id+',\''+name+'\')" title="Hapus">'
+      +'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>'
+      +'</button>'
       +'</td>';
     tbody.insertBefore(tr, tbody.firstChild);
   }
@@ -949,6 +1077,123 @@ $myId      = (int)(Auth::user()['id'] ?? 0);
     } catch(e) { alert('Gagal koneksi.'); }
   };
 
+  /* ============================================================
+     LINK PUBLIK
+  ============================================================ */
+  let pubFileId = null;
+
+  window.openPublicLinkModal = function(fileId, fileName) {
+    pubFileId = fileId;
+    document.getElementById('pub-modal-filename').textContent = fileName;
+    document.getElementById('pub-link-msg').innerHTML = '';
+    document.getElementById('pub-permission').value = 'view';
+    document.getElementById('pub-expires-at').value = '';
+    document.getElementById('pub-password').value   = '';
+    document.getElementById('pub-max-dl').value     = '';
+    loadPublicLinks(fileId);
+    openModal('modal-public-link');
+  };
+
+  async function loadPublicLinks(fileId) {
+    const list = document.getElementById('pub-link-list');
+    list.innerHTML = '<div style="text-align:center;color:#A89E90;font-size:13px;padding:.75rem 0"><div class="spinner-border spinner-border-sm"></div></div>';
+    try {
+      const data = await (await fetch(BASE + '/api/dokumen/' + fileId + '/public-links')).json();
+      renderPublicLinks(data.links || []);
+    } catch(e) {
+      list.innerHTML = '<div style="color:#C05621;font-size:13px">Gagal memuat link.</div>';
+    }
+  }
+
+  function renderPublicLinks(links) {
+    const list = document.getElementById('pub-link-list');
+    if (!links.length) {
+      list.innerHTML = '<div style="text-align:center;color:#A89E90;font-size:13px;padding:.6rem">Belum ada link publik.</div>';
+      return;
+    }
+    list.innerHTML = links.map(lk => {
+      const isExpired = !lk.is_valid;
+      const expLabel  = lk.expires_at
+        ? (isExpired ? '⚠ Kadaluarsa' : 'Exp: ' + new Date(lk.expires_at).toLocaleDateString('id-ID'))
+        : 'Tanpa batas';
+      const dlInfo    = lk.max_downloads
+        ? (lk.download_count + '/' + lk.max_downloads + ' download')
+        : (lk.download_count + ' download');
+      return '<div class="dm-pub-link-item">'
+        + '<div class="dm-pub-link-url">'
+        + '<input type="text" readonly value="' + escHtml(lk.url) + '" id="pub-url-' + lk.id + '">'
+        + '<button class="dm-pub-link-copy" id="pub-copy-' + lk.id + '" onclick="copyPubLink(' + lk.id + ')">Salin</button>'
+        + '</div>'
+        + '<div class="dm-pub-link-meta">'
+        + '<span class="dm-pub-link-badge' + (lk.permission==='download' ? '' : '') + '">'
+        + (lk.permission === 'download' ? '⬇ Download' : '👁 View')
+        + '</span>'
+        + (lk.has_password ? '<span class="dm-pub-link-badge locked">🔒 Password</span>' : '')
+        + '<span class="dm-pub-link-badge' + (isExpired ? ' expired' : '') + '">' + escHtml(expLabel) + '</span>'
+        + '<span style="color:#A89E90">' + escHtml(dlInfo) + '</span>'
+        + '<button class="dm-pub-link-del" onclick="deletePublicLink(' + lk.id + ')" title="Hapus link">Hapus</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  }
+
+  window.copyPubLink = function(linkId) {
+    const input = document.getElementById('pub-url-' + linkId);
+    const btn   = document.getElementById('pub-copy-' + linkId);
+    if (!input) return;
+    navigator.clipboard.writeText(input.value).then(() => {
+      btn.textContent = '✓ Tersalin';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Salin'; btn.classList.remove('copied'); }, 2000);
+    }).catch(() => {
+      input.select();
+      document.execCommand('copy');
+      btn.textContent = '✓ Tersalin';
+      setTimeout(() => { btn.textContent = 'Salin'; }, 2000);
+    });
+  };
+
+  window.createPublicLink = async function() {
+    const btn = document.getElementById('btn-create-pub-link');
+    btn.disabled = true; btn.textContent = 'Membuat...';
+    const fd = new FormData();
+    fd.append('permission',   document.getElementById('pub-permission').value);
+    fd.append('expires_at',   document.getElementById('pub-expires-at').value);
+    fd.append('password',     document.getElementById('pub-password').value);
+    fd.append('max_downloads',document.getElementById('pub-max-dl').value);
+    try {
+      const data = await (await fetch(BASE + '/api/dokumen/' + pubFileId + '/public-links', { method:'POST', body:fd })).json();
+      if (data.success) {
+        setMsg('pub-link-msg', data.message, true);
+        document.getElementById('pub-expires-at').value = '';
+        document.getElementById('pub-password').value   = '';
+        document.getElementById('pub-max-dl').value     = '';
+        loadPublicLinks(pubFileId);
+      } else {
+        setMsg('pub-link-msg', data.message, false);
+      }
+    } catch(e) { setMsg('pub-link-msg', 'Gagal koneksi.', false); }
+    btn.disabled = false; btn.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Buat Link';
+  };
+
+  window.deletePublicLink = async function(linkId) {
+    if (!confirm('Hapus link publik ini?')) return;
+    try {
+      const data = await (await fetch(
+        BASE + '/api/dokumen/' + pubFileId + '/public-links/' + linkId + '/delete',
+        { method:'POST' }
+      )).json();
+      if (data.success) {
+        setMsg('pub-link-msg', 'Link dihapus.', true);
+        renderPublicLinks(data.links || []);
+      } else {
+        setMsg('pub-link-msg', data.message, false);
+      }
+    } catch(e) { setMsg('pub-link-msg', 'Gagal koneksi.', false); }
+  };
+
+  /* ── Close modal on overlay click / Escape ── */
   document.querySelectorAll('.dm-modal-overlay').forEach(ov => {
     ov.addEventListener('click', e => { if (e.target===ov) closeModal(ov.id); });
   });
