@@ -201,10 +201,10 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
           ?>
           <tr class="mi-row"
               data-status="<?= $m['status'] ?>"
-              data-title="<?= strtolower(htmlspecialchars($m['title'])) ?>"
+              data-title="<?= strtolower(htmlspecialchars($m['title'], ENT_QUOTES)) ?>"
               data-ts="<?= $ts ?>">
             <td class="mi-col-title">
-              <a href="<?= $baseUrl ?>/meetings/<?= $m['id'] ?>" class="mi-title-link">
+              <a href="<?= $baseUrl ?>/meetings/<?= (int)$m['id'] ?>" class="mi-title-link">
                 <span class="mi-dot" style="background:<?= htmlspecialchars($m['color'] ?? '#7B1C1C') ?>"></span>
                 <span class="mi-title-name"><?= htmlspecialchars($m['title']) ?></span>
               </a>
@@ -237,14 +237,14 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
             </td>
             <td class="mi-col-act">
               <div class="mi-act-wrap">
-                <a href="<?= $baseUrl ?>/meetings/<?= $m['id'] ?>" class="mi-btn-detail" title="Lihat Detail">
+                <a href="<?= $baseUrl ?>/meetings/<?= (int)$m['id'] ?>" class="mi-btn-detail" title="Lihat Detail">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                   Detail
                 </a>
                 <?php if ($isAdmin): ?>
                 <button class="mi-btn-del"
                         title="Hapus Kegiatan"
-                        onclick="miConfirmDelete(<?= $m['id'] ?>,<?= htmlspecialchars(json_encode($m['title'])) ?>)">
+                        onclick="miConfirmDelete(<?= (int)$m['id'] ?>,<?= htmlspecialchars(json_encode($m['title'])) ?>)">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
                 </button>
                 <?php endif; ?>
@@ -298,6 +298,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 <?php endif; ?>
 
 <!-- ══ MODAL BUAT KEGIATAN ═══════════════════════════════════════════ -->
+<?php if (Auth::hasRole('admin','sekretaris')): ?>
 <div class="modal fade" id="modalMeeting" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
     <div class="modal-content mi-modal-create">
@@ -351,7 +352,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
                 <label class="mi-mc-lbl">Unit Kerja</label>
                 <select id="mtg-u1" class="mi-mc-select" onchange="cascadeMtg(1)">
                   <option value="">— Semua —</option>
-                  <?php foreach ($departments as $d): if ((int)($d['level']??1)!==1) continue; ?>
+                  <?php foreach (($departments ?? []) as $d): if ((int)($d['level']??1)!==1) continue; ?>
                   <option value="<?= $d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
                   <?php endforeach; ?>
                 </select>
@@ -423,6 +424,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
     </div>
   </div>
 </div>
+<?php endif; ?>
 
 <!-- ══ STYLES ════════════════════════════════════════════════════════ -->
 <style>
@@ -435,6 +437,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
   box-shadow: 0 4px 20px rgba(0,0,0,.14);
   animation: miSlideIn .25s ease;
   max-width: 360px;
+  transition: opacity .3s ease;
 }
 @keyframes miSlideIn { from { opacity:0; transform: translateY(-8px) } to { opacity:1; transform:none } }
 .mi-toast-ok  { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
@@ -822,7 +825,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
   /* ── Auto-dismiss toast ── */
   const toast = document.getElementById('miFlashToast');
-  if (toast) setTimeout(() => toast.style.animation = 'none', 4000) || setTimeout(() => toast.remove(), 4400);
+  if (toast) {
+    setTimeout(() => { toast.style.opacity = '0'; }, 4000);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4400);
+  }
 
   /* ── View toggle ── */
   const vtabs    = document.querySelectorAll('.mi-vtab');
