@@ -134,6 +134,7 @@ $router->post('/api/settings/remove-logo',      [SettingController::class, 'remo
 $router->post('/api/settings/remove-login-bg',  [SettingController::class, 'removeLoginBg']);
 $router->post('/api/settings/save-smtp',        [SettingController::class, 'saveSMTP']);
 $router->post('/api/settings/test-smtp',        [SettingController::class, 'testSMTP']);
+$router->post('/api/settings/save-notulen',     [SettingController::class, 'saveNotulen']);
 
 // === TEMPLATE NOTULEN ===
 $router->get('/notulen-templates',                   [NotulenTemplateController::class, 'index']);
