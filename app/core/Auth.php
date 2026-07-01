@@ -4,12 +4,33 @@ declare(strict_types=1);
 class Auth
 {
     /**
-     * Wajib login — redirect ke /login jika belum
+     * Wajib login — redirect ke /login jika belum.
+     *
+     * redirect_after_login hanya disimpan jika:
+     *  1. Method = GET  (bukan POST/fetch mutation)
+     *  2. Bukan AJAX    (X-Requested-With: XMLHttpRequest)
+     *  3. Bukan path API (/api/...)
+     *  4. Bukan endpoint notifikasi / SSE
      */
     public static function requireAuth(): void
     {
         if (empty($_SESSION['user'])) {
-            $_SESSION['redirect_after_login'] = $_SERVER['REQUEST_URI'];
+            $uri    = $_SERVER['REQUEST_URI'] ?? '/';
+            $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+            $isAjax = (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest')
+                      || (($_SERVER['HTTP_ACCEPT'] ?? '') === 'application/json');
+            $isApi  = preg_match('#^(/[^/]+)?/api/#', $uri)
+                      || str_contains($uri, '/notification')
+                      || str_contains($uri, '/notes')
+                      || str_contains($uri, '/status')
+                      || str_contains($uri, '/delete')
+                      || str_contains($uri, '/store')
+                      || str_contains($uri, '/upload');
+
+            if ($method === 'GET' && !$isAjax && !$isApi) {
+                $_SESSION['redirect_after_login'] = $uri;
+            }
+
             header('Location: ' . BASE_URL . '/login');
             exit;
         }
