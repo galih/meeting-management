@@ -3,8 +3,7 @@ declare(strict_types=1);
 
 class DokumenController
 {
-    /* ── tipe file yang diizinkan ─────────────────────────────────── */
-    private const ALLOWED_MIMES = [
+    private static array $ALLOWED_MIMES = [
         'application/pdf',
         'application/msword',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -14,107 +13,98 @@ class DokumenController
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         'image/jpeg','image/png','image/gif','image/webp',
         'video/mp4','video/quicktime','video/x-msvideo',
+        'audio/mpeg','audio/wav','audio/ogg',
         'text/plain','text/csv',
-        'application/zip','application/x-zip-compressed','application/x-rar-compressed',
-        'application/json',
-        'application/vnd.figma',   // Figma export
+        'application/zip','application/x-zip-compressed',
+        'application/x-rar-compressed',
     ];
-    private const MAX_SIZE = 50 * 1024 * 1024; // 50 MB
+    private const MAX_SIZE = 52428800; // 50 MB
 
-    /* ================================================================
-       HALAMAN UTAMA
-    ================================================================ */
+    /* ------------------------------------------------------------------ */
+    /*  HALAMAN UTAMA                                                       */
+    /* ------------------------------------------------------------------ */
+
     public static function index(): void
     {
         Auth::requireLogin();
-        $user     = Auth::user();
-        $isAdmin  = Auth::hasRole('admin');
-        $userId   = (int)$user['id'];
+        $user    = Auth::user();
+        $userId  = (int)$user['id'];
+        $isAdmin = Auth::hasRole('admin');
 
-        $section   = $_GET['section']   ?? 'my-files';
-        $folderId  = isset($_GET['folder']) ? (int)$_GET['folder'] : null;
-        $search    = trim($_GET['q']    ?? '');
-        $typeFilter= trim($_GET['type'] ?? '');
+        $folderId   = isset($_GET['folder']) ? (int)$_GET['folder'] : null;
+        $section    = $_GET['section'] ?? 'my-files'; // my-files | shared | recent
+        $filterType = $_GET['type']    ?? '';
+        $search     = trim($_GET['q']  ?? '');
 
-        // Breadcrumb untuk folder aktif
+        // breadcrumb folder
         $breadcrumb = [];
         if ($folderId) {
             $breadcrumb = self::buildBreadcrumb($folderId);
         }
 
-        // Data sesuai section
-        $folders = [];
-        $files   = [];
+        // data
+        $folders = ($section === 'my-files')
+            ? DokumenModel::getFolders($folderId)
+            : [];
 
-        switch ($section) {
-            case 'shared':
-                $files = DokumenModel::getSharedWithMe($userId);
-                break;
-            case 'recent':
-                $files = DokumenModel::getRecent($userId, $isAdmin);
-                break;
-            case 'trash':
-                $files = DokumenModel::getTrash($userId, $isAdmin);
-                break;
-            default: // my-files
-                $folders = DokumenModel::getFolders($folderId, $userId, $isAdmin);
-                $files   = DokumenModel::getFiles($folderId, $userId, $isAdmin, $search, $typeFilter);
-        }
+        $files = match($section) {
+            'shared' => DokumenModel::getSharedWithMe($userId),
+            'recent' => DokumenModel::getRecent($userId, $isAdmin),
+            default  => DokumenModel::getFiles($folderId, $userId, $isAdmin, $filterType, $search),
+        };
 
-        // Hitung ukuran & format
+        // tambah meta ke setiap file
         foreach ($files as &$f) {
-            $f['size_fmt'] = self::formatSize((int)$f['file_size']);
-            $f['type_label'] = self::typeLabel($f['mime_type']);
-            $f['icon_svg']   = self::iconSvg($f['mime_type']);
-            $f['date_fmt']   = date('M j, Y', strtotime($f['updated_at']));
+            $f['size_fmt']   = DokumenModel::formatSize((int)$f['file_size']);
+            $f['mime_label'] = DokumenModel::mimeLabel($f['mime_type']);
+            $f['mime_color'] = DokumenModel::mimeColor($f['mime_type']);
+            $f['can_delete'] = $isAdmin || $f['uploaded_by'] == $userId;
         }
         unset($f);
 
-        $summary = DokumenModel::storageSummary($userId, $isAdmin);
-        $summary['total_bytes_fmt'] = self::formatSize((int)$summary['total_bytes']);
+        $stats = DokumenModel::getStats($userId, $isAdmin);
+        $stats['total_size_fmt'] = DokumenModel::formatSize($stats['total_size']);
 
-        $currentFolder = $folderId ? DokumenModel::getFolder($folderId) : null;
-
-        $viewData = compact(
-            'section', 'folderId', 'folders', 'files',
-            'breadcrumb', 'search', 'typeFilter', 'summary',
-            'currentFolder', 'isAdmin', 'user'
-        );
-
-        View::render('dokumen/index', $viewData);
+        $pageTitle = 'Dokumen';
+        $view      = 'dokumen/index';
+        require_once APP_PATH . '/views/layouts/main.php';
     }
 
-    /* ================================================================
-       API — UPLOAD FILE
-    ================================================================ */
+    /* ------------------------------------------------------------------ */
+    /*  API — UPLOAD FILE                                                   */
+    /* ------------------------------------------------------------------ */
+
     public static function upload(): void
     {
         Auth::requireLogin();
         header('Content-Type: application/json');
 
         if (!Auth::hasRole('admin', 'sekretaris')) {
-            echo json_encode(['success'=>false,'message'=>'Hanya Admin / Sekretaris yang dapat mengupload dokumen.']);
+            echo json_encode(['success'=>false,'message'=>'Hanya admin atau sekretaris yang dapat mengupload dokumen.']);
             exit;
         }
 
         $file = $_FILES['file'] ?? null;
         if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
-            echo json_encode(['success'=>false,'message'=>self::uploadErrMsg($file['error'] ?? 0)]);
+            $codes = [1=>'Ukuran melebihi batas server',2=>'Ukuran melebihi MAX_FILE_SIZE',
+                      3=>'Upload tidak lengkap',4=>'Tidak ada file dipilih',
+                      6=>'Folder tmp tidak ada',7=>'Gagal tulis ke disk'];
+            echo json_encode(['success'=>false,'message'=>$codes[$file['error'] ?? 0] ?? 'Upload gagal']);
             exit;
         }
 
+        $folderId = isset($_POST['folder_id']) && $_POST['folder_id'] !== ''
+            ? (int)$_POST['folder_id'] : null;
+
         $mime = mime_content_type($file['tmp_name']);
-        if (!in_array($mime, self::ALLOWED_MIMES, true)) {
-            echo json_encode(['success'=>false,'message'=>'Tipe file tidak diizinkan.']);
+        if (!in_array($mime, self::$ALLOWED_MIMES, true)) {
+            echo json_encode(['success'=>false,'message'=>'Tipe file tidak diizinkan: ' . $mime]);
             exit;
         }
         if ($file['size'] > self::MAX_SIZE) {
             echo json_encode(['success'=>false,'message'=>'Ukuran file maksimal 50 MB.']);
             exit;
         }
-
-        $folderId = isset($_POST['folder_id']) && $_POST['folder_id'] !== '' ? (int)$_POST['folder_id'] : null;
-        $userId   = (int)Auth::id();
 
         $ext        = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'bin');
         $stored     = 'dok_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
@@ -126,133 +116,171 @@ class DokumenController
             exit;
         }
 
-        $fileId = DokumenModel::createFile([
+        $fileId = DokumenModel::insertFile([
             'folder_id'     => $folderId,
             'original_name' => $file['name'],
             'stored_name'   => $stored,
             'file_path'     => '/assets/uploads/dokumen/' . $stored,
             'mime_type'     => $mime,
             'file_size'     => $file['size'],
-            'uploaded_by'   => $userId,
+            'uploaded_by'   => Auth::id(),
         ]);
 
-        ActivityLog::record('dokumen.upload', 'Upload dokumen: ' . $file['name']);
+        ActivityLog::record('dokumen.upload', 'Upload dokumen: ' . $file['name'], 'dokumen', $fileId);
 
-        echo json_encode([
-            'success'       => true,
-            'message'       => 'File berhasil diupload.',
-            'file_id'       => $fileId,
-            'original_name' => $file['name'],
-            'size_fmt'      => self::formatSize($file['size']),
-            'type_label'    => self::typeLabel($mime),
-        ]);
+        $row = DokumenModel::getFileById($fileId);
+        $row['size_fmt']   = DokumenModel::formatSize((int)$row['file_size']);
+        $row['mime_label'] = DokumenModel::mimeLabel($row['mime_type']);
+        $row['mime_color'] = DokumenModel::mimeColor($row['mime_type']);
+        $row['can_delete'] = true;
+
+        echo json_encode(['success'=>true,'message'=>'File berhasil diupload.','file'=>$row]);
         exit;
     }
 
-    /* ================================================================
-       API — BUAT FOLDER
-    ================================================================ */
+    /* ------------------------------------------------------------------ */
+    /*  API — BUAT FOLDER                                                   */
+    /* ------------------------------------------------------------------ */
+
     public static function createFolder(): void
     {
         Auth::requireLogin();
         header('Content-Type: application/json');
 
         if (!Auth::hasRole('admin', 'sekretaris')) {
-            echo json_encode(['success'=>false,'message'=>'Tidak punya akses.']);
-            exit;
+            echo json_encode(['success'=>false,'message'=>'Tidak diizinkan.']); exit;
         }
 
-        $name     = trim($_POST['name'] ?? '');
-        $parentId = isset($_POST['parent_id']) && $_POST['parent_id'] !== '' ? (int)$_POST['parent_id'] : null;
-
+        $name = trim($_POST['name'] ?? '');
         if ($name === '') {
-            echo json_encode(['success'=>false,'message'=>'Nama folder tidak boleh kosong.']);
-            exit;
+            echo json_encode(['success'=>false,'message'=>'Nama folder tidak boleh kosong.']); exit;
         }
 
-        $id = DokumenModel::createFolder($name, $parentId, (int)Auth::id());
-        ActivityLog::record('dokumen.folder.create', 'Buat folder: ' . $name);
+        $parentId = isset($_POST['parent_id']) && $_POST['parent_id'] !== ''
+            ? (int)$_POST['parent_id'] : null;
 
-        echo json_encode(['success'=>true,'message'=>'Folder berhasil dibuat.','folder_id'=>$id,'name'=>$name]);
+        $id = DokumenModel::createFolder($name, $parentId, Auth::id());
+        ActivityLog::record('dokumen.folder.create', 'Buat folder: ' . $name, 'dokumen_folder', $id);
+
+        echo json_encode(['success'=>true,'message'=>'Folder berhasil dibuat.','id'=>$id,'name'=>$name]);
         exit;
     }
 
-    /* ================================================================
-       API — RENAME FOLDER
-    ================================================================ */
+    /* ------------------------------------------------------------------ */
+    /*  API — RENAME FOLDER                                                 */
+    /* ------------------------------------------------------------------ */
+
     public static function renameFolder(int $id): void
     {
         Auth::requireLogin();
         header('Content-Type: application/json');
-
-        $folder = DokumenModel::getFolder($id);
-        if (!$folder) { echo json_encode(['success'=>false,'message'=>'Folder tidak ditemukan.']); exit; }
-        if (!Auth::hasRole('admin') && $folder['created_by'] != Auth::id()) {
-            echo json_encode(['success'=>false,'message'=>'Tidak punya akses.']); exit;
+        if (!Auth::hasRole('admin', 'sekretaris')) {
+            echo json_encode(['success'=>false,'message'=>'Tidak diizinkan.']); exit;
         }
-
         $name = trim($_POST['name'] ?? '');
-        if ($name === '') { echo json_encode(['success'=>false,'message'=>'Nama tidak boleh kosong.']); exit; }
-
+        if ($name === '') {
+            echo json_encode(['success'=>false,'message'=>'Nama tidak boleh kosong.']); exit;
+        }
         DokumenModel::renameFolder($id, $name);
-        echo json_encode(['success'=>true,'message'=>'Folder berhasil direname.']);
+        echo json_encode(['success'=>true,'message'=>'Folder berhasil diubah.']);
         exit;
     }
 
-    /* ================================================================
-       API — HAPUS FOLDER
-    ================================================================ */
+    /* ------------------------------------------------------------------ */
+    /*  API — HAPUS FOLDER                                                  */
+    /* ------------------------------------------------------------------ */
+
     public static function deleteFolder(int $id): void
     {
         Auth::requireLogin();
         header('Content-Type: application/json');
-
-        $folder = DokumenModel::getFolder($id);
-        if (!$folder) { echo json_encode(['success'=>false,'message'=>'Folder tidak ditemukan.']); exit; }
-        if (!Auth::hasRole('admin') && $folder['created_by'] != Auth::id()) {
-            echo json_encode(['success'=>false,'message'=>'Tidak punya akses.']); exit;
+        if (!Auth::hasRole('admin')) {
+            echo json_encode(['success'=>false,'message'=>'Hanya admin yang dapat menghapus folder.']); exit;
         }
-
-        $ok = DokumenModel::deleteFolder($id);
-        if (!$ok) {
-            echo json_encode(['success'=>false,'message'=>'Folder tidak kosong, pindahkan atau hapus isinya terlebih dahulu.']);
-            exit;
+        $folder = DokumenModel::getFolderById($id);
+        if (!$folder) {
+            echo json_encode(['success'=>false,'message'=>'Folder tidak ditemukan.']); exit;
         }
-        ActivityLog::record('dokumen.folder.delete', 'Hapus folder id:' . $id);
+        // hapus semua file di dalam folder dari disk & DB
+        $files = DokumenModel::getFiles($id, Auth::id(), true);
+        foreach ($files as $f) {
+            $path = ROOT_PATH . $f['file_path'];
+            if (file_exists($path)) @unlink($path);
+            DokumenModel::deleteFile((int)$f['id']);
+        }
+        DokumenModel::deleteFolder($id);
+        ActivityLog::record('dokumen.folder.delete', 'Hapus folder: ' . $folder['name'], 'dokumen_folder', $id);
         echo json_encode(['success'=>true,'message'=>'Folder berhasil dihapus.']);
         exit;
     }
 
-    /* ================================================================
-       API — DOWNLOAD FILE
-    ================================================================ */
+    /* ------------------------------------------------------------------ */
+    /*  API — RENAME FILE                                                   */
+    /* ------------------------------------------------------------------ */
+
+    public static function renameFile(int $id): void
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+        $file = DokumenModel::getFileById($id);
+        if (!$file) { echo json_encode(['success'=>false,'message'=>'File tidak ditemukan.']); exit; }
+        if (!Auth::hasRole('admin') && $file['uploaded_by'] != Auth::id()) {
+            echo json_encode(['success'=>false,'message'=>'Tidak diizinkan.']); exit;
+        }
+        $name = trim($_POST['name'] ?? '');
+        if ($name === '') { echo json_encode(['success'=>false,'message'=>'Nama tidak boleh kosong.']); exit; }
+        DokumenModel::renameFile($id, $name);
+        echo json_encode(['success'=>true,'message'=>'File berhasil diubah.']);
+        exit;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  API — HAPUS FILE                                                    */
+    /* ------------------------------------------------------------------ */
+
+    public static function deleteFile(int $id): void
+    {
+        Auth::requireLogin();
+        header('Content-Type: application/json');
+        $file = DokumenModel::getFileById($id);
+        if (!$file) { echo json_encode(['success'=>false,'message'=>'File tidak ditemukan.']); exit; }
+        if (!Auth::hasRole('admin') && $file['uploaded_by'] != Auth::id()) {
+            echo json_encode(['success'=>false,'message'=>'Tidak diizinkan.']); exit;
+        }
+        $path = ROOT_PATH . $file['file_path'];
+        if (file_exists($path)) @unlink($path);
+        DokumenModel::deleteFile($id);
+        ActivityLog::record('dokumen.delete', 'Hapus dokumen: ' . $file['original_name'], 'dokumen', $id);
+        echo json_encode(['success'=>true,'message'=>'File berhasil dihapus.']);
+        exit;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /*  API — DOWNLOAD FILE                                                 */
+    /* ------------------------------------------------------------------ */
+
     public static function download(int $id): void
     {
         Auth::requireLogin();
-
-        $file   = DokumenModel::getFile($id);
-        if (!$file) { http_response_code(404); exit('File tidak ditemukan.'); }
-
-        $userId  = (int)Auth::id();
+        $userId  = Auth::id();
         $isAdmin = Auth::hasRole('admin');
 
-        // Cek akses
+        $file = DokumenModel::getFileById($id);
+        if (!$file) { http_response_code(404); echo '404 Not Found'; exit; }
+
+        // cek hak akses
         if (!$isAdmin && $file['uploaded_by'] != $userId) {
             $share = Database::queryOne(
                 "SELECT id FROM dokumen_shares WHERE file_id=? AND shared_to=?",
                 [$id, $userId]
             );
-            if (!$share) { http_response_code(403); exit('Akses ditolak.'); }
+            if (!$share) { http_response_code(403); echo '403 Forbidden'; exit; }
         }
 
         $path = ROOT_PATH . $file['file_path'];
-        if (!file_exists($path)) { http_response_code(404); exit('File tidak ada di server.'); }
+        if (!file_exists($path)) { http_response_code(404); echo 'File tidak ditemukan di server.'; exit; }
 
-        // Update updated_at (activity)
-        Database::getInstance()->prepare("UPDATE dokumen_files SET updated_at=NOW() WHERE id=?")->execute([$id]);
-
-        header('Content-Description: File Transfer');
-        header('Content-Type: ' . ($file['mime_type'] ?: 'application/octet-stream'));
+        header('Content-Type: ' . $file['mime_type']);
         header('Content-Disposition: attachment; filename="' . addslashes($file['original_name']) . '"');
         header('Content-Length: ' . filesize($path));
         header('Cache-Control: no-cache');
@@ -260,137 +288,21 @@ class DokumenController
         exit;
     }
 
-    /* ================================================================
-       API — SOFT DELETE (pindah ke Trash)
-    ================================================================ */
-    public static function deleteFile(int $id): void
-    {
-        Auth::requireLogin();
-        header('Content-Type: application/json');
+    /* ------------------------------------------------------------------ */
+    /*  HELPER PRIVATE                                                      */
+    /* ------------------------------------------------------------------ */
 
-        $file = DokumenModel::getFile($id);
-        if (!$file) { echo json_encode(['success'=>false,'message'=>'File tidak ditemukan.']); exit; }
-
-        if (!Auth::hasRole('admin') && $file['uploaded_by'] != Auth::id()) {
-            echo json_encode(['success'=>false,'message'=>'Tidak punya akses.']); exit;
-        }
-
-        DokumenModel::softDelete($id);
-        ActivityLog::record('dokumen.delete', 'Hapus dokumen: ' . $file['original_name']);
-        echo json_encode(['success'=>true,'message'=>'File dipindahkan ke Trash.']);
-        exit;
-    }
-
-    /* ================================================================
-       API — RESTORE DARI TRASH
-    ================================================================ */
-    public static function restoreFile(int $id): void
-    {
-        Auth::requireLogin();
-        header('Content-Type: application/json');
-
-        $file = Database::queryOne("SELECT * FROM dokumen_files WHERE id=?", [$id]);
-        if (!$file) { echo json_encode(['success'=>false,'message'=>'File tidak ditemukan.']); exit; }
-
-        if (!Auth::hasRole('admin') && $file['uploaded_by'] != Auth::id()) {
-            echo json_encode(['success'=>false,'message'=>'Tidak punya akses.']); exit;
-        }
-
-        DokumenModel::restore($id);
-        echo json_encode(['success'=>true,'message'=>'File berhasil dipulihkan.']);
-        exit;
-    }
-
-    /* ================================================================
-       API — HARD DELETE DARI TRASH
-    ================================================================ */
-    public static function forceDelete(int $id): void
-    {
-        Auth::requireLogin();
-        header('Content-Type: application/json');
-
-        $file = Database::queryOne("SELECT * FROM dokumen_files WHERE id=?", [$id]);
-        if (!$file) { echo json_encode(['success'=>false,'message'=>'File tidak ditemukan.']); exit; }
-
-        if (!Auth::hasRole('admin') && $file['uploaded_by'] != Auth::id()) {
-            echo json_encode(['success'=>false,'message'=>'Tidak punya akses.']); exit;
-        }
-
-        // Hapus fisik
-        $path = ROOT_PATH . $file['file_path'];
-        if (file_exists($path)) @unlink($path);
-
-        DokumenModel::hardDelete($id);
-        ActivityLog::record('dokumen.force_delete', 'Hapus permanen: ' . $file['original_name']);
-        echo json_encode(['success'=>true,'message'=>'File dihapus permanen.']);
-        exit;
-    }
-
-    /* ================================================================
-       HELPERS
-    ================================================================ */
     private static function buildBreadcrumb(int $folderId): array
     {
         $crumbs = [];
         $current = $folderId;
-        for ($i = 0; $i < 10; $i++) {
-            $folder = DokumenModel::getFolder($current);
+        $safety  = 0;
+        while ($current && $safety++ < 10) {
+            $folder = DokumenModel::getFolderById($current);
             if (!$folder) break;
-            array_unshift($crumbs, ['id' => $folder['id'], 'name' => $folder['name']]);
-            if (!$folder['parent_id']) break;
-            $current = (int)$folder['parent_id'];
+            array_unshift($crumbs, $folder);
+            $current = $folder['parent_id'] ? (int)$folder['parent_id'] : 0;
         }
         return $crumbs;
-    }
-
-    public static function formatSize(int $bytes): string
-    {
-        if ($bytes < 1024)       return $bytes . ' B';
-        if ($bytes < 1048576)    return round($bytes / 1024, 1) . ' KB';
-        if ($bytes < 1073741824) return round($bytes / 1048576, 2) . ' MB';
-        return round($bytes / 1073741824, 2) . ' GB';
-    }
-
-    public static function typeLabel(string $mime): string
-    {
-        if (strpos($mime, 'pdf') !== false)          return 'PDF';
-        if (strpos($mime, 'wordprocessingml') !== false ||strpos($mime, 'msword') !== false) return 'Word';
-        if (strpos($mime, 'spreadsheetml') !== false || strpos($mime, 'ms-excel') !== false) return 'Excel';
-        if (strpos($mime, 'presentationml') !== false|| strpos($mime, 'powerpoint') !== false) return 'PPT';
-        if (strpos($mime, 'video') !== false)        return 'Video';
-        if (strpos($mime, 'image') !== false)        return 'Gambar';
-        if (strpos($mime, 'zip') !== false || strpos($mime, 'rar') !== false) return 'Arsip';
-        if (strpos($mime, 'json') !== false)         return 'JSON';
-        if (strpos($mime, 'text') !== false)         return 'Teks';
-        return 'File';
-    }
-
-    public static function iconSvg(string $mime): string
-    {
-        if (strpos($mime, 'pdf') !== false)
-            return '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E53935" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
-        if (strpos($mime, 'video') !== false)
-            return '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8E24AA" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>';
-        if (strpos($mime, 'image') !== false)
-            return '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E88E5" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>';
-        if (strpos($mime, 'spreadsheetml') !== false || strpos($mime, 'ms-excel') !== false)
-            return '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-        if (strpos($mime, 'zip') !== false || strpos($mime, 'rar') !== false)
-            return '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F57C00" stroke-width="2"><path d="M21 10H3"/><path d="M21 6H3"/><path d="M21 14H3"/><path d="M21 18H3"/></svg>';
-        // default
-        return '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#546E7A" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>';
-    }
-
-    private static function uploadErrMsg(int $code): string
-    {
-        $map = [
-            1 => 'Ukuran melebihi batas php.ini',
-            2 => 'Ukuran melebihi MAX_FILE_SIZE',
-            3 => 'Upload tidak lengkap',
-            4 => 'Tidak ada file yang dipilih',
-            6 => 'Folder tmp tidak ditemukan',
-            7 => 'Gagal menulis ke disk',
-        ];
-        return $map[$code] ?? 'Upload gagal (error ' . $code . ')';
     }
 }
