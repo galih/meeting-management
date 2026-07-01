@@ -1,6 +1,7 @@
 <?php
 /**
  * Partial view: Preview Modal (Fase 3) + Version History trigger (Fase 4)
+ * + Public Link button (Fase 6)
  */
 ?>
 <!-- ======================== MODAL: PREVIEW FILE ======================== -->
@@ -85,6 +86,8 @@
 .dm-panel-btn-share:hover { background:#2B6CB0; color:#fff; }
 .dm-panel-btn-history { background:#fff; color:#6B46C1; border-color:#DDD5C4; }
 .dm-panel-btn-history:hover { background:#6B46C1; color:#fff; }
+.dm-panel-btn-public { background:#fff; color:#276749; border-color:#DDD5C4; }
+.dm-panel-btn-public:hover { background:#276749; color:#fff; }
 .dm-panel-btn-danger { background:#fff; color:#C05621; border-color:#DDD5C4; }
 .dm-panel-btn-danger:hover { background:#C05621; color:#fff; }
 .dm-panel-share-item {
@@ -117,6 +120,7 @@
 </div>
 
 <?php include __DIR__ . '/version_modal.php'; ?>
+<?php include __DIR__ . '/public_link_modal.php'; ?>
 
 <script>
 (function(){
@@ -207,6 +211,7 @@
 
   function buildPanelDOM(f, shares) {
     const frag = document.createDocumentFragment();
+
     // Header
     const hdr = document.createElement('div');
     hdr.className = 'dm-preview-panel-header';
@@ -218,6 +223,7 @@
       +'<div class="dm-panel-meta">'+escHtml(f.size_fmt)+'</div>'
       +'</div>';
     frag.appendChild(hdr);
+
     // Detail
     const det = document.createElement('div');
     det.className = 'dm-panel-section';
@@ -229,6 +235,7 @@
       +'<div class="dm-panel-row"><span>Diupload</span> <strong>'+escHtml(f.uploader_name||'-')+'</strong></div>'
       +'<div class="dm-panel-row"><span>Tanggal</span>  <strong>'+tgl+'</strong></div>';
     frag.appendChild(det);
+
     // Share list
     const sh = document.createElement('div');
     sh.className = 'dm-panel-section';
@@ -243,23 +250,38 @@
     ).join('');
     sh.innerHTML = shtml;
     frag.appendChild(sh);
+
     // Actions
     const act = document.createElement('div');
     act.className = 'dm-panel-actions';
+
+    // Download
     if (f.can_download) act.innerHTML +=
       '<a href="'+BASE+'/dokumen/'+f.id+'/download" class="dm-panel-btn dm-panel-btn-primary" style="text-decoration:none">'
       +'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</a>';
-    // Tombol Riwayat Versi (Fase 4) — semua user yang bisa akses
+
+    // Riwayat Versi (Fase 4)
     act.innerHTML +=
       '<button class="dm-panel-btn dm-panel-btn-history" onclick="openVersionModal('+f.id+',\''+f.original_name.replace(/\'/g,"\\\'")+'\','+(f.can_share||f.can_delete?'true':'false')+')" >'
       +'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>'
       +' Riwayat Versi</button>';
+
+    // Link Publik (Fase 6) — hanya pemilik & admin
+    if (f.can_share) act.innerHTML +=
+      '<button class="dm-panel-btn dm-panel-btn-public" onclick="closePreview();openPublicLinkModal('+f.id+',\''+f.original_name.replace(/\'/g,"\\\'")+'\')" >'
+      +'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>'
+      +' Link Publik</button>';
+
+    // Bagikan ke user (Fase 2)
     if (f.can_share) act.innerHTML +=
       '<button class="dm-panel-btn dm-panel-btn-share" onclick="closePreview();openShareModal('+f.id+',\''+f.original_name.replace(/\'/g,"\\\'")+'\')" >'
       +'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Bagikan</button>';
+
+    // Hapus
     if (f.can_delete) act.innerHTML +=
       '<button class="dm-panel-btn dm-panel-btn-danger" onclick="closePreview();deleteFile('+f.id+',\''+f.original_name.replace(/\'/g,"\\\'")+'\')" >'
       +'<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg> Hapus</button>';
+
     frag.appendChild(act);
     return frag;
   }

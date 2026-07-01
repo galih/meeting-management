@@ -146,8 +146,7 @@ class DokumenController
     }
 
     /* ------------------------------------------------------------------ */
-    /*  API — PREVIEW (Fase 3)                                             */
-    /*  Mengirim file langsung ke browser (inline) utk preview             */
+    /*  API — PREVIEW (login required, Fase 3)                             */
     /* ------------------------------------------------------------------ */
 
     public static function preview(int $id): void
@@ -159,12 +158,10 @@ class DokumenController
         $file = DokumenModel::getFileById($id);
         if (!$file) { http_response_code(404); echo 'File tidak ditemukan.'; exit; }
 
-        // hak akses: owner, admin, atau sudah di-share (view/download)
         if (!DokumenShareModel::canAccess($id, $userId, $isAdmin)) {
             http_response_code(403); echo 'Akses ditolak.'; exit;
         }
 
-        // hanya tipe yg bisa di-preview
         if (!self::isPreviewable($file['mime_type'])) {
             http_response_code(415); echo 'Tipe file tidak dapat dipratinjau.'; exit;
         }
@@ -182,8 +179,53 @@ class DokumenController
     }
 
     /* ------------------------------------------------------------------ */
+    /*  API — PREVIEW PUBLIC (tanpa login, Fase 6)                         */
+    /*  Dipanggil dari halaman publik /d/{token} via ?token=xxx            */
+    /* ------------------------------------------------------------------ */
+
+    public static function previewPublic(int $id): void
+    {
+        // Tidak perlu Auth::requireLogin()
+        $token = trim($_GET['token'] ?? '');
+        if (!$token) { http_response_code(403); echo 'Token diperlukan.'; exit; }
+
+        $link = DokumenPublicLinkModel::getByToken($token);
+        if (!$link || !DokumenPublicLinkModel::isValid($link)) {
+            http_response_code(403); echo 'Link tidak valid atau kadaluarsa.'; exit;
+        }
+        if ((int)$link['file_id'] !== $id) {
+            http_response_code(403); echo 'Token tidak sesuai file.'; exit;
+        }
+
+        // Cek password via session
+        if (!empty($link['password_hash'])) {
+            $session_key = 'pub_link_ok_' . $token;
+            if (empty($_SESSION[$session_key])) {
+                http_response_code(403); echo 'Autentikasi password diperlukan.'; exit;
+            }
+        }
+
+        $file = DokumenModel::getFileById($id);
+        if (!$file) { http_response_code(404); echo 'File tidak ditemukan.'; exit; }
+
+        if (!self::isPreviewable($file['mime_type'])) {
+            http_response_code(415); echo 'Tipe tidak dapat dipratinjau.'; exit;
+        }
+
+        $path = ROOT_PATH . $file['file_path'];
+        if (!file_exists($path)) { http_response_code(404); echo 'File fisik tidak ada.'; exit; }
+
+        header('Content-Type: ' . $file['mime_type']);
+        header('Content-Disposition: inline; filename="' . addslashes($file['original_name']) . '"');
+        header('Content-Length: ' . filesize($path));
+        header('Cache-Control: public, max-age=300');
+        header('X-Content-Type-Options: nosniff');
+        readfile($path);
+        exit;
+    }
+
+    /* ------------------------------------------------------------------ */
     /*  API — INFO FILE (Fase 3)                                           */
-    /*  Dipakai panel detail di sidebar preview                             */
     /* ------------------------------------------------------------------ */
 
     public static function info(int $id): void
