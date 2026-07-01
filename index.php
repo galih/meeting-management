@@ -173,6 +173,20 @@ $router->get('/api/dokumen/{id}/info',            [DokumenController::class, 'in
 $router->get('/api/dokumen/{id}/versions',             [DokumenVersionController::class, 'index']);
 $router->post('/api/dokumen/{id}/versions/upload',     [DokumenVersionController::class, 'uploadNewVersion']);
 $router->get('/api/dokumen/versions/{vid}/download',   [DokumenVersionController::class, 'downloadVersion']);
+$router->post('/api/dokumen/{id}/versions/restore',    [DokumenVersionController::class, 'restore']);
+
+// === DOKUMEN Fase 5 — tag & kategori ===
+$router->get('/api/dokumen/tags',                      [DokumenTagController::class, 'tagList']);
+$router->post('/api/dokumen/tags',                     [DokumenTagController::class, 'tagStore']);
+$router->post('/api/dokumen/tags/{id}/update',         [DokumenTagController::class, 'tagUpdate']);
+$router->post('/api/dokumen/tags/{id}/delete',         [DokumenTagController::class, 'tagDelete']);
+$router->get('/api/dokumen/kategoris',                 [DokumenTagController::class, 'kategoriList']);
+$router->post('/api/dokumen/kategoris',                [DokumenTagController::class, 'kategoriStore']);
+$router->post('/api/dokumen/kategoris/{id}/update',    [DokumenTagController::class, 'kategoriUpdate']);
+$router->post('/api/dokumen/kategoris/{id}/delete',    [DokumenTagController::class, 'kategoriDelete']);
+$router->get('/api/dokumen/{id}/tags',                 [DokumenTagController::class, 'fileTags']);
+$router->post('/api/dokumen/{id}/tags/sync',           [DokumenTagController::class, 'syncFileTags']);
+$router->post('/api/dokumen/{id}/kategori',            [DokumenTagController::class, 'setFileKategori']);
 
 AuthController::checkRememberToken();
 
