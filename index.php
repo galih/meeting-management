@@ -166,8 +166,9 @@ $router->post('/api/dokumen/{id}/shares/{uid}/delete',     [DokumenShareControll
 $router->post('/api/dokumen/{id}/shares/{uid}/permission', [DokumenShareController::class, 'updatePermission']);
 
 // === DOKUMEN Fase 3 — preview & info ===
-$router->get('/api/dokumen/{id}/preview',         [DokumenController::class, 'preview']);
-$router->get('/api/dokumen/{id}/info',            [DokumenController::class, 'info']);
+$router->get('/api/dokumen/{id}/preview',              [DokumenController::class, 'preview']);
+$router->get('/api/dokumen/{id}/info',                 [DokumenController::class, 'info']);
+$router->get('/api/dokumen/{id}/preview-public',       [DokumenController::class, 'previewPublic']);
 
 // === DOKUMEN Fase 4 — version history ===
 $router->get('/api/dokumen/{id}/versions',             [DokumenVersionController::class, 'index']);
@@ -187,6 +188,14 @@ $router->post('/api/dokumen/kategoris/{id}/delete',    [DokumenTagController::cl
 $router->get('/api/dokumen/{id}/tags',                 [DokumenTagController::class, 'fileTags']);
 $router->post('/api/dokumen/{id}/tags/sync',           [DokumenTagController::class, 'syncFileTags']);
 $router->post('/api/dokumen/{id}/kategori',            [DokumenTagController::class, 'setFileKategori']);
+
+// === DOKUMEN Fase 6 — Public Share Link ===
+$router->get('/api/dokumen/{id}/public-links',                       [DokumenPublicLinkController::class, 'index']);
+$router->post('/api/dokumen/{id}/public-links',                      [DokumenPublicLinkController::class, 'store']);
+$router->post('/api/dokumen/{id}/public-links/{lid}/delete',         [DokumenPublicLinkController::class, 'destroy']);
+$router->get('/d/{token}',                                           [DokumenPublicLinkController::class, 'publicPage']);
+$router->post('/d/{token}',                                          [DokumenPublicLinkController::class, 'publicPage']);
+$router->get('/d/{token}/download',                                  [DokumenPublicLinkController::class, 'publicDownload']);
 
 AuthController::checkRememberToken();
 
