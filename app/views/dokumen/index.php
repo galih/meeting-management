@@ -714,6 +714,12 @@ $currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
                 Buka folder
               </span>
             </div>
+            <?php if ($canUpload): ?>
+            <div class="dm-folder-footer" style="margin-top:.65rem;gap:.45rem;flex-wrap:wrap">
+              <button type="button" class="dm-btn dm-btn-share dm-btn-sm btn-share-folder" data-folder-id="<?= (int)$folder['id'] ?>" data-folder-name="<?= htmlspecialchars($folder['name']) ?>">Bagikan Folder</button>
+              <button type="button" class="dm-btn dm-btn-danger dm-btn-sm btn-delete-folder" data-folder-id="<?= (int)$folder['id'] ?>" data-folder-name="<?= htmlspecialchars($folder['name']) ?>">Hapus Folder</button>
+            </div>
+            <?php endif; ?>
           </a>
           <?php endforeach; ?>
         </div>
@@ -1394,3 +1400,31 @@ $currentDesc  = $sectionDescriptions[$section] ?? 'Kelola dokumen Anda.';
 })();
 </script>
 <script src="<?= $base ?>/app/views/dokumen/_grid_list_toggle.js"></script>
+
+<div class="dm-modal-overlay" id="modal-folder-share">
+  <div class="dm-modal" style="max-width:560px">
+    <div class="dm-modal-header">
+      <div><div class="dm-modal-title">Bagikan Folder</div><div id="shareFolderName" style="font-size:12px;color:#9A8D7F;margin-top:.2rem"></div></div>
+      <button class="dm-modal-close" onclick="closeFolderShareModal()">&times;</button>
+    </div>
+    <div class="dm-modal-body">
+      <div class="dm-user-search-wrap"><input type="text" class="dm-ctrl" id="shareFolderUserSearch" placeholder="Cari user..."><div class="dm-user-dropdown" id="shareFolderUserSuggestions"></div></div>
+      <div style="display:flex;gap:.6rem;margin-top:.8rem;align-items:center"><select class="dm-ctrl" id="shareFolderPermission" style="width:160px"><option value="view">View Only</option><option value="edit">Edit</option></select><button class="dm-btn dm-btn-share" id="btnAddFolderShare" type="button">Bagikan</button></div>
+      <div id="shareFolderMsg" class="dm-msg"></div>
+      <div style="margin-top:1rem;font-weight:800;font-size:11px;color:#9A8D7F;text-transform:uppercase">Daftar Akses</div><div id="shareFolderList" class="dm-share-list"></div>
+    </div>
+    <div class="dm-modal-footer"><button class="dm-btn dm-btn-outline" onclick="closeFolderShareModal()">Tutup</button></div>
+  </div>
+</div>
+<div class="dm-modal-overlay" id="modal-folder-delete">
+  <div class="dm-modal" style="max-width:460px">
+    <div class="dm-modal-header">
+      <div><div class="dm-modal-title">Hapus Folder</div><div id="deleteFolderName" style="font-size:12px;color:#9A8D7F;margin-top:.2rem"></div></div>
+      <button class="dm-modal-close" onclick="closeFolderDeleteModal()">&times;</button>
+    </div>
+    <div class="dm-modal-body"><p style="margin:0;color:#5A5047;font-size:13px;line-height:1.6">Tindakan ini akan menghapus folder beserta isinya. Aksi ini tidak dapat dibatalkan.</p><div id="deleteFolderMsg" class="dm-msg"></div></div>
+    <div class="dm-modal-footer"><button class="dm-btn dm-btn-outline" onclick="closeFolderDeleteModal()">Batal</button><button class="dm-btn dm-btn-danger" id="btnConfirmDeleteFolder" type="button">Ya, Hapus</button></div>
+  </div>
+</div>
+<script>window._BASE_URL = '<?= $base ?>';</script>
+<script src="<?= $base ?>/app/views/dokumen/_folder_share.js"></script>
