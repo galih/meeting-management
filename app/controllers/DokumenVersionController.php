@@ -46,12 +46,10 @@ class DokumenVersionController
             echo json_encode(['success'=>false,'message'=>'Upload file revisi gagal.']); exit;
         }
 
-        // Simpan file saat ini ke versi
         DokumenVersionModel::snapshotCurrentFile($file, $userId);
 
-        // Simpan file baru
         $mime   = mime_content_type($up['tmp_name']);
-        $ext    = strtolower(pathinfo($up['name'], PATHINFO_EXTENSION) ?: 'bin');
+        $ext    = self::extensionForMime($mime);
         $stored = 'dok_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
         $dir    = ROOT_PATH . '/assets/uploads/dokumen/';
         if (!is_dir($dir)) @mkdir($dir, 0755, true);
@@ -65,7 +63,7 @@ class DokumenVersionController
             SET original_name=?, stored_name=?, file_path=?, mime_type=?, file_size=?, updated_at=NOW()
             WHERE id=?");
         $st->execute([
-            $up['name'],
+            self::safeFileName($up['name']),
             $stored,
             '/assets/uploads/dokumen/' . $stored,
             $mime,
@@ -109,8 +107,9 @@ class DokumenVersionController
         if (!file_exists($path)) { http_response_code(404); echo 'File versi tidak ada.'; exit; }
 
         header('Content-Type: ' . $version['mime_type']);
-        header('Content-Disposition: attachment; filename="'.addslashes($version['original_name']).'"');
+        header('Content-Disposition: attachment; filename*=UTF-8\'\'' . rawurlencode(self::safeFileName($version['original_name'])));
         header('Content-Length: ' . filesize($path));
+        header('X-Content-Type-Options: nosniff');
         readfile($path);
         exit;
     }
@@ -134,16 +133,14 @@ class DokumenVersionController
             echo json_encode(['success'=>false,'message'=>'Versi tidak ditemukan.']); exit;
         }
 
-        // Snapshot file aktif dulu
         DokumenVersionModel::snapshotCurrentFile($file, $userId);
 
-        // Set file aktif = data dari versi yang dipilih
         $db = Database::getInstance();
         $st = $db->prepare("UPDATE dokumen_files
             SET original_name=?, stored_name=?, file_path=?, mime_type=?, file_size=?, updated_at=NOW()
             WHERE id=?");
         $st->execute([
-            $version['original_name'],
+            self::safeFileName($version['original_name']),
             $version['stored_name'],
             $version['file_path'],
             $version['mime_type'],
@@ -168,5 +165,39 @@ class DokumenVersionController
 
         echo json_encode(['success'=>true,'message'=>'File berhasil di-restore ke versi tersebut.','versions'=>$versions,'file'=>$updated]);
         exit;
+    }
+
+    private static function safeFileName(string $name): string
+    {
+        $name = trim(str_replace(["\r", "\n", "\0"], '', $name));
+        return $name === '' ? 'file' : $name;
+    }
+
+    private static function extensionForMime(string $mime): string
+    {
+        return match ($mime) {
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            'application/vnd.ms-powerpoint' => 'ppt',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'video/mp4' => 'mp4',
+            'video/quicktime' => 'mov',
+            'video/x-msvideo' => 'avi',
+            'audio/mpeg' => 'mp3',
+            'audio/wav' => 'wav',
+            'audio/ogg' => 'ogg',
+            'text/plain' => 'txt',
+            'text/csv' => 'csv',
+            'application/zip', 'application/x-zip-compressed' => 'zip',
+            'application/x-rar-compressed' => 'rar',
+            default => 'bin',
+        };
     }
 }

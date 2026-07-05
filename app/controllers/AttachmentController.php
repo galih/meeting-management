@@ -3,9 +3,6 @@ declare(strict_types=1);
 
 class AttachmentController
 {
-    /* ------------------------------------------------------------------ */
-    /*  LIST                                                                */
-    /* ------------------------------------------------------------------ */
     public static function index(): void
     {
         Auth::requireLogin();
@@ -32,9 +29,6 @@ class AttachmentController
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  UPLOAD                                                              */
-    /* ------------------------------------------------------------------ */
     public static function upload(): void
     {
         Auth::requireLogin();
@@ -72,17 +66,17 @@ class AttachmentController
             'text/plain','text/csv',
             'application/zip','application/x-zip-compressed',
         ];
-        $maxSize = 10 * 1024 * 1024; // 10 MB
+        $maxSize = 10 * 1024 * 1024;
         $mime    = mime_content_type($file['tmp_name']);
 
-        if (!in_array($mime, $allowedMimes)) {
+        if (!in_array($mime, $allowedMimes, true)) {
             echo json_encode(['success'=>false,'message'=>'Tipe file tidak diizinkan. Gunakan PDF, Word, Excel, PowerPoint, gambar, atau ZIP.']); exit;
         }
         if ($file['size'] > $maxSize) {
             echo json_encode(['success'=>false,'message'=>'Ukuran file maksimal 10 MB.']); exit;
         }
 
-        $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'bin');
+        $ext      = self::extensionForMime($mime);
         $filename = 'attachment_' . $meetingId . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
         $dir      = ROOT_PATH . '/assets/uploads/attachments/';
         if (!is_dir($dir)) @mkdir($dir, 0755, true);
@@ -91,22 +85,20 @@ class AttachmentController
             echo json_encode(['success'=>false,'message'=>'Gagal menyimpan file']); exit;
         }
 
+        $original = self::safeFileName($file['name']);
         $filePath = '/assets/uploads/attachments/' . $filename;
         $db       = Database::getInstance();
         $db->prepare(
             "INSERT INTO attachments (meeting_id, uploaded_by, original_name, file_path, mime_type, file_size)
              VALUES (?,?,?,?,?,?)"
-        )->execute([$meetingId, Auth::id(), $file['name'], $filePath, $mime, $file['size']]);
+        )->execute([$meetingId, Auth::id(), $original, $filePath, $mime, $file['size']]);
 
-        ActivityLog::record('attachment.create', 'Upload lampiran: ' . $file['name'], 'meeting', $meetingId);
+        ActivityLog::record('attachment.create', 'Upload lampiran: ' . $original, 'meeting', $meetingId);
 
-        echo json_encode(['success'=>true,'message'=>'File berhasil diupload','file_path'=>BASE_URL.$filePath,'original_name'=>$file['name'],'icon'=>self::iconForMime($mime)]);
+        echo json_encode(['success'=>true,'message'=>'File berhasil diupload','file_path'=>BASE_URL.$filePath,'original_name'=>$original,'icon'=>self::iconForMime($mime)]);
         exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  DELETE                                                              */
-    /* ------------------------------------------------------------------ */
     public static function delete(): void
     {
         Auth::requireLogin();
@@ -131,13 +123,6 @@ class AttachmentController
         echo json_encode(['success'=>true,'message'=>'Lampiran berhasil dihapus']); exit;
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  HELPERS                                                             */
-    /* ------------------------------------------------------------------ */
-
-    /**
-     * PHP 7.4 compat: ganti match(true) + str_contains dengan if-elseif chain
-     */
     private static function iconForMime(string $mime): string
     {
         if (strpos($mime, 'pdf') !== false)          return '📄';
@@ -154,5 +139,32 @@ class AttachmentController
         if ($bytes < 1024)        return $bytes . ' B';
         if ($bytes < 1048576)     return round($bytes / 1024, 1) . ' KB';
         return round($bytes / 1048576, 2) . ' MB';
+    }
+
+    private static function safeFileName(string $name): string
+    {
+        $name = trim(str_replace(["\r", "\n", "\0"], '', $name));
+        return $name === '' ? 'file' : $name;
+    }
+
+    private static function extensionForMime(string $mime): string
+    {
+        return match ($mime) {
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            'application/vnd.ms-powerpoint' => 'ppt',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'text/plain' => 'txt',
+            'text/csv' => 'csv',
+            'application/zip', 'application/x-zip-compressed' => 'zip',
+            default => 'bin',
+        };
     }
 }

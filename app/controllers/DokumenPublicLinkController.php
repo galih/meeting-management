@@ -11,7 +11,6 @@ class DokumenPublicLinkController
         exit;
     }
 
-    /* ==== API: List link untuk sebuah file ==== */
     public static function index(int $fileId): void
     {
         Auth::requireLogin();
@@ -33,7 +32,6 @@ class DokumenPublicLinkController
         self::json(['success'=>true,'links'=>$links]);
     }
 
-    /* ==== API: Buat link baru ==== */
     public static function store(int $fileId): void
     {
         Auth::requireLogin();
@@ -50,7 +48,6 @@ class DokumenPublicLinkController
         $expiresAt    = trim($_POST['expires_at'] ?? '') ?: null;
         $maxDownloads = ($_POST['max_downloads'] ?? '') !== '' ? (int)$_POST['max_downloads'] : null;
 
-        // Validasi expires_at
         if ($expiresAt && !strtotime($expiresAt)) {
             self::json(['success'=>false,'message'=>'Format tanggal kadaluarsa tidak valid.']);
         }
@@ -64,7 +61,6 @@ class DokumenPublicLinkController
         self::json(['success'=>true,'message'=>'Link publik berhasil dibuat.','link'=>$link]);
     }
 
-    /* ==== API: Hapus link ==== */
     public static function destroy(int $fileId, int $linkId): void
     {
         Auth::requireLogin();
@@ -88,7 +84,6 @@ class DokumenPublicLinkController
         self::json(['success'=>true,'message'=>'Link dihapus.','links'=>$links]);
     }
 
-    /* ==== PUBLIC: Halaman akses link (tanpa login) ==== */
     public static function publicPage(string $token): void
     {
         $link = DokumenPublicLinkModel::getByToken($token);
@@ -104,7 +99,6 @@ class DokumenPublicLinkController
             return;
         }
 
-        // Cek password (via POST)
         $needPassword   = !empty($link['password_hash']);
         $passVerified   = false;
         $passError      = '';
@@ -133,7 +127,6 @@ class DokumenPublicLinkController
         self::renderPublicView($file, $link);
     }
 
-    /* ==== PUBLIC: Download langsung via token ==== */
     public static function publicDownload(string $token): void
     {
         $link = DokumenPublicLinkModel::getByToken($token);
@@ -143,7 +136,6 @@ class DokumenPublicLinkController
         if ($link['permission'] !== 'download') {
             http_response_code(403); echo 'Link ini hanya untuk melihat, bukan download.'; exit;
         }
-        // Cek password via session
         if (!empty($link['password_hash'])) {
             $session_key = 'pub_link_ok_' . $token;
             if (empty($_SESSION[$session_key])) {
@@ -156,16 +148,16 @@ class DokumenPublicLinkController
         if (!file_exists($path)) { http_response_code(404); echo 'File fisik tidak ada.'; exit; }
         DokumenPublicLinkModel::incrementDownload((int)$link['id']);
         header('Content-Type: ' . $file['mime_type']);
-        header('Content-Disposition: attachment; filename="'.addslashes($file['original_name']).'"');
+        header('Content-Disposition: attachment; filename*=UTF-8\'\'' . rawurlencode(self::safeFileName($file['original_name'])));
         header('Content-Length: ' . filesize($path));
+        header('X-Content-Type-Options: nosniff');
         readfile($path);
         exit;
     }
 
-    /* ==== Helper: render halaman publik ==== */
     private static function renderPublicView(array $file, array $link): void
     {
-        $title      = htmlspecialchars($file['original_name']);
+        $title      = htmlspecialchars(self::safeFileName($file['original_name']));
         $mimeLabel  = DokumenModel::mimeLabel($file['mime_type']);
         $mimeColor  = DokumenModel::mimeColor($file['mime_type']);
         $sizeLabel  = DokumenModel::formatSize((int)$file['file_size']);
@@ -262,7 +254,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#1a1614;min-height:1
 
     private static function renderPasswordForm(array $file, array $link, string $error): void
     {
-        $title = htmlspecialchars($file['original_name']);
+        $title = htmlspecialchars(self::safeFileName($file['original_name']));
         ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -320,5 +312,11 @@ h2{font-size:18px;margin-bottom:.5rem}p{font-size:13px;opacity:.7}
 </html>
 <?php
         exit;
+    }
+
+    private static function safeFileName(string $name): string
+    {
+        $name = trim(str_replace(["\r", "\n", "\0"], '', $name));
+        return $name === '' ? 'file' : $name;
     }
 }

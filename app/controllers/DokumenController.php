@@ -116,7 +116,7 @@ class DokumenController
             exit;
         }
 
-        $ext    = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'bin');
+        $ext    = self::extensionForMime($mime);
         $stored = 'dok_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
         $dir    = ROOT_PATH . '/assets/uploads/dokumen/';
         if (!is_dir($dir)) @mkdir($dir, 0755, true);
@@ -128,7 +128,7 @@ class DokumenController
 
         $fileId = DokumenModel::insertFile([
             'folder_id'     => $folderId,
-            'original_name' => $file['name'],
+            'original_name' => self::safeFileName($file['name']),
             'stored_name'   => $stored,
             'file_path'     => '/assets/uploads/dokumen/' . $stored,
             'mime_type'     => $mime,
@@ -173,7 +173,7 @@ class DokumenController
         if (!file_exists($path)) { http_response_code(404); echo 'File fisik tidak ditemukan.'; exit; }
 
         header('Content-Type: ' . $file['mime_type']);
-        header('Content-Disposition: inline; filename="' . addslashes($file['original_name']) . '"');
+        header('Content-Disposition: inline; filename*=UTF-8\'\'' . rawurlencode(self::safeFileName($file['original_name'])));
         header('Content-Length: ' . filesize($path));
         header('Cache-Control: private, max-age=300');
         header('X-Content-Type-Options: nosniff');
@@ -212,7 +212,7 @@ class DokumenController
         if (!file_exists($path)) { http_response_code(404); echo 'File fisik tidak ada.'; exit; }
 
         header('Content-Type: ' . $file['mime_type']);
-        header('Content-Disposition: inline; filename="' . addslashes($file['original_name']) . '"');
+        header('Content-Disposition: inline; filename*=UTF-8\'\'' . rawurlencode(self::safeFileName($file['original_name'])));
         header('Content-Length: ' . filesize($path));
         header('Cache-Control: public, max-age=300');
         header('X-Content-Type-Options: nosniff');
@@ -338,8 +338,8 @@ class DokumenController
         }
         $name = trim($_POST['name'] ?? '');
         if ($name === '') { echo json_encode(['success'=>false,'message'=>'Nama tidak boleh kosong.']); exit; }
-        DokumenModel::renameFile($id, $name);
-        echo json_encode(['success'=>true,'message'=>'File berhasil diubah.','name'=>$name]);
+        DokumenModel::renameFile($id, self::safeFileName($name));
+        echo json_encode(['success'=>true,'message'=>'File berhasil diubah.','name'=>self::safeFileName($name)]);
         exit;
     }
 
@@ -382,9 +382,10 @@ class DokumenController
         if (!file_exists($path)) { http_response_code(404); echo 'File tidak ditemukan di server.'; exit; }
 
         header('Content-Type: ' . $file['mime_type']);
-        header('Content-Disposition: attachment; filename="' . addslashes($file['original_name']) . '"');
+        header('Content-Disposition: attachment; filename*=UTF-8\'\'' . rawurlencode(self::safeFileName($file['original_name'])));
         header('Content-Length: ' . filesize($path));
         header('Cache-Control: no-cache');
+        header('X-Content-Type-Options: nosniff');
         readfile($path);
         exit;
     }
@@ -413,5 +414,39 @@ class DokumenController
             $current = $folder['parent_id'] ? (int)$folder['parent_id'] : 0;
         }
         return $crumbs;
+    }
+
+    private static function safeFileName(string $name): string
+    {
+        $name = trim(str_replace(["\r", "\n", "\0"], '', $name));
+        return $name === '' ? 'file' : $name;
+    }
+
+    private static function extensionForMime(string $mime): string
+    {
+        return match ($mime) {
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            'application/vnd.ms-powerpoint' => 'ppt',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'video/mp4' => 'mp4',
+            'video/quicktime' => 'mov',
+            'video/x-msvideo' => 'avi',
+            'audio/mpeg' => 'mp3',
+            'audio/wav' => 'wav',
+            'audio/ogg' => 'ogg',
+            'text/plain' => 'txt',
+            'text/csv' => 'csv',
+            'application/zip', 'application/x-zip-compressed' => 'zip',
+            'application/x-rar-compressed' => 'rar',
+            default => 'bin',
+        };
     }
 }
