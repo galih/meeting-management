@@ -17,13 +17,6 @@ $loginBg = SettingController::get('login_bg');
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    /* ══ PALET KEMENBUD ══
-       Merah Marun  : #7B1C1C  (primer)
-       Merah Tua    : #5C1212  (hover)
-       Emas         : #C9A84C  (aksen)
-       Krem         : #FAF6EF  (background lembut)
-       Krem Border  : #E8DDD0  (garis)
-    */
     :root {
       --maroon      : #7B1C1C;
       --maroon-dark : #5C1212;
@@ -202,59 +195,8 @@ $loginBg = SettingController::get('login_bg');
     .auth-btn:hover  { background: var(--maroon-dark); box-shadow: 0 4px 16px rgba(123,28,28,.28); }
     .auth-btn:active { transform: translateY(1px); }
 
-    /* Divider */
-    .auth-divider {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin: 22px 0;
-      font-size: 13px;
-      color: var(--gray-400);
-    }
-    .auth-divider::before,
-    .auth-divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--cream-border);
-    }
-
-    /* OAuth buttons */
-    .auth-oauth {
-      display: flex;
-      gap: 11px;
-      margin-bottom: 0;
-    }
-    .auth-oauth-btn {
-      flex: 1; height: 44px;
-      border: 1.5px solid var(--cream-border);
-      border-radius: 9px;
-      background: #fff;
-      font-size: 13px;
-      font-weight: 600;
-      font-family: inherit;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      color: var(--gray-900);
-      transition: border-color .14s, background .14s;
-    }
-    .auth-oauth-btn:hover { border-color: var(--maroon); background: var(--maroon-light); }
-
-    /* Footer */
-    .auth-footer {
-      margin-top: 26px;
-      font-size: 13.5px;
-      color: var(--gray-600);
-      text-align: center;
-    }
-    .auth-footer a { color: var(--maroon); font-weight: 700; text-decoration: none; }
-    .auth-footer a:hover { text-decoration: underline; }
-
     .auth-copyright {
-      margin-top: 44px;
+      margin-top: 36px;
       font-size: 11.5px;
       color: var(--gray-400);
     }
@@ -274,7 +216,6 @@ $loginBg = SettingController::get('login_bg');
       object-fit: cover;
       object-position: center;
     }
-    /* Overlay gradien tipis agar panel terasa menyatu */
     .auth-right::after {
       content: '';
       position: absolute;
@@ -286,7 +227,6 @@ $loginBg = SettingController::get('login_bg');
       pointer-events: none;
       z-index: 1;
     }
-    /* Badge branding di sudut kanan bawah */
     .auth-right-badge {
       position: absolute;
       bottom: 32px;
@@ -379,6 +319,7 @@ $loginBg = SettingController::get('login_bg');
     <?php endif; ?>
 
     <form method="POST" action="<?= BASE_URL ?>/login" autocomplete="on">
+      <?php if (function_exists('csrf_field')) echo csrf_field(); ?>
 
       <!-- Username -->
       <div class="auth-field">
@@ -423,32 +364,6 @@ $loginBg = SettingController::get('login_bg');
       <!-- Submit -->
       <button type="submit" class="auth-btn">Masuk ke Sistem</button>
 
-      <!-- Divider -->
-      <div class="auth-divider">atau</div>
-
-      <!-- Placeholder OAuth (opsional) -->
-      <div class="auth-oauth">
-        <button type="button" class="auth-oauth-btn">
-          <svg width="17" height="17" viewBox="0 0 48 48">
-            <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.1 8 3l5.7-5.7C34.5 6.5 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.6-.4-3.9z"/>
-            <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.9 18.9 12 24 12c3.1 0 5.9 1.1 8 3l5.7-5.7C34.5 6.5 29.5 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-            <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.4-4.5 2.4-7.2 2.4-5.2 0-9.6-3.4-11.2-8H6.3C9.7 39.6 16.3 44 24 44z"/>
-            <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.4l6.2 5.2C40.5 35.4 44 30.1 44 24c0-1.3-.1-2.6-.4-3.9z"/>
-          </svg>
-          Masuk dengan Google
-        </button>
-        <button type="button" class="auth-oauth-btn">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-          </svg>
-          Masuk dengan Apple
-        </button>
-      </div>
-
-      <div class="auth-footer">
-        Belum punya akun? <a href="<?= BASE_URL ?>/register">Daftar sekarang</a>
-      </div>
-
     </form>
 
     <div class="auth-copyright">&copy; <?= date('Y') ?> <?= APP_NAME ?> &mdash; v<?= defined('APP_VERSION') ? APP_VERSION : '1.0.0' ?></div>
@@ -462,7 +377,6 @@ $loginBg = SettingController::get('login_bg');
       alt=""
       class="auth-right-img auth-right-img-default">
     <?php endif; ?>
-    <!-- Branding badge -->
     <div class="auth-right-badge">
       <div class="auth-right-badge-title"><?= APP_NAME ?></div>
       <div class="auth-right-badge-desc">Platform manajemen kegiatan terpadu &mdash; notulen, tindak lanjut, dan kalender dalam satu sistem.</div>
