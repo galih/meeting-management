@@ -28,7 +28,6 @@ class AuthController
             header('Location: ' . BASE_URL . '/login'); exit;
         }
         if (time() >= ($attempts['until'] ?? 0)) {
-            // Reset counter setelah window habis
             $attempts = ['count' => 0, 'until' => 0];
         }
 
@@ -46,10 +45,9 @@ class AuthController
         );
 
         if (!$user || !password_verify($password, $user['password'])) {
-            // Catat percobaan gagal
             $attempts['count']++;
             if ($attempts['count'] >= 10) {
-                $attempts['until'] = time() + 15 * 60; // lockout 15 menit
+                $attempts['until'] = time() + 15 * 60;
             }
             $_SESSION[$rateLimKey] = $attempts;
 
@@ -62,10 +60,8 @@ class AuthController
             header('Location: ' . BASE_URL . '/login'); exit;
         }
 
-        // Login berhasil — reset rate limit
         unset($_SESSION[$rateLimKey]);
 
-        // Regenerate session ID setelah login (session fixation prevention)
         session_regenerate_id(true);
         self::setSession($user);
 
@@ -74,13 +70,11 @@ class AuthController
             $hashed = hash('sha256', $raw);
             $expiry = date('Y-m-d H:i:s', time() + 60 * 60 * 24 * 30);
 
-            // Simpan HASH, bukan token plaintext
             Database::getInstance()->prepare(
                 "INSERT INTO user_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)
                  ON DUPLICATE KEY UPDATE token_hash=VALUES(token_hash), expires_at=VALUES(expires_at)"
             )->execute([$user['id'], $hashed, $expiry]);
 
-            // Set cookie dengan Secure flag dinamis
             $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
                        || ($_SERVER['SERVER_PORT'] ?? 80) == 443;
             setcookie('remember_token', $raw, [
@@ -104,7 +98,6 @@ class AuthController
             (int)$user['id']
         );
 
-        // Validasi redirect — hanya URL internal (cegah open redirect)
         $redirect = $_SESSION['redirect_after_login'] ?? '';
         unset($_SESSION['redirect_after_login']);
         if (!$redirect || !self::isSafeRedirect($redirect)) {
@@ -127,7 +120,6 @@ class AuthController
         }
 
         if (isset($_COOKIE['remember_token'])) {
-            // Hapus token dari DB berdasarkan hash
             $hashed = hash('sha256', $_COOKIE['remember_token']);
             Database::getInstance()->prepare(
                 "DELETE FROM user_tokens WHERE user_id=? AND token_hash=?"
@@ -149,25 +141,34 @@ class AuthController
     public static function forgotPassword(): void
     {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            $username = trim($_POST['username'] ?? '');
-            $user     = Database::queryOne("SELECT * FROM users WHERE username=?", [$username]);
-            if ($user) {
-                $token   = bin2hex(random_bytes(32));
-                $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
-                Database::getInstance()->prepare(
-                    "UPDATE users SET reset_token=?, reset_token_expires=? WHERE id=?"
-                )->execute([$token, $expires, $user['id']]);
-                try {
-                    Mailer::send($user['email'], 'Reset Password — ' . APP_NAME,
-                        "Halo {$user['name']},\n\nKlik link berikut untuk reset password:\n"
-                        . BASE_URL . "/reset-password?token={$token}\n\nLink berlaku 1 jam."
-                    );
-                } catch (\Throwable $e) {
-                    // silent — email gagal tidak menghentikan flow
+            $email = trim(strtolower($_POST['email'] ?? ''));
+
+            if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $user = Database::queryOne(
+                    "SELECT * FROM users WHERE LOWER(email)=? AND is_active=1",
+                    [$email]
+                );
+                if ($user) {
+                    $token   = bin2hex(random_bytes(32));
+                    $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+                    Database::getInstance()->prepare(
+                        "UPDATE users SET reset_token=?, reset_token_expires=? WHERE id=?"
+                    )->execute([$token, $expires, $user['id']]);
+                    try {
+                        Mailer::send(
+                            $user['email'],
+                            'Reset Password — ' . APP_NAME,
+                            "Halo {$user['name']},\n\nKlik link berikut untuk reset password:\n"
+                            . BASE_URL . "/reset-password?token={$token}\n\nLink berlaku 1 jam."
+                        );
+                    } catch (\Throwable $e) {
+                        // silent — email gagal tidak menghentikan flow
+                    }
                 }
             }
-            // Pesan generik agar tidak mengungkap apakah username terdaftar
-            $_SESSION['flash_success'] = 'Jika username terdaftar, link reset akan dikirim ke email Anda.';
+
+            // Pesan generik agar tidak mengungkap apakah email terdaftar
+            $_SESSION['flash_success'] = 'Jika email terdaftar, link reset akan dikirim ke inbox Anda.';
             header('Location: ' . BASE_URL . '/forgot-password'); exit;
         }
         View::standalone('auth/forgot-password', ['title' => 'Lupa Password']);
@@ -200,7 +201,7 @@ class AuthController
             Database::getInstance()->prepare(
                 "UPDATE users SET password=?, reset_token=NULL, reset_token_expires=NULL WHERE id=?"
             )->execute([$hash, $user['id']]);
-            // Invalidate semua remember-me token milik user ini setelah reset password
+            // Invalidate semua remember-me token setelah reset password
             Database::getInstance()->prepare(
                 "DELETE FROM user_tokens WHERE user_id=?"
             )->execute([$user['id']]);
@@ -211,6 +212,7 @@ class AuthController
         View::standalone('auth/reset-password', [
             'title' => 'Reset Password',
             'token' => $token,
+            'reset' => $user,
         ]);
     }
 
@@ -225,17 +227,12 @@ class AuthController
         ];
     }
 
-    /**
-     * Pastikan URL redirect hanya mengarah ke path internal (cegah open redirect).
-     */
     private static function isSafeRedirect(string $url): bool
     {
-        // Izinkan hanya path relatif atau URL dengan host yang sama
         $parsed = parse_url($url);
         if (isset($parsed['host'])) {
             return $parsed['host'] === ($_SERVER['HTTP_HOST'] ?? '');
         }
-        // Path relatif: harus dimulai dengan '/'
         return isset($parsed['path']) && str_starts_with($parsed['path'], '/');
     }
 }
