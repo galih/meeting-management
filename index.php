@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-// ── Session hardening (harus sebelum session_start) ────────────────
+// ── Session hardening (harus sebelum session_start) ──────────────────
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_samesite', 'Lax');
 ini_set('session.use_strict_mode', '1');
@@ -22,7 +22,7 @@ define('BASE_URL',
     . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')
 );
 
-// ── Global Security Headers ─────────────────────────────────────────
+// ── Global Security Headers ──────────────────────────────────────
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
@@ -108,8 +108,7 @@ $router->post('/tindak-lanjut/{id}/delete',                  [TindakLanjutContro
 $router->get('/users',                [UserController::class, 'index']);
 $router->post('/users',               [UserController::class, 'store']);
 $router->post('/users/{id}/update',   [UserController::class, 'update']);
-$router->post('/users/{id}/delete',   [UserController::class, 'delete']);
-$router->post('/users/{id}/destroy',  [UserController::class, 'destroy']);
+$router->post('/users/{id}/delete',   [UserController::class, 'destroy']);  // fix: hapus duplikat, satukan ke destroy
 $router->get('/api/users',            [UserController::class, 'apiList']);
 
 // === ROLES & PERMISSIONS ===
@@ -150,9 +149,10 @@ $router->post('/meetings/{id}/send-summary',     [EmailController::class, 'sendS
 $router->get('/api/email/send-reminders',        [EmailController::class, 'sendDeadlineReminders']);
 
 // === NOTIFICATIONS ===
-$router->get('/api/notifications',        [NotifikasiController::class, 'index']);
-$router->post('/api/notifications/read',  [NotifikasiController::class, 'markRead']);
-$router->get('/notifications',            [NotifikasiController::class, 'page']);
+$router->get('/api/notifications',             [NotifikasiController::class, 'index']);
+$router->post('/api/notifications/read',       [NotifikasiController::class, 'markRead']);
+$router->post('/api/notifications/delete-all', [NotifikasiController::class, 'deleteAll']); // fix: tambah route baru
+$router->get('/notifications',                 [NotifikasiController::class, 'page']);
 
 // === SETTINGS ===
 $router->get('/settings',                           [SettingController::class, 'index']);
@@ -226,7 +226,7 @@ $router->get('/d/{token}',                                           [DokumenPub
 $router->post('/d/{token}',                                          [DokumenPublicLinkController::class, 'publicPage']);
 $router->get('/d/{token}/download',                                  [DokumenPublicLinkController::class, 'publicDownload']);
 
-// ── Bootstrap: remember-me & CSRF global enforcement ───────────────
+// ── Bootstrap: remember-me & CSRF global enforcement ──────────────────
 Auth::checkRememberToken();
 
 $method    = $_SERVER['REQUEST_METHOD'];
