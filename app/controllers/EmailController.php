@@ -1,7 +1,7 @@
 <?php
 class EmailController
 {
-    // ── Fix #2: CSRF helper ─────────────────────────────────────────────
+    // ── CSRF helper ─────────────────────────────────────────────────────
     private static function verifyCsrf(): void
     {
         $token   = $_POST['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
@@ -113,9 +113,24 @@ class EmailController
 
     /**
      * GET /api/email/send-reminders
+     * Fix: dilindungi token secret atau hanya bisa diakses admin/cron.
+     * Jika dipanggil via browser (ada session), wajib admin.
+     * Jika dipanggil via cron (tidak ada session), wajib header X-Cron-Secret.
      */
     public static function sendDeadlineReminders(): void
     {
+        $cronSecret = defined('APP_SECRET') ? APP_SECRET : '';
+        $headerSecret = $_SERVER['HTTP_X_CRON_SECRET'] ?? '';
+        $isValidCron  = $cronSecret && hash_equals($cronSecret, $headerSecret);
+        $isAdminSession = Auth::check() && Auth::isAdmin();
+
+        if (!$isValidCron && !$isAdminSession) {
+            http_response_code(401);
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'message' => 'Akses tidak diizinkan.']);
+            exit;
+        }
+
         $tomorrow = date('Y-m-d', strtotime('+1 day'));
 
         $tasks = Database::query(

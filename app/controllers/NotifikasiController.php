@@ -11,7 +11,7 @@ class NotifikasiController {
         Auth::requireAuth();
         header('Content-Type: application/json');
         $uid    = Auth::id();
-        $notifs = Notification::getUnread($uid, 20);
+        $notifs = Notification::getUnread($uid, 20);  // sudah include created_at_human & int is_read
         $unread = Notification::countUnread($uid);
         echo json_encode([
             'data'         => $notifs,
@@ -40,8 +40,18 @@ class NotifikasiController {
     }
 
     /**
+     * POST /api/notifications/delete-all
+     */
+    public function deleteAll(): void {
+        Auth::requireAuth();
+        header('Content-Type: application/json');
+        Notification::deleteAll((int)Auth::id());
+        echo json_encode(['success' => true]);
+    }
+
+    /**
      * GET /notifications
-     * Halaman full notifikasi — TIDAK auto-markAllRead saat buka
+     * Halaman full notifikasi.
      * Support filter: ?filter=unread
      */
     public function page(): void {
@@ -64,10 +74,17 @@ class NotifikasiController {
             [$uid, $limit, $offset]
         );
 
+        // fix is_read cast + tambahkan human time di server-side juga
+        foreach ($notifs as &$n) {
+            $n['is_read']          = (int)$n['is_read'];
+            $n['created_at_human'] = Notification::timeAgo($n['created_at'] ?? '');
+        }
+        unset($n);
+
         $total     = (int)(Database::queryOne(
             "SELECT COUNT(*) c FROM notifications {$where}", [$uid]
         )['c'] ?? 0);
-        $totalPage = (int)ceil($total / $limit) ?: 1;
+        $totalPage   = (int)ceil($total / $limit) ?: 1;
         $unreadTotal = Notification::countUnread($uid);
 
         View::layout('notifications/index', [
