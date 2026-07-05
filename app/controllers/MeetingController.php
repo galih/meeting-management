@@ -99,6 +99,8 @@ class MeetingController
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
+        // FIX #1: CSRF check yang sebelumnya tidak ada
+        self::verifyCsrf();
 
         $title     = trim($_POST['title']          ?? '');
         $desc      = trim($_POST['description']    ?? '');
@@ -118,8 +120,10 @@ class MeetingController
         if (!preg_match('/^#[0-9a-fA-F]{3,6}$/', $color)) $color = '#f76707';
 
         if (!empty($errors)) {
-            $_SESSION['flash_error'] = implode(' ', $errors);
-            header('Location: ' . BASE_URL . '/meetings/create'); exit;
+            $_SESSION['flash_error']        = implode(' ', $errors);
+            $_SESSION['flash_reopen_modal'] = true;
+            $_SESSION['flash_post_title']   = $title;
+            header('Location: ' . BASE_URL . '/meetings'); exit;
         }
 
         $db = Database::getInstance();
@@ -291,7 +295,13 @@ class MeetingController
              WHERE id=?"
         )->execute([$title, $desc, $location, $startDt, $endDt, $color, $deptId, $id]);
 
-        // Sync peserta (hanya admin & pembuat yang boleh ubah peserta)
+        // FIX #4: Ambil peserta lama sebelum di-delete untuk diff notifikasi
+        $oldRows = Database::query(
+            "SELECT user_id FROM meeting_participants WHERE meeting_id=?", [$id]
+        );
+        $oldParticipantIds = array_map('intval', array_column($oldRows, 'user_id'));
+
+        // Sync peserta
         $newParticipants = array_filter(array_map('intval', (array)($_POST['participants'] ?? [])));
         $db = Database::getInstance();
         $db->prepare("DELETE FROM meeting_participants WHERE meeting_id=?")->execute([$id]);
@@ -299,6 +309,17 @@ class MeetingController
             $db->prepare(
                 "INSERT IGNORE INTO meeting_participants (meeting_id, user_id) VALUES (?,?)"
             )->execute([$id, $uid]);
+        }
+
+        // FIX #4: Kirim notifikasi hanya ke peserta yang BARU ditambahkan
+        $addedParticipants = array_values(array_diff($newParticipants, $oldParticipantIds));
+        if (!empty($addedParticipants)) {
+            Notification::sendBulk(
+                $addedParticipants,
+                'meeting_invite',
+                "Anda diundang ke kegiatan: {$title}",
+                BASE_URL . "/meetings/{$id}"
+            );
         }
 
         ActivityLog::record(
@@ -366,6 +387,8 @@ class MeetingController
             "DELETE FROM email_queue          WHERE meeting_id=?",
             "DELETE FROM notifications        WHERE url LIKE CONCAT('%/meetings/',?,'%')",
             "DELETE FROM notulen              WHERE meeting_id=?",
+            // FIX #5: Hapus activity_log terkait agar tidak ada orphan data
+            "DELETE FROM activity_log         WHERE object_type='meeting' AND object_id=?",
         ];
         foreach ($relatedTables as $sql) {
             $db->prepare($sql)->execute([$id]);
@@ -375,7 +398,7 @@ class MeetingController
         ActivityLog::record(
             'meeting.delete',
             "Menghapus kegiatan: {$title}",
-            'meeting', $id
+            'meeting', null
         );
 
         $_SESSION['flash_success'] = 'Kegiatan berhasil dihapus.';
@@ -391,9 +414,10 @@ class MeetingController
         $scope  = self::accessScope();
         $params = array_merge($scope['params'], [$start, $end]);
 
+        // FIX #3: Tambahkan m.location agar tooltip kalender bisa menampilkan lokasi
         $meetings = Database::query(
             "SELECT m.id, m.title, m.start_datetime AS start, m.end_datetime AS `end`,
-                    m.color, m.status
+                    m.color, m.status, m.location
              FROM meetings m
              WHERE {$scope['where']}
                AND m.start_datetime BETWEEN ? AND ?
@@ -408,7 +432,11 @@ class MeetingController
             'end'   => $m['end'],
             'color' => $m['color'],
             'url'   => BASE_URL . '/meetings/' . $m['id'],
-            'extendedProps' => ['status' => $m['status']],
+            'extendedProps' => [
+                'status'   => $m['status'],
+                // FIX #3: Sertakan location di extendedProps
+                'location' => $m['location'] ?? '',
+            ],
         ], $meetings);
 
         header('Content-Type: application/json');

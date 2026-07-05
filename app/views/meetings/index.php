@@ -28,9 +28,17 @@ foreach ($meetings as $m) {
   if (isset($cnt[$s])) $cnt[$s]++;
 }
 
-$flashSuccess = $_SESSION['flash_success'] ?? null;
-$flashError   = $_SESSION['flash_error']   ?? null;
-unset($_SESSION['flash_success'], $_SESSION['flash_error']);
+// FIX #8: Baca flash repopulate untuk modal create
+$flashSuccess   = $_SESSION['flash_success']     ?? null;
+$flashError     = $_SESSION['flash_error']       ?? null;
+$reopenModal    = $_SESSION['flash_reopen_modal'] ?? false;
+$postTitle      = $_SESSION['flash_post_title']  ?? '';
+unset($_SESSION['flash_success'], $_SESSION['flash_error'],
+      $_SESSION['flash_reopen_modal'], $_SESSION['flash_post_title']);
+
+// FIX #6: Baca filter aktif dari controller (sudah di-pass sebagai variabel view)
+$activeStatus = $status ?? '';
+$activeSearch = $search ?? '';
 ?>
 
 <!-- ══ FLASH TOAST ══════════════════════════════════════════════════ -->
@@ -69,9 +77,17 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 
 <!-- ══ STAT CARDS ════════════════════════════════════════════════════ -->
 <div class="mi-stats">
+  <!-- FIX #7: Tambahkan label filter aktif jika ada -->
   <div class="mi-stat-card mi-stat-all">
-    <div class="mi-stat-val"><?= $cnt['total'] ?></div>
-    <div class="mi-stat-lbl">Total Kegiatan</div>
+    <div>
+      <div class="mi-stat-val"><?= $cnt['total'] ?></div>
+      <div class="mi-stat-lbl">
+        Total Kegiatan
+        <?php if ($activeStatus || $activeSearch): ?>
+          <span class="mi-stat-filter-hint">(filter aktif)</span>
+        <?php endif; ?>
+      </div>
+    </div>
   </div>
   <div class="mi-stat-card mi-stat-sched" data-filter-stat="scheduled">
     <div class="mi-stat-dot"></div>
@@ -325,8 +341,10 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
             <div class="mi-mc-grid">
               <div class="mi-mc-field mi-mc-full">
                 <label class="mi-mc-lbl mi-req">Judul Kegiatan</label>
+                <!-- FIX #8: Repopulate judul jika ada flash_post_title -->
                 <input type="text" name="title" class="mi-mc-input" required
-                       placeholder="Contoh: Rapat Evaluasi Bulanan Q2" autocomplete="off">
+                       placeholder="Contoh: Rapat Evaluasi Bulanan Q2" autocomplete="off"
+                       value="<?= htmlspecialchars($postTitle) ?>">
               </div>
               <div class="mi-mc-field">
                 <label class="mi-mc-lbl mi-req">Mulai</label>
@@ -496,7 +514,7 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 }
 .mi-stat-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.08); transform: translateY(-1px); }
 .mi-stat-card.mi-active { border-color: #7B1C1C; box-shadow: 0 0 0 2.5px rgba(123,28,28,.18); }
-.mi-stat-all  { grid-column: span 1; background: #7B1C1C; border-color: #7B1C1C; }
+.mi-stat-all  { grid-column: span 1; background: #7B1C1C; border-color: #7B1C1C; cursor: default; }
 .mi-stat-all .mi-stat-val { color: #fff; font-size: 24px; }
 .mi-stat-all .mi-stat-lbl { color: rgba(255,255,255,.75); }
 .mi-stat-val { font-size: 22px; font-weight: 800; color: var(--text-main, #2c1a1a); line-height: 1; }
@@ -508,6 +526,8 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 .mi-stat-ongoing .mi-stat-dot { background: #f59e0b; }
 .mi-stat-done   .mi-stat-dot { background: #22c55e; }
 .mi-stat-cancel .mi-stat-dot { background: #ef4444; }
+/* FIX #7 */
+.mi-stat-filter-hint { font-size: 10px; opacity: .75; font-style: italic; display: block; }
 
 /* ── Panel ── */
 .mi-panel {
@@ -819,6 +839,10 @@ unset($_SESSION['flash_success'], $_SESSION['flash_error']);
 $calendarApiUrl  = $baseUrl . '/api/meetings/calendar';
 $meetingBaseUrl  = $baseUrl . '/meetings/';
 $deptChildrenUrl = $baseUrl . '/api/departments/children';
+// FIX #6 & #8: Pass PHP vars ke JS untuk sync filter & reopen modal
+$jsActiveStatus  = json_encode($activeStatus);
+$jsActiveSearch  = json_encode($activeSearch);
+$jsReopenModal   = json_encode((bool)$reopenModal);
 ?>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -828,6 +852,14 @@ document.addEventListener('DOMContentLoaded', function () {
   if (toast) {
     setTimeout(() => { toast.style.opacity = '0'; }, 4000);
     setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4400);
+  }
+
+  /* ── FIX #8: Buka kembali modal create jika ada flash_reopen_modal ── */
+  if (<?= $jsReopenModal ?>) {
+    const modalEl = document.getElementById('modalMeeting');
+    if (modalEl && typeof bootstrap !== 'undefined') {
+      new bootstrap.Modal(modalEl).show();
+    }
   }
 
   /* ── View toggle ── */
@@ -861,6 +893,7 @@ document.addEventListener('DOMContentLoaded', function () {
     events: { url: <?= json_encode($calendarApiUrl) ?>, failure: () => console.warn('Gagal load events kalender') },
     eventClick: info => window.location.href = <?= json_encode($meetingBaseUrl) ?> + info.event.id,
     eventDidMount: info => {
+      // FIX #3: Gunakan location dari extendedProps (sekarang tersedia)
       const loc = info.event.extendedProps.location || 'Lokasi belum diset';
       info.el.title = info.event.title + '\n📍 ' + loc;
     }
@@ -872,7 +905,6 @@ document.addEventListener('DOMContentLoaded', function () {
     card.addEventListener('click', () => {
       const sf = document.getElementById('miStatusFilter');
       if (!sf) return;
-      // Switch to list view
       vtabs.forEach(t => t.classList.remove('active'));
       document.querySelector('[data-view="list"]').classList.add('active');
       viewCal.style.display = 'none'; viewList.style.display = ''; listCtrl.style.display = '';
@@ -896,7 +928,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const sf = filterSelect ? filterSelect.value : '';
     const sort = sortSelect ? sortSelect.value : 'newest';
 
-    // Show/hide clear btn
     if (searchClear) searchClear.style.display = q ? 'block' : 'none';
 
     const rows = Array.from(tbody.querySelectorAll('tr.mi-row'));
@@ -909,7 +940,6 @@ document.addEventListener('DOMContentLoaded', function () {
       if (show) visible++;
     });
 
-    // Sort visible rows
     const visibleRows = rows.filter(r => !r.classList.contains('mi-hidden'));
     visibleRows.sort((a, b) => {
       if (sort === 'newest') return (b.dataset.ts || 0) - (a.dataset.ts || 0);
@@ -928,6 +958,19 @@ document.addEventListener('DOMContentLoaded', function () {
   if (sortSelect)   { sortSelect.addEventListener('change', filterTable); }
   if (searchClear)  { searchClear.addEventListener('click', () => { searchInput.value = ''; filterTable(); searchInput.focus(); }); }
 
+  /* ── FIX #6: Sync filter URL ke state JS saat halaman load ── */
+  const initStatus = <?= $jsActiveStatus ?>;
+  const initSearch = <?= $jsActiveSearch ?>;
+  if (initStatus || initSearch) {
+    // Pindah ke list view
+    vtabs.forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-view="list"]').classList.add('active');
+    viewCal.style.display = 'none'; viewList.style.display = ''; listCtrl.style.display = '';
+    if (initStatus && filterSelect) filterSelect.value = initStatus;
+    if (initSearch && searchInput)  searchInput.value  = initSearch;
+    filterTable();
+  }
+
   /* ── Participant counter ── */
   const pChecks = document.querySelectorAll('#miParticipants input[type=checkbox]');
   const pCount  = document.getElementById('miPCount');
@@ -945,7 +988,6 @@ document.addEventListener('DOMContentLoaded', function () {
       btn.classList.add('mi-active');
     });
   });
-  // Init active
   const initColor = document.getElementById('mtgColor')?.value;
   document.querySelectorAll('.mi-color-preset').forEach(b => {
     if (b.dataset.color === initColor) b.classList.add('mi-active');
