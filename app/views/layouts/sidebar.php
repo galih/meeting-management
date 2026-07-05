@@ -57,6 +57,16 @@ $appLogo = SettingController::get('app_logo');
           </a>
         </li>
 
+        <!-- Dokumen: tampil untuk semua user yang login -->
+        <li class="nav-item">
+          <a class="nav-link <?= isActive('/dokumen', $currentUri) ?>" href="<?= $baseUrl ?>/dokumen">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+            </svg>
+            Dokumen
+          </a>
+        </li>
+
         <li class="nav-item">
           <a class="nav-link <?= isActive('/meetings', $currentUri) ?>" href="<?= $baseUrl ?>/meetings">
             <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -76,16 +86,6 @@ $appLogo = SettingController::get('app_logo');
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
             </svg>
             Tindak Lanjut
-          </a>
-        </li>
-
-        <!-- Dokumen: tampil untuk semua user yang login -->
-        <li class="nav-item">
-          <a class="nav-link <?= isActive('/dokumen', $currentUri) ?>" href="<?= $baseUrl ?>/dokumen">
-            <svg xmlns="http://www.w3.org/2000/svg" class="icon me-1" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            </svg>
-            Dokumen
           </a>
         </li>
 
