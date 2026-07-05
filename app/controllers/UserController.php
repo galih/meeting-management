@@ -98,6 +98,10 @@ class UserController
             header('Location: ' . BASE_URL . '/users'); exit;
         }
 
+        // Hanya admin yang boleh assign role; non-admin fallback ke 'peserta'
+        $allowedRoles = ['admin', 'sekretaris', 'editor', 'peserta'];
+        $role = in_array($d['role'] ?? '', $allowedRoles) ? $d['role'] : 'peserta';
+
         $hash = password_hash($d['password'], PASSWORD_BCRYPT, ['cost' => 12]);
         $db   = Database::getInstance();
         $db->prepare(
@@ -105,14 +109,14 @@ class UserController
              VALUES (?,?,?,?,?,?,1)"
         )->execute([
             $username, trim($d['name']), $email, $hash,
-            $d['role'] ?? 'peserta',
+            $role,
             !empty($d['department_id']) ? (int)$d['department_id'] : null,
         ]);
         $newId = (int)$db->lastInsertId();
 
         ActivityLog::record(
             'user.create',
-            "Menambahkan user baru: {$d['name']} ({$username}) — role: " . ($d['role'] ?? 'peserta'),
+            "Menambahkan user baru: {$d['name']} ({$username}) — role: {$role}",
             'user', $newId
         );
 
@@ -140,6 +144,16 @@ class UserController
             header('Location: ' . BASE_URL . '/users'); exit;
         }
 
+        // Hanya admin yang boleh mengubah role; jika bukan admin, pertahankan role lama
+        $allowedRoles = ['admin', 'sekretaris', 'editor', 'peserta'];
+        if (Auth::role() === 'admin' && in_array($d['role'] ?? '', $allowedRoles)) {
+            $role = $d['role'];
+        } else {
+            // Ambil role saat ini dari DB agar tidak bisa di-bypass
+            $existing = Database::queryOne("SELECT role FROM users WHERE id=?", [$id]);
+            $role = $existing['role'] ?? 'peserta';
+        }
+
         $db       = Database::getInstance();
         $isActive = isset($d['is_active']) ? 1 : 0;
 
@@ -148,21 +162,21 @@ class UserController
             $db->prepare(
                 "UPDATE users SET username=?, name=?, email=?, password=?, role=?, department_id=?, is_active=? WHERE id=?"
             )->execute([
-                $username, trim($d['name']), $email, $hash, $d['role'],
+                $username, trim($d['name']), $email, $hash, $role,
                 !empty($d['department_id']) ? (int)$d['department_id'] : null, $isActive, $id,
             ]);
         } else {
             $db->prepare(
                 "UPDATE users SET username=?, name=?, email=?, role=?, department_id=?, is_active=? WHERE id=?"
             )->execute([
-                $username, trim($d['name']), $email, $d['role'],
+                $username, trim($d['name']), $email, $role,
                 !empty($d['department_id']) ? (int)$d['department_id'] : null, $isActive, $id,
             ]);
         }
 
         ActivityLog::record(
             'user.update',
-            "Mengubah data user: {$d['name']} ({$username}) — role: {$d['role']}",
+            "Mengubah data user: {$d['name']} ({$username}) — role: {$role}",
             'user', $id
         );
 

@@ -1,6 +1,7 @@
 <?php
 $baseUrl = rtrim(BASE_URL, '/');
-$roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'peserta' => 'Peserta'];
+$roles   = ['admin' => 'Admin', 'sekretaris' => 'Sekretaris', 'editor' => 'Editor', 'peserta' => 'Peserta'];
+$isAdmin = (Auth::role() === 'admin');
 $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?? 1) === 1));
 ?>
 
@@ -35,6 +36,8 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
   --kb-red-bg:         rgba(168,37,26,.10);
   --kb-orange:         #C05621;
   --kb-orange-bg:      rgba(192,86,33,.10);
+  --kb-purple:         #6B3A8A;
+  --kb-purple-bg:      rgba(107,58,138,.10);
   --kb-gray-bg:        rgba(100,100,100,.10);
   --kb-radius:         12px;
   --kb-radius-sm:      8px;
@@ -124,7 +127,7 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
 
 /* ── Stats Row ───────────────────────────────────────────────── */
 .usr-stats {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr));
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr));
   gap: .65rem; margin-bottom: 1rem;
 }
 .usr-stat-card {
@@ -176,6 +179,7 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
 .usr-badge-orange { background: var(--kb-orange-bg); color: var(--kb-orange); }
 .usr-badge-blue   { background: var(--kb-blue-bg);   color: var(--kb-blue); }
 .usr-badge-green  { background: var(--kb-green-bg);  color: var(--kb-green); }
+.usr-badge-purple { background: var(--kb-purple-bg); color: var(--kb-purple); }
 .usr-badge-gray   { background: var(--kb-gray-bg);   color: var(--kb-text-muted); }
 
 /* Status dot */
@@ -198,6 +202,14 @@ $deptL1  = array_values(array_filter($departments, fn($d) => (int)($d['level'] ?
 .ua-off:hover { background: var(--kb-orange); color: #fff; }
 .ua-del  { background: var(--kb-red-bg); color: var(--kb-red); border-color: rgba(168,37,26,.18); }
 .ua-del:hover { background: var(--kb-red); color: #fff; }
+
+/* Role locked indicator */
+.role-locked {
+  background: var(--kb-surface-2); color: var(--kb-text-muted);
+  border: 1.5px dashed var(--kb-border); border-radius: var(--kb-radius-sm);
+  padding: .42rem .8rem; font-size: 13.5px; width: 100%;
+  cursor: not-allowed;
+}
 
 /* Empty state */
 .usr-empty { padding: 3.5rem 1rem; text-align: center; color: var(--kb-text-faint); }
@@ -320,10 +332,11 @@ select.usr-form-control { appearance: auto; }
 
 <!-- ── Stats ── -->
 <?php
-$totalUsers  = $total ?? count($users);
-$activeCount = count(array_filter($users, fn($u) => $u['is_active']));
-$adminCount  = count(array_filter($users, fn($u) => $u['role'] === 'admin'));
-$sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris'));
+$totalUsers   = $total ?? count($users);
+$activeCount  = count(array_filter($users, fn($u) => $u['is_active']));
+$adminCount   = count(array_filter($users, fn($u) => $u['role'] === 'admin'));
+$sekrCount    = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris'));
+$editorCount  = count(array_filter($users, fn($u) => $u['role'] === 'editor'));
 ?>
 <div class="usr-stats">
   <div class="usr-stat-card">
@@ -345,6 +358,11 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
     <div class="usr-stat-label">Sekretaris</div>
     <div class="usr-stat-value" style="color:var(--kb-orange)"><?= $sekrCount ?></div>
     <div class="usr-stat-sub">pengelola kegiatan</div>
+  </div>
+  <div class="usr-stat-card">
+    <div class="usr-stat-label">Editor</div>
+    <div class="usr-stat-value" style="color:var(--kb-purple)"><?= $editorCount ?></div>
+    <div class="usr-stat-sub">pengelola konten</div>
   </div>
 </div>
 
@@ -400,6 +418,7 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           $roleBadge = match($u['role']) {
             'admin'      => ['class'=>'usr-badge-red',    'label'=>'Admin'],
             'sekretaris' => ['class'=>'usr-badge-orange', 'label'=>'Sekretaris'],
+            'editor'     => ['class'=>'usr-badge-purple', 'label'=>'Editor'],
             default      => ['class'=>'usr-badge-blue',   'label'=>'Peserta'],
           };
           $uJson = htmlspecialchars(json_encode($u, JSON_HEX_QUOT|JSON_HEX_APOS|JSON_HEX_TAG|JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
@@ -549,11 +568,16 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
             </div>
             <div>
               <label class="usr-form-label">Role <span class="req">*</span></label>
+              <?php if ($isAdmin): ?>
               <select name="role" class="usr-form-control" required>
                 <?php foreach ($roles as $val => $label): ?>
                 <option value="<?= $val ?>"><?= $label ?></option>
                 <?php endforeach; ?>
               </select>
+              <?php else: ?>
+              <div class="role-locked">Peserta</div>
+              <input type="hidden" name="role" value="peserta">
+              <?php endif; ?>
             </div>
             <div style="grid-column:1/-1;">
               <label class="usr-form-label">Email <span class="req">*</span></label>
@@ -618,12 +642,21 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
               <input type="text" name="username" id="edit-username" class="usr-form-control" required pattern="[a-zA-Z0-9._\-]+">
             </div>
             <div>
-              <label class="usr-form-label">Role <span class="req">*</span></label>
+              <label class="usr-form-label">Role <span class="req">*</span>
+                <?php if (!$isAdmin): ?>
+                <span style="font-weight:400;color:var(--kb-text-faint);font-size:10.5px;">(hanya admin)</span>
+                <?php endif; ?>
+              </label>
+              <?php if ($isAdmin): ?>
               <select name="role" id="edit-role" class="usr-form-control">
                 <?php foreach ($roles as $val => $label): ?>
                 <option value="<?= $val ?>"><?= $label ?></option>
                 <?php endforeach; ?>
               </select>
+              <?php else: ?>
+              <div class="role-locked" id="edit-role-display"></div>
+              <input type="hidden" name="role" id="edit-role" value="">
+              <?php endif; ?>
             </div>
             <div style="grid-column:1/-1;">
               <label class="usr-form-label">Email <span class="req">*</span></label>
@@ -661,7 +694,6 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
           </div>
         </div>
         <div class="modal-footer">
-          <!-- FIX: gunakan id JS bukan data-bs-dismiss agar selalu bisa diklik -->
           <button type="button" class="usr-btn usr-btn-ghost" id="btnBatalEdit">Batal</button>
           <button type="submit" class="usr-btn usr-btn-primary">Simpan Perubahan</button>
         </div>
@@ -677,6 +709,8 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
   const baseUrl         = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
   const deptChildrenUrl = baseUrl + '/api/departments/children';
   const allDepts        = <?= json_encode(array_values($departments)) ?>;
+  const isAdmin         = <?= json_encode($isAdmin) ?>;
+  const roleLabels      = <?= json_encode($roles) ?>;
 
   /* ── Bootstrap Modal helper ─────────────────────────────────────
      Selalu buat instance baru saat show agar tidak konflik.        */
@@ -690,7 +724,6 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
       inst.show();
       return inst;
     }
-    // Fallback jika Bootstrap JS belum termuat
     el.classList.add('show'); el.style.display = 'block';
     document.body.classList.add('modal-open');
     return { hide() { el.classList.remove('show'); el.style.display = ''; document.body.classList.remove('modal-open'); } };
@@ -815,9 +848,20 @@ $sekrCount   = count(array_filter($users, fn($u) => $u['role'] === 'sekretaris')
       document.getElementById('edit-name').value     = u.name     ?? '';
       document.getElementById('edit-username').value = u.username ?? '';
       document.getElementById('edit-email').value    = u.email    ?? '';
-      document.getElementById('edit-role').value     = u.role     ?? 'peserta';
       document.getElementById('edit-active').checked = u.is_active == 1;
       document.getElementById('formEdit').action     = baseUrl + '/users/' + u.id + '/update';
+
+      // Role: admin bisa ubah via <select>, non-admin tampilkan teks saja
+      if (isAdmin) {
+        document.getElementById('edit-role').value = u.role ?? 'peserta';
+      } else {
+        const display = document.getElementById('edit-role-display');
+        const roleInput = document.getElementById('edit-role');
+        const label = roleLabels[u.role] ?? u.role;
+        if (display) display.textContent = label;
+        if (roleInput) roleInput.value = u.role ?? 'peserta';
+      }
+
       setEditCascade(u.department_id);
       openModal('modalEditUser');
     });
