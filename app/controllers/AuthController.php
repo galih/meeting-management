@@ -3,15 +3,10 @@ declare(strict_types=1);
 
 class AuthController
 {
+    /** @deprecated Gunakan Auth::checkRememberToken() di Auth.php */
     public static function checkRememberToken(): void
     {
-        if (!isset($_SESSION['user']) && isset($_COOKIE['remember_token'])) {
-            $token = $_COOKIE['remember_token'];
-            $user  = Database::queryOne(
-                "SELECT * FROM users WHERE remember_token=? AND is_active=1", [$token]
-            );
-            if ($user) self::setSession($user);
-        }
+        Auth::checkRememberToken();
     }
 
     public static function loginForm(): void
@@ -22,6 +17,21 @@ class AuthController
 
     public static function login(): void
     {
+        // ── Rate limiting: maks 10 percobaan per 15 menit per IP ──
+        $ip         = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $rateLimKey = 'login_attempts_' . md5($ip);
+        $attempts   = $_SESSION[$rateLimKey] ?? ['count' => 0, 'until' => 0];
+
+        if ($attempts['count'] >= 10 && time() < $attempts['until']) {
+            $wait = ceil(($attempts['until'] - time()) / 60);
+            $_SESSION['login_error'] = "Terlalu banyak percobaan login. Coba lagi dalam {$wait} menit.";
+            header('Location: ' . BASE_URL . '/login'); exit;
+        }
+        if (time() >= ($attempts['until'] ?? 0)) {
+            // Reset counter setelah window habis
+            $attempts = ['count' => 0, 'until' => 0];
+        }
+
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password']      ?? '';
         $remember = !empty($_POST['remember']);
@@ -36,23 +46,51 @@ class AuthController
         );
 
         if (!$user || !password_verify($password, $user['password'])) {
+            // Catat percobaan gagal
+            $attempts['count']++;
+            if ($attempts['count'] >= 10) {
+                $attempts['until'] = time() + 15 * 60; // lockout 15 menit
+            }
+            $_SESSION[$rateLimKey] = $attempts;
+
             ActivityLog::record(
                 'auth.failed',
-                "Login gagal untuk username: {$username}",
+                "Login gagal untuk username: {$username} dari IP: {$ip}",
                 'auth'
             );
             $_SESSION['login_error'] = 'Username atau password salah.';
             header('Location: ' . BASE_URL . '/login'); exit;
         }
 
+        // Login berhasil — reset rate limit
+        unset($_SESSION[$rateLimKey]);
+
+        // Regenerate session ID setelah login (session fixation prevention)
+        session_regenerate_id(true);
         self::setSession($user);
 
         if ($remember) {
-            $token = bin2hex(random_bytes(32));
+            $raw    = bin2hex(random_bytes(32));
+            $hashed = hash('sha256', $raw);
+            $expiry = date('Y-m-d H:i:s', time() + 60 * 60 * 24 * 30);
+
+            // Simpan HASH, bukan token plaintext
             Database::getInstance()->prepare(
-                "UPDATE users SET remember_token=? WHERE id=?"
-            )->execute([$token, $user['id']]);
-            setcookie('remember_token', $token, time() + 60*60*24*30, '/', '', false, true);
+                "INSERT INTO user_tokens (user_id, token_hash, expires_at) VALUES (?, ?, ?)
+                 ON DUPLICATE KEY UPDATE token_hash=VALUES(token_hash), expires_at=VALUES(expires_at)"
+            )->execute([$user['id'], $hashed, $expiry]);
+
+            // Set cookie dengan Secure flag dinamis
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+                       || ($_SERVER['SERVER_PORT'] ?? 80) == 443;
+            setcookie('remember_token', $raw, [
+                'expires'  => time() + 60 * 60 * 24 * 30,
+                'path'     => '/',
+                'domain'   => '',
+                'secure'   => $isHttps,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
         }
 
         Database::getInstance()->prepare(
@@ -61,13 +99,17 @@ class AuthController
 
         ActivityLog::record(
             'auth.login',
-            "Login berhasil: {$user['name']} ({$user['username']})",
+            "Login berhasil: {$user['name']} ({$user['username']}) dari IP: {$ip}",
             'auth',
             (int)$user['id']
         );
 
-        $redirect = $_SESSION['redirect_after_login'] ?? BASE_URL . '/';
+        // Validasi redirect — hanya URL internal (cegah open redirect)
+        $redirect = $_SESSION['redirect_after_login'] ?? '';
         unset($_SESSION['redirect_after_login']);
+        if (!$redirect || !self::isSafeRedirect($redirect)) {
+            $redirect = BASE_URL . '/';
+        }
         header('Location: ' . $redirect); exit;
     }
 
@@ -85,10 +127,20 @@ class AuthController
         }
 
         if (isset($_COOKIE['remember_token'])) {
+            // Hapus token dari DB berdasarkan hash
+            $hashed = hash('sha256', $_COOKIE['remember_token']);
             Database::getInstance()->prepare(
-                "UPDATE users SET remember_token=NULL WHERE id=?"
-            )->execute([Auth::id()]);
-            setcookie('remember_token', '', time() - 3600, '/');
+                "DELETE FROM user_tokens WHERE user_id=? AND token_hash=?"
+            )->execute([Auth::id(), $hashed]);
+
+            $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+            setcookie('remember_token', '', [
+                'expires'  => time() - 3600,
+                'path'     => '/',
+                'secure'   => $isHttps,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
         }
         session_destroy();
         header('Location: ' . BASE_URL . '/login'); exit;
@@ -114,6 +166,7 @@ class AuthController
                     // silent — email gagal tidak menghentikan flow
                 }
             }
+            // Pesan generik agar tidak mengungkap apakah username terdaftar
             $_SESSION['flash_success'] = 'Jika username terdaftar, link reset akan dikirim ke email Anda.';
             header('Location: ' . BASE_URL . '/forgot-password'); exit;
         }
@@ -137,16 +190,20 @@ class AuthController
             $confirm = $_POST['password_confirm'] ?? '';
             if (strlen($pass) < 8) {
                 $_SESSION['flash_error'] = 'Password minimal 8 karakter.';
-                header('Location: ' . BASE_URL . '/reset-password?token=' . $token); exit;
+                header('Location: ' . BASE_URL . '/reset-password?token=' . urlencode($token)); exit;
             }
             if ($pass !== $confirm) {
                 $_SESSION['flash_error'] = 'Konfirmasi password tidak cocok.';
-                header('Location: ' . BASE_URL . '/reset-password?token=' . $token); exit;
+                header('Location: ' . BASE_URL . '/reset-password?token=' . urlencode($token)); exit;
             }
             $hash = password_hash($pass, PASSWORD_BCRYPT, ['cost' => 12]);
             Database::getInstance()->prepare(
                 "UPDATE users SET password=?, reset_token=NULL, reset_token_expires=NULL WHERE id=?"
             )->execute([$hash, $user['id']]);
+            // Invalidate semua remember-me token milik user ini setelah reset password
+            Database::getInstance()->prepare(
+                "DELETE FROM user_tokens WHERE user_id=?"
+            )->execute([$user['id']]);
             $_SESSION['flash_success'] = 'Password berhasil direset. Silakan login.';
             header('Location: ' . BASE_URL . '/login'); exit;
         }
@@ -166,5 +223,19 @@ class AuthController
             'email'    => $user['email'],
             'role'     => strtolower(trim($user['role'] ?? '')),
         ];
+    }
+
+    /**
+     * Pastikan URL redirect hanya mengarah ke path internal (cegah open redirect).
+     */
+    private static function isSafeRedirect(string $url): bool
+    {
+        // Izinkan hanya path relatif atau URL dengan host yang sama
+        $parsed = parse_url($url);
+        if (isset($parsed['host'])) {
+            return $parsed['host'] === ($_SERVER['HTTP_HOST'] ?? '');
+        }
+        // Path relatif: harus dimulai dengan '/'
+        return isset($parsed['path']) && str_starts_with($parsed['path'], '/');
     }
 }
