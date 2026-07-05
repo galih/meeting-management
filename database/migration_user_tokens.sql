@@ -2,10 +2,13 @@
 -- Menggantikan kolom remember_token di tabel users dengan tabel dedicated.
 -- Token disimpan sebagai SHA-256 HASH, bukan plaintext.
 -- Jalankan sekali pada environment yang belum memiliki tabel ini.
+--
+-- FIX: user_id menggunakan INT (signed) agar cocok dengan users.id INT
+-- (bukan INT UNSIGNED — schema.sql mendefinisikan users.id sebagai plain INT)
 
 CREATE TABLE IF NOT EXISTS `user_tokens` (
   `id`          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `user_id`     INT UNSIGNED    NOT NULL,
+  `user_id`     INT             NOT NULL COMMENT 'Sama dengan users.id (INT, bukan UNSIGNED)',
   `token_hash`  CHAR(64)        NOT NULL COMMENT 'SHA-256 hash dari token plaintext di cookie',
   `expires_at`  DATETIME        NOT NULL,
   `created_at`  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
