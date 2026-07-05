@@ -1,14 +1,35 @@
 <?php
 declare(strict_types=1);
 
+// ── Session hardening (harus sebelum session_start) ────────────────
+ini_set('session.cookie_httponly', '1');
+ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.use_strict_mode', '1');
+ini_set('session.use_only_cookies', '1');
+ini_set('session.gc_maxlifetime', '7200'); // 2 jam
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+           || ($_SERVER['SERVER_PORT'] ?? 80) == 443;
+if ($isHttps) {
+    ini_set('session.cookie_secure', '1');
+}
 session_start();
+
 define('ROOT_PATH', __DIR__);
 define('APP_PATH',  ROOT_PATH . '/app');
 define('BASE_URL',
-    (isset($_SERVER['HTTPS']) ? 'https' : 'http')
+    ($isHttps ? 'https' : 'http')
     . '://' . $_SERVER['HTTP_HOST']
     . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/')
 );
+
+// ── Global Security Headers ─────────────────────────────────────────
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+if ($isHttps) {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+}
 
 spl_autoload_register(function(string $class): void {
     $paths = [
@@ -149,7 +170,7 @@ $router->get('/api/notulen-templates/{id}',          [NotulenTemplateController:
 $router->get('/admin/activity-log',        [ActivityLogController::class, 'index']);
 $router->post('/admin/activity-log/purge', [ActivityLogController::class, 'purge']);
 
-// === DOKUMEN Fase 1 — halaman & CRUD dasar ===
+// === DOKUMEN Fase 1 ===
 $router->get('/dokumen',                          [DokumenController::class, 'index']);
 $router->post('/api/dokumen/upload',              [DokumenController::class, 'upload']);
 $router->post('/api/dokumen/folder/create',       [DokumenController::class, 'createFolder']);
@@ -159,24 +180,24 @@ $router->post('/api/dokumen/{id}/rename',         [DokumenController::class, 're
 $router->post('/api/dokumen/{id}/delete',         [DokumenController::class, 'deleteFile']);
 $router->get('/dokumen/{id}/download',            [DokumenController::class, 'download']);
 
-// === DOKUMEN Fase 2 — share & permission ===
+// === DOKUMEN Fase 2 ===
 $router->get('/api/dokumen/{id}/shares',                   [DokumenShareController::class, 'index']);
 $router->post('/api/dokumen/{id}/shares',                  [DokumenShareController::class, 'store']);
 $router->post('/api/dokumen/{id}/shares/{uid}/delete',     [DokumenShareController::class, 'destroy']);
 $router->post('/api/dokumen/{id}/shares/{uid}/permission', [DokumenShareController::class, 'updatePermission']);
 
-// === DOKUMEN Fase 3 — preview & info ===
+// === DOKUMEN Fase 3 ===
 $router->get('/api/dokumen/{id}/preview',              [DokumenController::class, 'preview']);
 $router->get('/api/dokumen/{id}/info',                 [DokumenController::class, 'info']);
 $router->get('/api/dokumen/{id}/preview-public',       [DokumenController::class, 'previewPublic']);
 
-// === DOKUMEN Fase 4 — version history ===
+// === DOKUMEN Fase 4 ===
 $router->get('/api/dokumen/{id}/versions',             [DokumenVersionController::class, 'index']);
 $router->post('/api/dokumen/{id}/versions/upload',     [DokumenVersionController::class, 'uploadNewVersion']);
 $router->get('/api/dokumen/versions/{vid}/download',   [DokumenVersionController::class, 'downloadVersion']);
 $router->post('/api/dokumen/{id}/versions/restore',    [DokumenVersionController::class, 'restore']);
 
-// === DOKUMEN Fase 5 — tag & kategori ===
+// === DOKUMEN Fase 5 ===
 $router->get('/api/dokumen/tags',                      [DokumenTagController::class, 'tagList']);
 $router->post('/api/dokumen/tags',                     [DokumenTagController::class, 'tagStore']);
 $router->post('/api/dokumen/tags/{id}/update',         [DokumenTagController::class, 'tagUpdate']);
@@ -197,13 +218,33 @@ $router->get('/d/{token}',                                           [DokumenPub
 $router->post('/d/{token}',                                          [DokumenPublicLinkController::class, 'publicPage']);
 $router->get('/d/{token}/download',                                  [DokumenPublicLinkController::class, 'publicDownload']);
 
-AuthController::checkRememberToken();
+// ── Bootstrap: remember-me & CSRF global enforcement ───────────────
+Auth::checkRememberToken();
 
-$method = $_SERVER['REQUEST_METHOD'];
-$uri    = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$method    = $_SERVER['REQUEST_METHOD'];
+$uri       = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
 if ($scriptDir !== '' && strncmp($uri, $scriptDir, strlen($scriptDir)) === 0) {
     $uri = substr($uri, strlen($scriptDir));
 }
 $uri = $uri ?: '/';
+
+// ── CSRF: enforce on semua POST kecuali route publik & auth ─────────
+if ($method === 'POST') {
+    $exemptPrefixes = array_merge(
+        Auth::csrfExemptPrefixes(),
+        ['/d/']  // public share link (tanpa login)
+    );
+    $isExempt = false;
+    foreach ($exemptPrefixes as $prefix) {
+        if ($uri === $prefix || str_starts_with($uri, $prefix)) {
+            $isExempt = true;
+            break;
+        }
+    }
+    if (!$isExempt) {
+        Auth::requireCsrf();
+    }
+}
+
 $router->dispatch($method, $uri);
