@@ -1,6 +1,6 @@
 <?php
 $user = Auth::user();
-$csrfToken = Auth::csrfToken(); // generate sekali per request
+$csrfToken = Auth::csrfToken();
 ?>
 <!doctype html>
 <html lang="id" data-bs-theme="light">
@@ -8,7 +8,6 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="description" content="Aplikasi Manajemen Kegiatan">
-  <!-- CSRF meta — harus di <head> agar tersedia saat JS di-parse -->
   <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
   <title><?= htmlspecialchars($pageTitle ?? 'Dashboard') ?> &mdash; <?= APP_NAME ?></title>
 
@@ -19,7 +18,6 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/theme.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/palettes/blue.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css"/>
-  <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css?v=<?= filemtime(ROOT_PATH . '/assets/css/custom.css') ?>">
 
   <?= $headScripts ?? '' ?>
@@ -27,166 +25,98 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
   <style>
   /* ── YouTube Music Widget ── */
   #yt-fab {
-    position: fixed;
-    bottom: 24px;
-    right: 24px;
-    z-index: 1080;
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    background: #FF0000;
-    color: #fff;
-    border: none;
+    position: fixed; bottom: 24px; right: 24px; z-index: 1080;
+    width: 46px; height: 46px; border-radius: 50%;
+    background: #FF0000; color: #fff; border: none;
     box-shadow: 0 4px 16px rgba(0,0,0,.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: transform .2s, background .2s;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: transform .2s, background .2s;
   }
   #yt-fab:hover { transform: scale(1.1); background: #cc0000; }
   #yt-fab svg { width:22px;height:22px; }
 
   #yt-widget {
-    position: fixed;
-    bottom: 82px;
-    right: 24px;
-    z-index: 1080;
-    width: 340px;
-    background: #0f0f0f;
-    border-radius: 16px;
+    position: fixed; bottom: 82px; right: 24px; z-index: 1080;
+    width: 340px; background: #0f0f0f; border-radius: 16px;
     box-shadow: 0 8px 40px rgba(0,0,0,.5);
-    overflow: hidden;
-    display: none;
-    flex-direction: column;
-    font-family: inherit;
+    overflow: hidden; display: none; flex-direction: column; font-family: inherit;
   }
   #yt-widget.open { display: flex; }
-
   #yt-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 11px 14px;
-    background: #FF0000;
-    color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 14px; background: #FF0000; color: #fff;
   }
   #yt-header .title {
-    font-size: 13px;
-    font-weight: 700;
-    letter-spacing: .04em;
-    display: flex;
-    align-items: center;
-    gap: 7px;
+    font-size: 13px; font-weight: 700; letter-spacing: .04em;
+    display: flex; align-items: center; gap: 7px;
   }
   #yt-header-actions { display:flex;gap:4px; }
   #yt-header-actions button {
-    background: rgba(0,0,0,.25);
-    border: none;
-    color: #fff;
-    border-radius: 6px;
-    padding: 3px 9px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background .15s;
+    background: rgba(0,0,0,.25); border: none; color: #fff;
+    border-radius: 6px; padding: 3px 9px; font-size: 12px;
+    cursor: pointer; transition: background .15s;
   }
   #yt-header-actions button:hover { background: rgba(0,0,0,.45); }
-
-  #yt-iframe-wrap {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16/9;
-    background: #000;
-  }
-  #yt-iframe-wrap iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-    display: block;
-  }
+  #yt-iframe-wrap { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; }
+  #yt-iframe-wrap iframe { width: 100%; height: 100%; border: none; display: block; }
   #yt-error-msg {
-    display: none;
-    position: absolute;
-    inset: 0;
-    background: #111;
-    color: rgba(255,255,255,.7);
-    font-size: 12px;
-    text-align: center;
-    padding: 20px 16px;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    line-height: 1.5;
+    display: none; position: absolute; inset: 0; background: #111;
+    color: rgba(255,255,255,.7); font-size: 12px; text-align: center;
+    padding: 20px 16px; flex-direction: column; align-items: center;
+    justify-content: center; gap: 8px; line-height: 1.5;
   }
   #yt-error-msg.show { display: flex; }
   #yt-error-msg .err-icon { font-size: 28px; }
   #yt-error-msg a { color: #FF0000; text-decoration: none; font-weight: 600; }
-
   #yt-input-wrap {
-    padding: 10px 12px;
-    background: #181818;
-    display: flex;
-    gap: 6px;
-    align-items: center;
+    padding: 10px 12px; background: #181818;
+    display: flex; gap: 6px; align-items: center;
   }
   #yt-input-wrap input {
-    flex: 1;
-    background: #282828;
-    border: 1px solid rgba(255,255,255,.1);
-    color: #fff;
-    border-radius: 8px;
-    padding: 6px 10px;
-    font-size: 12px;
-    outline: none;
-    transition: border-color .15s;
+    flex: 1; background: #282828; border: 1px solid rgba(255,255,255,.1);
+    color: #fff; border-radius: 8px; padding: 6px 10px; font-size: 12px;
+    outline: none; transition: border-color .15s;
   }
   #yt-input-wrap input::placeholder { color: rgba(255,255,255,.35); }
   #yt-input-wrap input:focus { border-color: #FF0000; }
   #yt-input-wrap button {
-    background: #FF0000;
-    border: none;
-    color: #fff;
-    border-radius: 8px;
-    padding: 6px 13px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background .15s;
+    background: #FF0000; border: none; color: #fff; border-radius: 8px;
+    padding: 6px 13px; font-size: 12px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; transition: background .15s;
   }
   #yt-input-wrap button:hover { background: #cc0000; }
-
   #yt-hint {
-    padding: 0 12px 10px;
-    background: #181818;
-    color: rgba(255,255,255,.3);
-    font-size: 10.5px;
-    line-height: 1.5;
+    padding: 0 12px 10px; background: #181818;
+    color: rgba(255,255,255,.3); font-size: 10.5px; line-height: 1.5;
   }
   #yt-hint code { color: #FF0000; }
+
+  /* Override Tabler page-wrapper for sidebar layout */
+  body { background: #F5F0E8 !important; }
+  .page-wrapper-topnav { margin: 0 !important; padding: 0 !important; }
   </style>
 </head>
 <body class="antialiased">
 
-  <!-- Top Navigation -->
+  <!-- Sidebar + Main layout opened here -->
   <?php include __DIR__ . '/sidebar.php'; ?>
+  <!-- sidebar.php opens .sb-layout > .sb-sidebar + .sb-main > .sb-topbar -->
+  <!-- Content is injected below inside .sb-main -->
 
-  <!-- Page Body -->
-  <div class="page-wrapper-topnav">
-    <div class="page-body">
+  <div class="page-wrapper-topnav" style="margin:0;padding:0;">
+    <div class="page-body" style="padding-top:1.25rem;">
       <div class="container-xl">
 
         <!-- Flash messages -->
         <?php if (!empty($_SESSION['flash_success'])): ?>
-        <div class="alert alert-success alert-dismissible mt-3">
+        <div class="alert alert-success alert-dismissible mt-2 mb-3">
           <?= htmlspecialchars($_SESSION['flash_success']) ?>
           <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         <?php unset($_SESSION['flash_success']); endif; ?>
 
         <?php if (!empty($_SESSION['flash_error'])): ?>
-        <div class="alert alert-danger alert-dismissible mt-3">
+        <div class="alert alert-danger alert-dismissible mt-2 mb-3">
           <?= htmlspecialchars($_SESSION['flash_error']) ?>
           <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
@@ -208,19 +138,19 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
     </footer>
   </div>
 
+  <!-- Close .sb-main and .sb-layout opened by sidebar.php -->
+  </div><!-- /.sb-main -->
+</div><!-- /.sb-layout -->
+
   <!-- ── YouTube Music Widget ── -->
   <button id="yt-fab" title="YouTube Music Player" aria-label="Buka YouTube Player">
-    <svg viewBox="0 0 24 24" fill="currentColor">
-      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-    </svg>
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
   </button>
 
   <div id="yt-widget" role="complementary" aria-label="YouTube Music Player">
     <div id="yt-header">
       <span class="title">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-        </svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
         YouTube Player
       </span>
       <div id="yt-header-actions">
@@ -228,12 +158,8 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
         <button id="yt-close" title="Tutup &amp; matikan">&#10005;</button>
       </div>
     </div>
-
     <div id="yt-iframe-wrap">
-      <iframe id="yt-iframe"
-        allow="autoplay; encrypted-media"
-        allowfullscreen
-        src=""></iframe>
+      <iframe id="yt-iframe" allow="autoplay; encrypted-media" allowfullscreen src=""></iframe>
       <div id="yt-error-msg">
         <span class="err-icon">&#x1F6AB;</span>
         <span>Video/playlist ini tidak bisa di-embed.<br>Coba URL lain atau buka langsung di
@@ -241,10 +167,8 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
         </span>
       </div>
     </div>
-
     <div id="yt-input-wrap">
-      <input type="text" id="yt-url-input"
-             placeholder="Paste URL YouTube video / playlist">
+      <input type="text" id="yt-url-input" placeholder="Paste URL YouTube video / playlist">
       <button id="yt-load-btn">Putar</button>
     </div>
     <div id="yt-hint">
@@ -258,13 +182,11 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 
 <!-- Scripts -->
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
-<!-- FullCalendar v7 JS -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/all/global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/locales/id/global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
-<!-- Inject CSRF token ke semua fetch() POST secara global -->
 <script>
   const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || '';
   const _origFetch = window.fetch;
@@ -282,97 +204,40 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 
 <script>
 (function () {
-  const LS_URL     = 'yt_music_url';
-  const LS_OPEN    = 'yt_music_open';
-  const LS_ENABLED = 'yt_music_enabled';
-
-  const fab      = document.getElementById('yt-fab');
-  const widget   = document.getElementById('yt-widget');
-  const iframe   = document.getElementById('yt-iframe');
-  const errMsg   = document.getElementById('yt-error-msg');
-  const errLink  = document.getElementById('yt-error-link');
-  const urlInput = document.getElementById('yt-url-input');
-  const loadBtn  = document.getElementById('yt-load-btn');
-  const minBtn   = document.getElementById('yt-minimize');
-  const closeBtn = document.getElementById('yt-close');
-
-  function toEmbedUrl(raw) {
-    raw = raw.trim();
-    if (!raw) return '';
-    try {
-      const u    = new URL(raw);
-      const list = u.searchParams.get('list');
-      const v    = u.searchParams.get('v');
-      let embed  = 'https://www.youtube-nocookie.com/embed/';
-      if (list && v)  embed += v + '?list=' + list + '&autoplay=1&rel=0';
-      else if (list)  embed += 'videoseries?list=' + list + '&autoplay=1&rel=0';
-      else if (v)     embed += v + '?autoplay=1&rel=0';
-      else if (u.hostname === 'youtu.be') {
-        const id = u.pathname.replace(/^\//, '');
-        embed += id + '?autoplay=1&rel=0';
-      } else return raw;
-      return embed;
-    } catch (e) { return raw; }
+  const LS_URL='yt_music_url',LS_OPEN='yt_music_open',LS_ENABLED='yt_music_enabled';
+  const fab=document.getElementById('yt-fab'),widget=document.getElementById('yt-widget'),
+        iframe=document.getElementById('yt-iframe'),errMsg=document.getElementById('yt-error-msg'),
+        errLink=document.getElementById('yt-error-link'),urlInput=document.getElementById('yt-url-input'),
+        loadBtn=document.getElementById('yt-load-btn'),minBtn=document.getElementById('yt-minimize'),
+        closeBtn=document.getElementById('yt-close');
+  function toEmbedUrl(raw){
+    raw=raw.trim();if(!raw)return'';
+    try{
+      const u=new URL(raw),list=u.searchParams.get('list'),v=u.searchParams.get('v');
+      let e='https://www.youtube-nocookie.com/embed/';
+      if(list&&v)e+=v+'?list='+list+'&autoplay=1&rel=0';
+      else if(list)e+='videoseries?list='+list+'&autoplay=1&rel=0';
+      else if(v)e+=v+'?autoplay=1&rel=0';
+      else if(u.hostname==='youtu.be')e+=u.pathname.replace(/^\//,'')+'?autoplay=1&rel=0';
+      else return raw;
+      return e;
+    }catch(e){return raw;}
   }
-
-  function loadUrl(raw) {
-    const embed = toEmbedUrl(raw);
-    if (!embed) return;
-    errMsg.classList.remove('show');
-    errLink.href = raw;
-    iframe.src   = embed;
-    localStorage.setItem(LS_URL, raw);
-  }
-
-  window.addEventListener('message', e => {
-    if (e.origin.includes('youtube') && e.data && e.data.event === 'onError') {
-      if ([100, 101, 150].includes(e.data.info)) errMsg.classList.add('show');
-    }
-  });
-
-  iframe.addEventListener('load', () => {
-    try {
-      if (!iframe.src || iframe.src === window.location.href) return;
-      errMsg.classList.remove('show');
-    } catch (e) {}
-  });
-
-  function openWidget() {
-    widget.classList.add('open');
-    localStorage.setItem(LS_OPEN, '1');
-    localStorage.setItem(LS_ENABLED, '1');
-  }
-  function minimizeWidget() {
-    widget.classList.remove('open');
-    localStorage.setItem(LS_OPEN, '0');
-  }
-  function closeWidget() {
-    widget.classList.remove('open');
-    iframe.src = '';
-    errMsg.classList.remove('show');
-    localStorage.setItem(LS_OPEN, '0');
-    localStorage.setItem(LS_ENABLED, '0');
-  }
-
-  fab.addEventListener('click', () => {
-    if (widget.classList.contains('open')) minimizeWidget();
-    else {
-      openWidget();
-      const saved = localStorage.getItem(LS_URL);
-      if (saved && !iframe.src.includes('youtube')) { urlInput.value = saved; loadUrl(saved); }
-    }
-  });
-  minBtn.addEventListener('click', minimizeWidget);
-  closeBtn.addEventListener('click', closeWidget);
-  loadBtn.addEventListener('click', () => { const val = urlInput.value.trim(); if (!val) return; loadUrl(val); });
-  urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadBtn.click(); });
-
-  const savedUrl  = localStorage.getItem(LS_URL);
-  const wasOpen   = localStorage.getItem(LS_OPEN) === '1';
-  const isEnabled = localStorage.getItem(LS_ENABLED) !== '0';
-  if (savedUrl) urlInput.value = savedUrl;
-  if (isEnabled && wasOpen && savedUrl) { openWidget(); loadUrl(savedUrl); }
-})();
+  function loadUrl(raw){const e=toEmbedUrl(raw);if(!e)return;errMsg.classList.remove('show');errLink.href=raw;iframe.src=e;localStorage.setItem(LS_URL,raw);}
+  window.addEventListener('message',e=>{if(e.origin.includes('youtube')&&e.data&&e.data.event==='onError'&&[100,101,150].includes(e.data.info))errMsg.classList.add('show');});
+  iframe.addEventListener('load',()=>{try{if(!iframe.src||iframe.src===window.location.href)return;errMsg.classList.remove('show');}catch(e){}});
+  function openWidget(){widget.classList.add('open');localStorage.setItem(LS_OPEN,'1');localStorage.setItem(LS_ENABLED,'1');}
+  function minimizeWidget(){widget.classList.remove('open');localStorage.setItem(LS_OPEN,'0');}
+  function closeWidget(){widget.classList.remove('open');iframe.src='';errMsg.classList.remove('show');localStorage.setItem(LS_OPEN,'0');localStorage.setItem(LS_ENABLED,'0');}
+  fab.addEventListener('click',()=>{if(widget.classList.contains('open'))minimizeWidget();else{openWidget();const s=localStorage.getItem(LS_URL);if(s&&!iframe.src.includes('youtube')){urlInput.value=s;loadUrl(s);}}});
+  minBtn.addEventListener('click',minimizeWidget);
+  closeBtn.addEventListener('click',closeWidget);
+  loadBtn.addEventListener('click',()=>{const v=urlInput.value.trim();if(!v)return;loadUrl(v);});
+  urlInput.addEventListener('keydown',e=>{if(e.key==='Enter')loadBtn.click();});
+  const savedUrl=localStorage.getItem(LS_URL),wasOpen=localStorage.getItem(LS_OPEN)==='1',isEnabled=localStorage.getItem(LS_ENABLED)!=='0';
+  if(savedUrl)urlInput.value=savedUrl;
+  if(isEnabled&&wasOpen&&savedUrl){openWidget();loadUrl(savedUrl);}
+}());
 </script>
 </body>
 </html>
