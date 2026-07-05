@@ -112,6 +112,14 @@ $router->post('/users/{id}/delete',   [UserController::class, 'delete']);
 $router->post('/users/{id}/destroy',  [UserController::class, 'destroy']);
 $router->get('/api/users',            [UserController::class, 'apiList']);
 
+// === ROLES & PERMISSIONS ===
+$router->get('/roles',                          [RoleController::class, 'index']);
+$router->post('/roles',                         [RoleController::class, 'store']);
+$router->post('/roles/{id}/update',             [RoleController::class, 'update']);
+$router->post('/roles/{id}/delete',             [RoleController::class, 'delete']);
+$router->get('/api/roles',                      [RoleController::class, 'apiList']);
+$router->post('/api/roles/{id}/permissions',    [RoleController::class, 'syncPermissions']);
+
 // === UNIT KERJA ===
 $router->get('/departments',                     [DepartmentController::class, 'index']);
 $router->post('/departments',                    [DepartmentController::class, 'store']);
