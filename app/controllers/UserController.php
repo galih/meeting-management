@@ -37,10 +37,14 @@ class UserController
         $departments = Database::query("SELECT id, name FROM departments WHERE is_active=1 ORDER BY name");
         $totalPage   = (int)ceil($total / self::PER_PAGE);
 
+        // Ambil daftar role dari DB (bukan hardcoded)
+        $roles = Database::query("SELECT name, label, color FROM roles ORDER BY id");
+
         View::layout('users/index', [
             'pageTitle'   => 'Manajemen Pengguna',
             'users'       => $users,
             'departments' => $departments,
+            'roles'       => $roles,
             'search'      => $search,
             'page'        => $page,
             'total'       => $total,
@@ -48,19 +52,13 @@ class UserController
         ]);
     }
 
-    /**
-     * GET /api/users
-     * Mengembalikan daftar user aktif untuk keperluan mention autocomplete,
-     * assignment tindak lanjut, dll.
-     * Bisa difilter dengan query param ?q=nama
-     */
     public static function apiList(): void
     {
         Auth::requireLogin();
         header('Content-Type: application/json');
 
         $q      = trim($_GET['q'] ?? '');
-        $params = [1]; // is_active = 1
+        $params = [1];
         $where  = 'is_active = ?';
 
         if ($q !== '') {
@@ -98,9 +96,9 @@ class UserController
             header('Location: ' . BASE_URL . '/users'); exit;
         }
 
-        // Hanya admin yang boleh assign role; non-admin fallback ke 'peserta'
-        $allowedRoles = ['admin', 'sekretaris', 'editor', 'peserta'];
-        $role = in_array($d['role'] ?? '', $allowedRoles) ? $d['role'] : 'peserta';
+        // Validasi role dari DB, bukan hardcoded
+        $validRole = Database::queryOne("SELECT name FROM roles WHERE name=?", [$d['role'] ?? '']);
+        $role = $validRole ? $d['role'] : 'peserta';
 
         $hash = password_hash($d['password'], PASSWORD_BCRYPT, ['cost' => 12]);
         $db   = Database::getInstance();
@@ -144,12 +142,11 @@ class UserController
             header('Location: ' . BASE_URL . '/users'); exit;
         }
 
-        // Hanya admin yang boleh mengubah role; jika bukan admin, pertahankan role lama
-        $allowedRoles = ['admin', 'sekretaris', 'editor', 'peserta'];
-        if (Auth::role() === 'admin' && in_array($d['role'] ?? '', $allowedRoles)) {
-            $role = $d['role'];
+        // Hanya admin yang boleh mengubah role; validasi dari DB
+        if (Auth::role() === 'admin') {
+            $validRole = Database::queryOne("SELECT name FROM roles WHERE name=?", [$d['role'] ?? '']);
+            $role = $validRole ? $d['role'] : 'peserta';
         } else {
-            // Ambil role saat ini dari DB agar tidak bisa di-bypass
             $existing = Database::queryOne("SELECT role FROM users WHERE id=?", [$id]);
             $role = $existing['role'] ?? 'peserta';
         }
@@ -172,6 +169,11 @@ class UserController
                 $username, trim($d['name']), $email, $role,
                 !empty($d['department_id']) ? (int)$d['department_id'] : null, $isActive, $id,
             ]);
+        }
+
+        // Invalidate permission cache user yang di-edit (jika saat ini sedang login)
+        if ($id === Auth::id()) {
+            Auth::invalidatePermissions();
         }
 
         ActivityLog::record(
