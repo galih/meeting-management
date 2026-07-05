@@ -8,17 +8,16 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="description" content="Aplikasi Manajemen Kegiatan">
+  <!-- CSRF meta — harus di <head> agar tersedia saat JS di-parse -->
+  <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
   <title><?= htmlspecialchars($pageTitle ?? 'Dashboard') ?> &mdash; <?= APP_NAME ?></title>
 
   <!-- Tabler Core -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/css/tabler.min.css"/>
-  <!-- FullCalendar v7 CSS (skeleton + theme forma + palette blue) -->
+  <!-- FullCalendar v7 CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/skeleton.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/theme.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/palettes/blue.css"/>
-  <!-- Quill Snow CSS — dimuat global agar selalu tersedia di halaman notulen;
-       tidak bisa di-inject lewat $headScripts karena view notulen di-render
-       SETELAH <head> sudah dicetak (late-bind tidak bekerja). -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css"/>
   <!-- Custom CSS -->
   <link rel="stylesheet" href="<?= BASE_URL ?>/assets/css/custom.css?v=<?= filemtime(ROOT_PATH . '/assets/css/custom.css') ?>">
@@ -170,9 +169,6 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 </head>
 <body class="antialiased">
 
-  <!-- CSRF meta tag — dipakai fetch() JS via header X-CSRF-Token -->
-  <meta name="csrf-token" content="<?= htmlspecialchars($csrfToken) ?>">
-
   <!-- Top Navigation -->
   <?php include __DIR__ . '/sidebar.php'; ?>
 
@@ -264,9 +260,7 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 <script src="https://cdn.jsdelivr.net/npm/@tabler/core@1.4.0/dist/js/tabler.min.js"></script>
 <!-- FullCalendar v7 JS -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/all/global.js"></script>
-<!-- FullCalendar v7 Theme JS (forma) -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/themes/forma/global.js"></script>
-<!-- FullCalendar v7 Locale Indonesia -->
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@7.0.0/locales/id/global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
 <script>const BASE_URL = '<?= BASE_URL ?>';</script>
@@ -310,7 +304,6 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
       const list = u.searchParams.get('list');
       const v    = u.searchParams.get('v');
       let embed  = 'https://www.youtube-nocookie.com/embed/';
-
       if (list && v)  embed += v + '?list=' + list + '&autoplay=1&rel=0';
       else if (list)  embed += 'videoseries?list=' + list + '&autoplay=1&rel=0';
       else if (v)     embed += v + '?autoplay=1&rel=0';
@@ -318,7 +311,6 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
         const id = u.pathname.replace(/^\//, '');
         embed += id + '?autoplay=1&rel=0';
       } else return raw;
-
       return embed;
     } catch (e) { return raw; }
   }
@@ -334,9 +326,7 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
 
   window.addEventListener('message', e => {
     if (e.origin.includes('youtube') && e.data && e.data.event === 'onError') {
-      if ([100, 101, 150].includes(e.data.info)) {
-        errMsg.classList.add('show');
-      }
+      if ([100, 101, 150].includes(e.data.info)) errMsg.classList.add('show');
     }
   });
 
@@ -352,12 +342,10 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
     localStorage.setItem(LS_OPEN, '1');
     localStorage.setItem(LS_ENABLED, '1');
   }
-
   function minimizeWidget() {
     widget.classList.remove('open');
     localStorage.setItem(LS_OPEN, '0');
   }
-
   function closeWidget() {
     widget.classList.remove('open');
     iframe.src = '';
@@ -367,38 +355,23 @@ $csrfToken = Auth::csrfToken(); // generate sekali per request
   }
 
   fab.addEventListener('click', () => {
-    if (widget.classList.contains('open')) {
-      minimizeWidget();
-    } else {
+    if (widget.classList.contains('open')) minimizeWidget();
+    else {
       openWidget();
       const saved = localStorage.getItem(LS_URL);
-      if (saved && !iframe.src.includes('youtube')) {
-        urlInput.value = saved;
-        loadUrl(saved);
-      }
+      if (saved && !iframe.src.includes('youtube')) { urlInput.value = saved; loadUrl(saved); }
     }
   });
-
   minBtn.addEventListener('click', minimizeWidget);
   closeBtn.addEventListener('click', closeWidget);
-  loadBtn.addEventListener('click', () => {
-    const val = urlInput.value.trim();
-    if (!val) return;
-    loadUrl(val);
-  });
-  urlInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter') loadBtn.click();
-  });
+  loadBtn.addEventListener('click', () => { const val = urlInput.value.trim(); if (!val) return; loadUrl(val); });
+  urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') loadBtn.click(); });
 
   const savedUrl  = localStorage.getItem(LS_URL);
   const wasOpen   = localStorage.getItem(LS_OPEN) === '1';
   const isEnabled = localStorage.getItem(LS_ENABLED) !== '0';
-
   if (savedUrl) urlInput.value = savedUrl;
-  if (isEnabled && wasOpen && savedUrl) {
-    openWidget();
-    loadUrl(savedUrl);
-  }
+  if (isEnabled && wasOpen && savedUrl) { openWidget(); loadUrl(savedUrl); }
 })();
 </script>
 </body>
