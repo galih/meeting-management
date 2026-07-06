@@ -3,6 +3,10 @@ class TindakLanjutController
 {
     private const PER_PAGE = 20;
 
+    /**
+     * Hitung summary dalam 1 query GROUP BY + 1 query overdue.
+     * userId hanya dipakai jika isAdminLike = true (tidak boleh dikontrol dari luar oleh non-admin).
+     */
     private static function getSummary(bool $isAdminLike, int $userId = 0): array
     {
         if (!$isAdminLike) {
@@ -15,12 +19,32 @@ class TindakLanjutController
             $baseWhere  = '1=1';
             $baseParams = [];
         }
+
+        // Satu query GROUP BY menggantikan 4 query terpisah
+        $rows = Database::query(
+            "SELECT status, COUNT(*) AS cnt FROM tindak_lanjut WHERE {$baseWhere} GROUP BY status",
+            $baseParams
+        );
+
+        $counts = ['pending' => 0, 'in_progress' => 0, 'done' => 0, 'cancelled' => 0];
+        $total  = 0;
+        foreach ($rows as $r) {
+            $s = $r['status'];
+            if (isset($counts[$s])) $counts[$s] = (int)$r['cnt'];
+            $total += (int)$r['cnt'];
+        }
+
+        $overdue = (int)(Database::queryOne(
+            "SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND due_date < CURDATE() AND status NOT IN ('done','cancelled')",
+            $baseParams
+        )['c'] ?? 0);
+
         return [
-            'total'       => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere}", $baseParams)['c'] ?? 0),
-            'pending'     => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND status='pending'", $baseParams)['c'] ?? 0),
-            'in_progress' => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND status='in_progress'", $baseParams)['c'] ?? 0),
-            'done'        => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND status='done'", $baseParams)['c'] ?? 0),
-            'overdue'     => (int)(Database::queryOne("SELECT COUNT(*) c FROM tindak_lanjut WHERE {$baseWhere} AND due_date < CURDATE() AND status NOT IN ('done','cancelled')", $baseParams)['c'] ?? 0),
+            'total'       => $total,
+            'pending'     => $counts['pending'],
+            'in_progress' => $counts['in_progress'],
+            'done'        => $counts['done'],
+            'overdue'     => $overdue,
         ];
     }
 
@@ -72,9 +96,7 @@ class TindakLanjutController
             array_merge($params, [self::PER_PAGE, $offset])
         );
 
-        $summary = self::getSummary($isAdminLike, $userId);
-
-        // Single query covers all roles; $allUsers replaces the redundant $users query
+        $summary  = self::getSummary($isAdminLike, $userId);
         $allUsers = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
 
         View::layout('tindak-lanjut/index', [
@@ -158,8 +180,16 @@ class TindakLanjutController
         Auth::requireRole('admin', 'sekretaris');
 
         $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
-        if (strpos($contentType, 'application/json') !== false) {
+        $isJson      = strpos($contentType, 'application/json') !== false;
+
+        if ($isJson) {
             $d = json_decode(file_get_contents('php://input'), true) ?? [];
+            // Verifikasi CSRF dari header untuk JSON request
+            $csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+            if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfHeader)) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']); exit;
+            }
         } else {
             CSRF::verify();
             $d = $_POST;
@@ -169,7 +199,7 @@ class TindakLanjutController
         $desc       = trim($d['description']  ?? '');
         $assignedTo = (int)($d['assigned_to'] ?? 0);
         $dueDate    = ($d['due_date']  ?? '') ?: null;
-        $priority   = $d['priority']   ?? 'medium';
+        $priority   = in_array($d['priority'] ?? '', ['high','medium','low']) ? $d['priority'] : 'medium';
 
         if (!$meetingId || !$desc) {
             header('Content-Type: application/json');
@@ -191,7 +221,7 @@ class TindakLanjutController
             );
         }
 
-        if (strpos($contentType, 'application/json') !== false) {
+        if ($isJson) {
             header('Content-Type: application/json');
             echo json_encode(['success' => true]); exit;
         }
@@ -205,14 +235,18 @@ class TindakLanjutController
         Auth::requireAuth();
         CSRF::verify();
 
-        $input   = json_decode(file_get_contents('php://input'), true) ?? $_POST;
-        $status  = $input['status'] ?? '';
-        $userId  = (int)($input['user_id'] ?? 0);
+        $input  = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $status = $input['status'] ?? '';
 
-        // Validate $userId exists when provided
-        if ($userId > 0) {
-            $userExists = Database::queryOne("SELECT id FROM users WHERE id=? AND is_active=1", [$userId]);
-            if (!$userExists) $userId = 0;
+        // userId untuk scope summary: hanya boleh dipakai jika admin/sekretaris
+        $isAdminLike = Auth::hasRole('admin', 'sekretaris');
+        $userId = 0;
+        if ($isAdminLike) {
+            $userId = (int)($input['user_id'] ?? 0);
+            if ($userId > 0) {
+                $exists = Database::queryOne("SELECT id FROM users WHERE id=? AND is_active=1", [$userId]);
+                if (!$exists) $userId = 0;
+            }
         }
 
         $allowed = ['pending', 'in_progress', 'done', 'cancelled'];
@@ -220,22 +254,24 @@ class TindakLanjutController
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Status tidak valid']); exit;
         }
+
         $tl = Database::queryOne("SELECT * FROM tindak_lanjut WHERE id=?", [$id]);
         if (!$tl) {
             header('Content-Type: application/json');
-            echo json_encode(['success' => false]); exit;
+            echo json_encode(['success' => false, 'message' => 'Data tidak ditemukan']); exit;
         }
-        if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
+
+        if (!$isAdminLike && $tl['assigned_to'] != Auth::id()) {
             http_response_code(403);
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Akses ditolak']); exit;
         }
+
         $completedAt = $status === 'done' ? date('Y-m-d H:i:s') : null;
         Database::getInstance()->prepare(
             "UPDATE tindak_lanjut SET status=?, completed_at=? WHERE id=?"
         )->execute([$status, $completedAt, $id]);
 
-        $isAdminLike = Auth::hasRole('admin', 'sekretaris');
         $summary = self::getSummary($isAdminLike, $userId);
 
         header('Content-Type: application/json');
@@ -258,7 +294,8 @@ class TindakLanjutController
         $myId    = Auth::id();
 
         $notes = Database::query(
-            "SELECT n.id, n.note, n.created_at, n.user_id, u.name AS author_name
+            "SELECT n.id, n.note, n.created_at, n.user_id, u.name AS author_name,
+                    DATE_FORMAT(n.created_at, '%d %b %Y %H:%i') AS created_at_human
              FROM tindak_lanjut_notes n
              JOIN users u ON u.id = n.user_id
              WHERE n.tindak_lanjut_id = ?
@@ -304,7 +341,9 @@ class TindakLanjutController
         self::processMentions($note, $id, $tl['description']);
 
         $newNote = Database::queryOne(
-            "SELECT n.id, n.note, n.created_at, n.user_id, u.name AS author_name
+            "SELECT n.id, n.note, n.created_at,
+                    DATE_FORMAT(n.created_at, '%d %b %Y %H:%i') AS created_at_human,
+                    n.user_id, u.name AS author_name
              FROM tindak_lanjut_notes n
              JOIN users u ON u.id = n.user_id
              WHERE n.tindak_lanjut_id = ? ORDER BY n.id DESC LIMIT 1",
@@ -323,7 +362,6 @@ class TindakLanjutController
 
     private static function processMentions(string $note, int $tlId, string $tlDesc): void
     {
-        // Support names with letters, spaces, and hyphens (e.g. @Budi Santoso, @Anne-Marie)
         preg_match_all('/@([\p{L}\p{N}][\p{L}\p{N}\s\-]*[\p{L}\p{N}]|[\p{L}\p{N}]+)/u', $note, $matches);
         if (empty($matches[1])) return;
 
@@ -334,7 +372,6 @@ class TindakLanjutController
             $namePart = trim($namePart);
             if (!$namePart) continue;
 
-            // Use exact (case-insensitive) match to avoid ambiguous partial matches
             $user = Database::queryOne(
                 "SELECT id FROM users WHERE is_active=1 AND LOWER(name) = LOWER(?) LIMIT 1",
                 [$namePart]
@@ -393,7 +430,12 @@ class TindakLanjutController
         }
 
         Database::getInstance()->prepare("DELETE FROM tindak_lanjut WHERE id=?")->execute([$id]);
+
+        // Kembalikan summary agar stat cards terupdate di frontend setelah hapus
+        $isAdminLike = Auth::hasRole('admin', 'sekretaris');
+        $summary     = self::getSummary($isAdminLike);
+
         header('Content-Type: application/json');
-        echo json_encode(['success' => true]); exit;
+        echo json_encode(['success' => true, 'summary' => $summary]); exit;
     }
 }

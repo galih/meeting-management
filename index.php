@@ -96,7 +96,8 @@ $router->post('/api/comments/{id}/delete',  [CommentController::class, 'delete']
 
 // === TINDAK LANJUT ===
 $router->get('/tindak-lanjut',                               [TindakLanjutController::class, 'index']);
-$router->post('/tindak-lanjut',                              [TindakLanjutController::class, 'store']);
+$router->post('/tindak-lanjut/store',                        [TindakLanjutController::class, 'store']); // fix: /store explicit agar tidak tabrakan dengan GET list
+$router->post('/tindak-lanjut',                              [TindakLanjutController::class, 'store']); // backward compat: form non-JS
 $router->get('/tindak-lanjut/{id}',                          [TindakLanjutController::class, 'show']);
 $router->post('/tindak-lanjut/{id}/status',                  [TindakLanjutController::class, 'updateStatus']);
 $router->get('/tindak-lanjut/{id}/notes',                    [TindakLanjutController::class, 'getNotes']);
@@ -108,7 +109,7 @@ $router->post('/tindak-lanjut/{id}/delete',                  [TindakLanjutContro
 $router->get('/users',                [UserController::class, 'index']);
 $router->post('/users',               [UserController::class, 'store']);
 $router->post('/users/{id}/update',   [UserController::class, 'update']);
-$router->post('/users/{id}/delete',   [UserController::class, 'destroy']);  // fix: hapus duplikat, satukan ke destroy
+$router->post('/users/{id}/delete',   [UserController::class, 'destroy']);
 $router->get('/api/users',            [UserController::class, 'apiList']);
 
 // === ROLES & PERMISSIONS ===
@@ -151,7 +152,7 @@ $router->get('/api/email/send-reminders',        [EmailController::class, 'sendD
 // === NOTIFICATIONS ===
 $router->get('/api/notifications',             [NotifikasiController::class, 'index']);
 $router->post('/api/notifications/read',       [NotifikasiController::class, 'markRead']);
-$router->post('/api/notifications/delete-all', [NotifikasiController::class, 'deleteAll']); // fix: tambah route baru
+$router->post('/api/notifications/delete-all', [NotifikasiController::class, 'deleteAll']);
 $router->get('/notifications',                 [NotifikasiController::class, 'page']);
 
 // === SETTINGS ===
