@@ -1,5 +1,6 @@
 <?php
 $baseUrl     = rtrim(BASE_URL, '/');
+$csrfToken   = htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES);
 $statusMap   = [
     'pending'     => ['label' => 'Menunggu',    'color' => 'secondary'],
     'in_progress' => ['label' => 'Berlangsung', 'color' => 'blue'],
@@ -19,6 +20,9 @@ $isOverdue   = !empty($tl['due_date'])
     && !in_array($tl['status'], ['done', 'cancelled']);
 ?>
 
+<!-- CSRF meta tag — dibaca JS untuk semua fetch POST -->
+<meta name="csrf-token" content="<?= $csrfToken ?>">
+
 <!-- ==============================  HERO  ============================== -->
 <div class="tl-hero mb-4">
   <div class="tl-hero-inner">
@@ -37,9 +41,7 @@ $isOverdue   = !empty($tl['due_date'])
       <div>
         <h1 class="tl-hero-title"><?= htmlspecialchars($tl['description']) ?></h1>
         <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-          <!-- Status badge -->
           <span class="tl-badge tl-badge-<?= $st['color'] ?>"><?= $st['label'] ?></span>
-          <!-- Priority badge -->
           <span class="tl-badge tl-badge-<?= $pr['color'] ?> tl-badge-outline">
             <?php
             $prioIcons = ['high'=>'▲','medium'=>'■','low'=>'▼'];
@@ -111,9 +113,7 @@ $isOverdue   = !empty($tl['due_date'])
       <div class="tl-card-header">
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         Progress Notes
-        <?php if (!empty($notes)): ?>
-        <span class="tl-count-badge"><?= count($notes) ?></span>
-        <?php endif; ?>
+        <span class="tl-count-badge" id="note-count-badge"><?= count($notes) ?></span>
       </div>
 
       <!-- Notes list -->
@@ -132,7 +132,7 @@ $isOverdue   = !empty($tl['due_date'])
             <div class="tl-note-body">
               <div class="tl-note-meta">
                 <span class="tl-note-author"><?= htmlspecialchars($note['author_name']) ?></span>
-                <span class="tl-note-time"><?= date('d M Y · H:i', strtotime($note['created_at'])) ?></span>
+                <span class="tl-note-time"><?= htmlspecialchars($note['created_at_human'] ?? date('d M Y · H:i', strtotime($note['created_at']))) ?></span>
               </div>
               <div class="tl-note-text"><?= nl2br(htmlspecialchars($note['note'])) ?></div>
             </div>
@@ -333,11 +333,9 @@ $isOverdue   = !empty($tl['due_date'])
 .tl-badge-green     { background: rgba(47,107,64,.10);   color: #1e7a2e; }
 .tl-badge-blue      { background: rgba(32,107,196,.10);  color: #1557a0; }
 .tl-badge-secondary { background: rgba(100,100,100,.10); color: #64748b; }
-/* outline variant (used in hero for priority) */
-.tl-badge-outline.tl-badge-red       { background: rgba(168,37,21,.06);  border: 1px solid rgba(168,37,21,.3); }
-.tl-badge-outline.tl-badge-orange    { background: rgba(201,168,76,.06);  border: 1px solid rgba(201,168,76,.4); }
-.tl-badge-outline.tl-badge-green     { background: rgba(47,107,64,.06);   border: 1px solid rgba(47,107,64,.3); }
-/* badge on dark hero bg */
+.tl-badge-outline.tl-badge-red    { background: rgba(168,37,21,.06);  border: 1px solid rgba(168,37,21,.3); }
+.tl-badge-outline.tl-badge-orange { background: rgba(201,168,76,.06);  border: 1px solid rgba(201,168,76,.4); }
+.tl-badge-outline.tl-badge-green  { background: rgba(47,107,64,.06);   border: 1px solid rgba(47,107,64,.3); }
 .tl-hero .tl-badge-red       { background: rgba(252,165,165,.18); color: #fecaca; border-color: rgba(252,165,165,.3); }
 .tl-hero .tl-badge-orange    { background: rgba(253,211,77,.18);  color: #fde68a; border-color: rgba(253,211,77,.3); }
 .tl-hero .tl-badge-green     { background: rgba(134,239,172,.18); color: #bbf7d0; border-color: rgba(134,239,172,.3); }
@@ -501,6 +499,33 @@ $isOverdue   = !empty($tl['due_date'])
 const TL_ID   = <?= (int)$tl['id'] ?>;
 const BASE_URL = '<?= $baseUrl ?>';
 
+// Ambil CSRF token dari meta tag (satu sumber kebenaran untuk semua fetch POST)
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
+// Helper: escape HTML untuk inject ke innerHTML (cegah XSS)
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Helper: header standar untuk semua fetch POST JSON
+function jsonHeaders() {
+  return {
+    'Content-Type': 'application/json',
+    'X-CSRF-Token': CSRF_TOKEN,
+  };
+}
+
+// Helper: update angka badge note count di card header
+function setNoteCount(n) {
+  const badge = document.getElementById('note-count-badge');
+  if (badge) badge.textContent = n;
+}
+
 /* ── Status buttons ─────────────────────────────────────── */
 document.querySelectorAll('.tl-status-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
@@ -509,9 +534,9 @@ document.querySelectorAll('.tl-status-btn').forEach(btn => {
     btn.disabled = true;
     try {
       const res = await fetch(`${BASE_URL}/tindak-lanjut/${TL_ID}/status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
+        method : 'POST',
+        headers: jsonHeaders(),
+        body   : JSON.stringify({ status }),
       });
       const d = await res.json();
       if (d.success) { location.reload(); }
@@ -531,33 +556,35 @@ async function submitNote() {
   noteSubmit.disabled = true;
   try {
     const res = await fetch(`${BASE_URL}/tindak-lanjut/${TL_ID}/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ note })
+      method : 'POST',
+      headers: jsonHeaders(),
+      body   : JSON.stringify({ note }),
     });
     const d = await res.json();
     if (d.success) {
       noteInput.value = '';
-      const empty = document.getElementById('notes-empty');
-      if (empty) empty.remove();
+      document.getElementById('notes-empty')?.remove();
       const n   = d.note;
       const div = document.createElement('div');
       div.className = 'tl-note-item';
       div.dataset.noteId = n.id;
+      // Gunakan escHtml() agar note user tidak bisa inject HTML/JS
       div.innerHTML = `
-        <div class="tl-note-avatar">${n.author_name.charAt(0).toUpperCase()}</div>
+        <div class="tl-note-avatar">${escHtml(n.author_name.charAt(0).toUpperCase())}</div>
         <div class="tl-note-body">
           <div class="tl-note-meta">
-            <span class="tl-note-author">${n.author_name}</span>
-            <span class="tl-note-time">${n.created_at}</span>
+            <span class="tl-note-author">${escHtml(n.author_name)}</span>
+            <span class="tl-note-time">${escHtml(n.created_at_human ?? n.created_at)}</span>
           </div>
-          <div class="tl-note-text">${n.note.replace(/\n/g,'<br>')}</div>
+          <div class="tl-note-text">${escHtml(n.note).replace(/\n/g, '<br>')}</div>
         </div>
         ${n.can_delete ? `<button class="tl-note-delete btn-delete-note" data-id="${n.id}" title="Hapus catatan"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>` : ''}
       `;
       document.getElementById('notes-list').appendChild(div);
       const delBtn = div.querySelector('.btn-delete-note');
       if (delBtn) bindDeleteNote(delBtn);
+      // Update badge note count
+      setNoteCount(d.note_count);
     } else { alert(d.message || 'Gagal mengirim note'); }
   } finally { noteSubmit.disabled = false; }
 }
@@ -573,10 +600,15 @@ function bindDeleteNote(btn) {
   btn.addEventListener('click', async () => {
     if (!confirm('Hapus catatan ini?')) return;
     const noteId = btn.dataset.id;
-    const res    = await fetch(`${BASE_URL}/tindak-lanjut/${TL_ID}/notes/${noteId}/delete`, { method: 'POST' });
-    const d      = await res.json();
+    const res = await fetch(`${BASE_URL}/tindak-lanjut/${TL_ID}/notes/${noteId}/delete`, {
+      method : 'POST',
+      headers: jsonHeaders(),
+    });
+    const d = await res.json();
     if (d.success) {
       btn.closest('.tl-note-item').remove();
+      // Update badge note count
+      setNoteCount(d.note_count);
       if (!document.querySelector('.tl-note-item')) {
         document.getElementById('notes-list').innerHTML =
           `<div class="tl-empty" id="notes-empty">
@@ -584,7 +616,7 @@ function bindDeleteNote(btn) {
             <p>Belum ada catatan progress</p>
           </div>`;
       }
-    }
+    } else { alert(d.message || 'Gagal menghapus catatan'); }
   });
 }
 document.querySelectorAll('.btn-delete-note').forEach(bindDeleteNote);
@@ -594,8 +626,11 @@ document.getElementById('btn-delete-tl')?.addEventListener('click', async () => 
   if (!confirm('Hapus tindak lanjut ini secara permanen?')) return;
   const btn = document.getElementById('btn-delete-tl');
   btn.disabled = true;
-  const res = await fetch(`${BASE_URL}/tindak-lanjut/${TL_ID}/delete`, { method: 'POST' });
-  const d   = await res.json();
+  const res = await fetch(`${BASE_URL}/tindak-lanjut/${TL_ID}/delete`, {
+    method : 'POST',
+    headers: jsonHeaders(),
+  });
+  const d = await res.json();
   if (d.success) { location.href = `${BASE_URL}/tindak-lanjut`; }
   else { btn.disabled = false; alert(d.message || 'Gagal menghapus'); }
 });
