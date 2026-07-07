@@ -171,7 +171,6 @@ foreach ($tree ?? [] as $l1) {
   padding-left:1rem;
   border-left:2px solid var(--dp-border);
   display:flex; flex-direction:column; gap:.4rem;
-  /* UX FIX #7: animasi collapse smooth */
   overflow:hidden;
   transition:max-height .28s cubic-bezier(.16,1,.3,1), opacity .22s ease;
   max-height:9999px; opacity:1;
@@ -214,7 +213,7 @@ foreach ($tree ?? [] as $l1) {
 .dp-node-meta { font-size:11.5px; color:var(--dp-text-muted); margin-top:.1rem; display:flex; flex-wrap:wrap; gap:.3rem .75rem; }
 .dp-node-meta span { display:inline-flex; align-items:center; gap:.2rem; }
 
-/* BUG FIX #2: Toggle menggunakan CSS rotate, bukan ganti innerHTML */
+/* Toggle */
 .dp-toggle {
   width:22px; height:22px; border-radius:var(--dp-radius-xs); border:1.5px solid var(--dp-border);
   display:flex; align-items:center; justify-content:center; cursor:pointer;
@@ -233,8 +232,10 @@ foreach ($tree ?? [] as $l1) {
   font-size:11px; font-weight:700; padding:.25rem .6rem;
   border-radius:var(--dp-radius-xs); cursor:pointer;
   transition:all var(--dp-transition); border:1.5px solid transparent;
-  white-space:nowrap; background:none;
+  white-space:nowrap; background:none; text-decoration:none;
 }
+.da-members { background:var(--dp-green-bg); color:var(--dp-green); border-color:rgba(42,107,58,.18); }
+.da-members:hover { background:var(--dp-green); color:#fff; }
 .da-edit { background:var(--dp-blue-bg); color:var(--dp-blue); border-color:rgba(27,79,130,.18); }
 .da-edit:hover { background:var(--dp-blue); color:#fff; }
 .da-del  { background:var(--dp-red-bg); color:var(--dp-red); border-color:rgba(123,28,28,.18); }
@@ -260,10 +261,13 @@ foreach ($tree ?? [] as $l1) {
   display:flex; align-items:center; gap:.5rem;
   padding:.55rem .85rem; font-size:13px; font-weight:600;
   cursor:pointer; transition:background var(--dp-transition); border:none; background:none; width:100%;
+  text-decoration:none; color:var(--dp-text);
 }
-.dp-kebab-item:hover { background:var(--dp-primary-light); }
+.dp-kebab-item:hover { background:var(--dp-primary-light); color:var(--dp-text); }
+.dp-kebab-item.members { color:var(--dp-green); }
+.dp-kebab-item.members:hover { background:var(--dp-green-bg); color:var(--dp-green); }
 .dp-kebab-item.danger { color:var(--dp-red); }
-.dp-kebab-item.danger:hover { background:var(--dp-red-bg); }
+.dp-kebab-item.danger:hover { background:var(--dp-red-bg); color:var(--dp-red); }
 
 /* Empty */
 .dp-empty { padding:3.5rem 1rem; text-align:center; color:var(--dp-text-faint); }
@@ -306,7 +310,6 @@ foreach ($tree ?? [] as $l1) {
   transition:border-color var(--dp-transition), box-shadow var(--dp-transition);
 }
 .dp-form-control:focus { border-color:var(--dp-primary); box-shadow:0 0 0 3px var(--dp-primary-ring); }
-/* UX FIX #6: validasi visual */
 .dp-form-control.is-invalid { border-color:#dc2626 !important; box-shadow:0 0 0 3px rgba(220,38,38,.15) !important; }
 .dp-invalid-msg { font-size:11.5px; color:#dc2626; margin-top:.25rem; display:none; }
 .dp-invalid-msg.show { display:block; }
@@ -324,7 +327,6 @@ select.dp-form-control { appearance:auto; }
   .dp-hero-inner { flex-direction:column; align-items:flex-start; }
   .dp-stats { grid-template-columns:repeat(2,1fr); }
   .dp-node-children { margin-left:.75rem; }
-  /* UX FIX #5: tampilkan kebab, sembunyikan tombol aksi normal di mobile */
   .dp-actions { display:none !important; }
   .dp-kebab   { display:block; }
 }
@@ -368,7 +370,7 @@ select.dp-form-control { appearance:auto; }
   <div class="dp-hero-bar"></div>
 </div>
 
-<!-- ── Stats (UX FIX #8: klikable filter level) ── -->
+<!-- ── Stats ── -->
 <div class="dp-stats">
   <div class="dp-stat-card" data-filter-level="0" id="stat-all" title="Tampilkan semua level">
     <div class="dp-stat-label">Total Unit</div>
@@ -413,7 +415,7 @@ select.dp-form-control { appearance:auto; }
   </span>
 </div>
 
-<!-- ── Toolbar: Search + Collapse All / Expand All (UX FIX #3 & #4) ── -->
+<!-- ── Toolbar ── -->
 <div class="dp-toolbar">
   <div class="dp-search-wrap">
     <svg class="dp-search-ico" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -443,12 +445,12 @@ function renderDeptTree(array $nodes, array $levelLabel, array $levelColor, arra
         $initials    = htmlspecialchars($unit['code'] ?? mb_strtoupper(mb_substr($unit['name'], 0, 2)));
         $hasChildren = !empty($unit['children']);
         $uJson       = htmlspecialchars(json_encode($unit, JSON_HEX_QUOT|JSON_HEX_APOS|JSON_HEX_TAG|JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
+        $membersUrl  = $baseUrl . '/departments/' . $unit['id'] . '/members';
 ?>
 <div class="dp-node" id="dpnode-<?= $unit['id'] ?>" data-level="<?= $unit['level'] ?>" data-name="<?= htmlspecialchars(mb_strtolower($unit['name'])) ?>">
   <div class="dp-card" data-level="<?= $unit['level'] ?>">
     <div class="dp-card-body">
       <?php if ($hasChildren): ?>
-      <!-- BUG FIX #2: toggle pakai CSS rotate via class .open, bukan ganti innerHTML -->
       <button class="dp-toggle open" data-target="dpchildren-<?= $unit['id'] ?>" aria-label="Collapse"
               onclick="toggleChildren(this, 'dpchildren-<?= $unit['id'] ?>')">
         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
@@ -483,6 +485,11 @@ function renderDeptTree(array $nodes, array $levelLabel, array $levelColor, arra
 
       <!-- Desktop actions -->
       <div class="dp-actions">
+        <!-- TOMBOL ANGGOTA -->
+        <a href="<?= $membersUrl ?>" class="dp-action-btn da-members">
+          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Anggota
+        </a>
         <button class="dp-action-btn da-edit btn-edit-dept" data-unit="<?= $uJson ?>">
           <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           Edit
@@ -496,12 +503,17 @@ function renderDeptTree(array $nodes, array $levelLabel, array $levelColor, arra
         </button>
       </div>
 
-      <!-- UX FIX #5: Kebab menu mobile -->
+      <!-- Kebab menu mobile -->
       <div class="dp-kebab">
         <button class="dp-kebab-btn" onclick="toggleKebab(this)" aria-label="Aksi">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg>
         </button>
         <div class="dp-kebab-menu">
+          <!-- ITEM ANGGOTA DI KEBAB -->
+          <a href="<?= $membersUrl ?>" class="dp-kebab-item members">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Anggota
+          </a>
           <button class="dp-kebab-item btn-edit-dept" data-unit="<?= $uJson ?>">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             Edit
@@ -612,7 +624,6 @@ function renderDeptTree(array $nodes, array $levelLabel, array $levelColor, arra
               <div>
                 <label class="dp-form-label">Nama <span class="req">*</span></label>
                 <input type="text" name="name" id="add-unit-name" class="dp-form-control" required placeholder="cth: Bidang Perencanaan">
-                <!-- UX FIX #6: pesan error inline -->
                 <div class="dp-invalid-msg" id="add-name-err">Nama wajib diisi.</div>
               </div>
               <div>
@@ -633,7 +644,6 @@ function renderDeptTree(array $nodes, array $levelLabel, array $levelColor, arra
                 <?php endforeach; ?>
               </select>
               <?php if (empty($allUsers)): ?>
-              <!-- UX FIX #9: hint jika allUsers kosong -->
               <div class="dp-form-hint" style="color:#b45309;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                 Belum ada pengguna terdaftar. Tambah pengguna terlebih dahulu di menu <a href="<?= $baseUrl ?>/users" style="color:var(--dp-primary);">Pengguna</a>.
@@ -684,7 +694,6 @@ function renderDeptTree(array $nodes, array $levelLabel, array $levelColor, arra
               <div>
                 <label class="dp-form-label">Nama <span class="req">*</span></label>
                 <input type="text" name="name" id="edit-unit-name" class="dp-form-control" required>
-                <!-- UX FIX #6: pesan error inline -->
                 <div class="dp-invalid-msg" id="edit-name-err">Nama wajib diisi.</div>
               </div>
               <div>
@@ -727,7 +736,6 @@ function renderDeptTree(array $nodes, array $levelLabel, array $levelColor, arra
 const BASE       = <?= json_encode(rtrim(BASE_URL, '/')) ?>;
 const LV_NAMES   = <?= json_encode($levelLabel) ?>;
 const LV_BADGE   = {1:'dept-badge-red',2:'dept-badge-blue',3:'dept-badge-green'};
-// BUG FIX #1: ambil CSRF dari variabel inline
 const CSRF       = (typeof _DEPT_CSRF !== 'undefined') ? _DEPT_CSRF : '';
 
 /* ── Safe Bootstrap Modal ─────────────────────────────────── */
@@ -756,7 +764,7 @@ function updateLevelPreview(prefix){
 window.updateLevelPreview = updateLevelPreview;
 updateLevelPreview('add');
 
-/* ── BUG FIX #2: Collapse — CSS rotate, tidak ganti innerHTML ─ */
+/* ── Toggle collapse ──────────────────────────────────────── */
 function toggleChildren(btn, targetId){
   const el=document.getElementById(targetId);
   if(!el)return;
@@ -767,7 +775,7 @@ function toggleChildren(btn, targetId){
 }
 window.toggleChildren = toggleChildren;
 
-/* ── UX FIX #4: Collapse All / Expand All ────────────────── */
+/* ── Expand All / Collapse All ────────────────────────────── */
 document.getElementById('btn-expand-all').addEventListener('click',function(){
   document.querySelectorAll('.dp-node-children').forEach(function(el){
     el.classList.remove('collapsed');
@@ -787,7 +795,7 @@ document.getElementById('btn-collapse-all').addEventListener('click',function(){
   });
 });
 
-/* ── UX FIX #3: Search/filter tree real-time ─────────────── */
+/* ── Search/filter tree real-time ─────────────────────────── */
 var _searchQ='', _filterLevel=0;
 
 function applyDeptFilter(){
@@ -805,7 +813,6 @@ function applyDeptFilter(){
       node.classList.remove('dp-dimmed');
       node.classList.add('dp-matched');
       matchCount++;
-      // expand parent jika ada query
       if(q||lv){
         var parent=node.closest('.dp-node-children');
         while(parent){
@@ -846,7 +853,7 @@ if(searchInput){
   });
 }
 
-/* ── UX FIX #8: Stat cards sebagai filter level ──────────── */
+/* ── Stat cards sebagai filter level ─────────────────────── */
 document.querySelectorAll('.dp-stat-card').forEach(function(card){
   card.addEventListener('click',function(){
     var lv=parseInt(this.dataset.filterLevel||0);
@@ -870,23 +877,21 @@ function clearDeptFilter(){
 }
 window.clearDeptFilter = clearDeptFilter;
 
-/* ── UX FIX #5: Kebab menu mobile ────────────────────────── */
+/* ── Kebab menu mobile ────────────────────────────────────── */
 function toggleKebab(btn){
   var menu=btn.nextElementSibling;
   var isOpen=menu.classList.contains('open');
-  // tutup semua kebab yang lain
   document.querySelectorAll('.dp-kebab-menu.open').forEach(function(m){m.classList.remove('open');});
   if(!isOpen)menu.classList.add('open');
 }
 window.toggleKebab = toggleKebab;
-// tutup kebab saat klik di luar
 document.addEventListener('click',function(e){
   if(!e.target.closest('.dp-kebab')){
     document.querySelectorAll('.dp-kebab-menu.open').forEach(function(m){m.classList.remove('open');});
   }
 });
 
-/* ── UX FIX #6: Validasi client-side inline ──────────────── */
+/* ── Validasi client-side inline ─────────────────────────── */
 function validateDeptForm(formId, nameInputId, nameErrId){
   var form=document.getElementById(formId);
   var input=document.getElementById(nameInputId);
@@ -929,7 +934,6 @@ function bindEditBtns(){
       document.getElementById('edit-parent').value   =d.parent_id   ||'';
       document.getElementById('formEditUnit').action =BASE+'/departments/'+d.id+'/update';
       updateLevelPreview('edit');
-      // reset validasi
       document.getElementById('edit-unit-name').classList.remove('is-invalid');
       document.getElementById('edit-name-err').classList.remove('show');
       bsModal(document.getElementById('modalEditUnit')).show();
@@ -938,7 +942,7 @@ function bindEditBtns(){
 }
 bindEditBtns();
 
-/* ── BUG FIX #1 + Hapus ──────────────────────────────────── */
+/* ── Hapus ────────────────────────────────────────────────── */
 var hapusDeptUrl='', hapusDeptId='';
 function bindDelBtns(){
   document.querySelectorAll('.btn-del-dept').forEach(function(btn){
@@ -957,7 +961,6 @@ document.getElementById('btn-konfirmasi-hapus-dept').addEventListener('click',as
   var btn=this;
   btn.disabled=true; btn.textContent='Menghapus\u2026';
   try{
-    // BUG FIX #1: sertakan CSRF di header dan body
     var res=await fetch(hapusDeptUrl,{
       method:'POST',
       headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF},
