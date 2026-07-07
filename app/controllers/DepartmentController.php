@@ -153,6 +153,104 @@ class DepartmentController
     }
 
     // ---------------------------------------------------------------
+    // Halaman kelola anggota unit kerja
+    // GET /departments/{id}/members
+    // ---------------------------------------------------------------
+    public static function members(int $id): void
+    {
+        Auth::requireRole('admin');
+
+        $dept = Database::queryOne(
+            "SELECT d.*, u.name AS head_name
+             FROM departments d
+             LEFT JOIN users u ON u.id = d.head_id
+             WHERE d.id = ? AND d.is_active = 1",
+            [$id]
+        );
+
+        if (!$dept) {
+            $_SESSION['flash_error'] = 'Unit kerja tidak ditemukan.';
+            header('Location: ' . BASE_URL . '/departments'); exit;
+        }
+
+        // Anggota saat ini di unit ini
+        $members = Database::query(
+            "SELECT id, name, email FROM users
+             WHERE department_id = ? AND is_active = 1
+             ORDER BY name ASC",
+            [$id]
+        );
+
+        // User yang belum punya dept atau di dept lain (bisa dipindah)
+        $others = Database::query(
+            "SELECT id, name, email,
+                    COALESCE((SELECT d2.name FROM departments d2 WHERE d2.id = users.department_id), '—') AS dept_name
+             FROM users
+             WHERE (department_id IS NULL OR department_id != ?) AND is_active = 1
+             ORDER BY name ASC",
+            [$id]
+        );
+
+        View::layout('departments/members', [
+            'pageTitle' => 'Anggota — ' . $dept['name'],
+            'dept'      => $dept,
+            'members'   => $members,
+            'others'    => $others,
+        ]);
+    }
+
+    // ---------------------------------------------------------------
+    // Assign / pindahkan user ke department ini
+    // POST /departments/{id}/assign-member
+    // ---------------------------------------------------------------
+    public static function assignMember(int $deptId): void
+    {
+        Auth::requireRole('admin');
+
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if (!$userId) {
+            $_SESSION['flash_error'] = 'Pengguna tidak valid.';
+            header('Location: ' . BASE_URL . '/departments/' . $deptId . '/members'); exit;
+        }
+
+        // Pastikan dept ada
+        $dept = Database::queryOne("SELECT id, name FROM departments WHERE id=? AND is_active=1", [$deptId]);
+        if (!$dept) {
+            $_SESSION['flash_error'] = 'Unit kerja tidak ditemukan.';
+            header('Location: ' . BASE_URL . '/departments'); exit;
+        }
+
+        Database::getInstance()->prepare(
+            "UPDATE users SET department_id = ? WHERE id = ?"
+        )->execute([$deptId, $userId]);
+
+        $_SESSION['flash_success'] = 'Anggota berhasil ditambahkan ke ' . $dept['name'] . '.';
+        header('Location: ' . BASE_URL . '/departments/' . $deptId . '/members'); exit;
+    }
+
+    // ---------------------------------------------------------------
+    // Lepas user dari department (set department_id = NULL)
+    // POST /departments/{id}/remove-member
+    // ---------------------------------------------------------------
+    public static function removeMember(int $deptId): void
+    {
+        Auth::requireRole('admin');
+
+        $userId = (int)($_POST['user_id'] ?? 0);
+        if (!$userId) {
+            $_SESSION['flash_error'] = 'Pengguna tidak valid.';
+            header('Location: ' . BASE_URL . '/departments/' . $deptId . '/members'); exit;
+        }
+
+        Database::getInstance()->prepare(
+            "UPDATE users SET department_id = NULL WHERE id = ? AND department_id = ?"
+        )->execute([$userId, $deptId]);
+
+        $_SESSION['flash_success'] = 'Anggota berhasil dilepas dari unit kerja.';
+        header('Location: ' . BASE_URL . '/departments/' . $deptId . '/members'); exit;
+    }
+
+    // ---------------------------------------------------------------
     // API flat list (dropdown di meeting/user)
     // ---------------------------------------------------------------
     public static function apiList(): void
