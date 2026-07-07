@@ -133,6 +133,23 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 .tli-kcard-meeting   { font-size:11px;color:#7B1C1C;text-decoration:none; }
 .tli-kcard-meeting:hover { text-decoration:underline; }
 
+/* ── Modal Notes ─────────────────────────────────────────────── */
+.tli-notes-list      { max-height:360px;overflow-y:auto; }
+.tli-note-item       { display:flex;gap:.65rem;padding:.75rem 1rem;border-bottom:1px solid #f5f5f5;position:relative; }
+.tli-note-item:last-child { border-bottom:none; }
+.tli-note-avatar     { width:30px;height:30px;border-radius:50%;background:#7B1C1C;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0; }
+.tli-note-body       { flex:1;min-width:0; }
+.tli-note-meta       { display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem;flex-wrap:wrap; }
+.tli-note-author     { font-size:13px;font-weight:700;color:#333; }
+.tli-note-time       { font-size:11px;color:#aaa; }
+.tli-note-text       { font-size:13px;color:#444;white-space:pre-wrap;line-height:1.55; }
+.tli-note-del-btn    { position:absolute;top:.6rem;right:.6rem;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#fff0f0;color:#dc2626;border:1px solid #ffd0d0;border-radius:5px;cursor:pointer;opacity:0;transition:opacity .15s; }
+.tli-note-item:hover .tli-note-del-btn { opacity:1; }
+.tli-note-empty      { padding:2rem;text-align:center;color:#bbb;font-size:13px; }
+.tli-note-input-row  { display:flex;gap:8px;align-items:flex-end; }
+.tli-note-ta         { flex:1;border:1px solid #ddd;border-radius:8px;padding:.45rem .7rem;font-size:13px;resize:none;transition:border .15s; }
+.tli-note-ta:focus   { outline:none;border-color:#7B1C1C; }
+
 /* ── Modal Enhancements ──────────────────────────────────────── */
 .modal-content       { border-radius:14px;border:none;box-shadow:0 8px 32px rgba(0,0,0,.15); }
 .modal-header-tl     { background:linear-gradient(135deg,#7B1C1C,#a83218);border-radius:14px 14px 0 0;padding:1rem 1.25rem; }
@@ -210,7 +227,9 @@ foreach ($statDefs as $sc): ?>
       <?php endforeach; ?>
     </select>
 
-    <?php if (Auth::hasRole('admin') && !empty($allUsers)): ?>
+    <?php /* BUG FIX #3: ubah dari hasRole('admin') ke hasRole('admin','sekretaris')
+               agar konsisten dengan $isAdminLike di controller */ ?>
+    <?php if (Auth::hasRole('admin', 'sekretaris') && !empty($allUsers)): ?>
     <select name="user_id" class="tli-input tli-select">
       <option value="">Semua User</option>
       <?php foreach ($allUsers as $u): ?>
@@ -311,7 +330,7 @@ foreach ($statDefs as $sc): ?>
             </td>
             <td>
               <div class="d-flex gap-1 justify-content-end align-items-center">
-                <!-- Notes button - class btn-notes & semua data-* dipertahankan -->
+                <!-- BUG FIX #2: data-bs-target sekarang menunjuk ke #modalNotes yang ada di bawah -->
                 <button class="tli-ico-btn btn-notes"
                   data-id="<?= $tl['id'] ?>"
                   data-status="<?= $tl['status'] ?>"
@@ -321,6 +340,7 @@ foreach ($statDefs as $sc): ?>
                   data-url-post="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
                   data-url-status="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/status"
                   data-delete-base="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
+                  data-can-edit="<?= $canEdit ? '1' : '0' ?>"
                   title="Progress Notes"
                   data-bs-toggle="modal"
                   data-bs-target="#modalNotes">
@@ -331,7 +351,7 @@ foreach ($statDefs as $sc): ?>
                 <a href="<?= $baseUrl ?>/tindak-lanjut/<?= (int)$tl['id'] ?>" class="tli-ico-btn tli-ico-detail" title="Lihat Detail">
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </a>
-                <!-- Delete button - class btn-del & data-* dipertahankan -->
+                <!-- Delete button -->
                 <?php if ($isAdminLike): ?>
                 <button class="tli-ico-btn tli-ico-del btn-del"
                   data-id="<?= $tl['id'] ?>"
@@ -471,6 +491,37 @@ foreach ($statDefs as $sc): ?>
 </div>
 <?php endif; ?>
 
+<!-- BUG FIX #2: Modal Progress Notes (sebelumnya tidak ada, menyebabkan tombol Notes tidak berfungsi) -->
+<div class="modal fade" id="modalNotes" tabindex="-1" aria-hidden="true" aria-labelledby="modalNotesLabel">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header modal-header-tl">
+        <h5 class="modal-title" id="modalNotesLabel">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="me-2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span id="modalNotesTitle">Progress Notes</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div id="modalNotesList" class="tli-notes-list">
+          <div class="tli-note-empty" id="modalNotesEmpty">Memuat...</div>
+        </div>
+        <div id="modalNotesInputArea" class="p-3 border-top" style="display:none">
+          <div class="tli-note-input-row">
+            <textarea id="modalNoteTextarea" class="tli-note-ta" rows="2"
+              placeholder="Tulis catatan progress… (Ctrl+Enter untuk kirim)"></textarea>
+            <button id="modalNoteSubmit" class="tli-btn-gold" style="white-space:nowrap">
+              <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              Kirim
+            </button>
+          </div>
+          <p style="font-size:11px;color:#aaa;margin:.3rem 0 0">Gunakan @nama untuk mention pengguna</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 <script>
 (function(){'use strict';
@@ -495,8 +546,11 @@ function updateNoteBubble(id,count){
     el.style.display=count>0?'flex':'none';
   });
 }
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 
-// View toggle
+// ── View toggle ───────────────────────────────────────────────
 var btnTable=document.getElementById('btn-view-table'),
     btnKanban=document.getElementById('btn-view-kanban'),
     divTable=document.getElementById('view-table'),
@@ -512,7 +566,7 @@ btnTable.addEventListener('click',function(){setView('table');});
 btnKanban.addEventListener('click',function(){setView('kanban');});
 setView('table');
 
-// Status select
+// ── Status select ─────────────────────────────────────────────
 document.querySelectorAll('.status-select').forEach(function(sel){
   sel.dataset.prev=sel.value;
   sel.addEventListener('change',async function(){
@@ -523,7 +577,7 @@ document.querySelectorAll('.status-select').forEach(function(sel){
   });
 });
 
-// Delete
+// ── Delete ────────────────────────────────────────────────────
 function bindDel(){
   document.querySelectorAll('.btn-del').forEach(function(btn){
     if(btn._bound)return;btn._bound=true;
@@ -536,14 +590,14 @@ function bindDel(){
       var trow=document.getElementById('trow-'+id);
       var kcard=document.getElementById('kcard-'+id);
       if(trow)trow.remove();
-      if(kcard){var kcol=kcard.closest('.kanban-col');kcard.remove();}
+      if(kcard){kcard.remove();}
       updateStatCards(d.summary);
     });
   });
 }
 bindDel();
 
-// Kanban drag
+// ── Kanban drag ───────────────────────────────────────────────
 if(IS_ADMIN_LIKE){
   document.querySelectorAll('.kanban-col').forEach(function(col){
     Sortable.create(col,{group:'kanban',animation:150,onEnd:async function(evt){
@@ -556,5 +610,125 @@ if(IS_ADMIN_LIKE){
     }});
   });
 }
+
+// ── BUG FIX #2: Modal Notes handler ───────────────────────────
+var _notesCurrentId=0;
+var _notesCanEdit=false;
+
+var modalNotesEl=document.getElementById('modalNotes');
+if(modalNotesEl){
+  modalNotesEl.addEventListener('show.bs.modal',function(e){
+    var btn=e.relatedTarget;
+    if(!btn)return;
+    _notesCurrentId=parseInt(btn.dataset.id)||0;
+    _notesCanEdit=btn.dataset.canEdit==='1';
+    document.getElementById('modalNotesTitle').textContent=
+      'Progress Notes — '+escHtml(btn.dataset.desc||'');
+    var inputArea=document.getElementById('modalNotesInputArea');
+    if(inputArea)inputArea.style.display=_notesCanEdit?'':'none';
+    loadNotes(_notesCurrentId);
+  });
+  modalNotesEl.addEventListener('hidden.bs.modal',function(){
+    document.getElementById('modalNotesList').innerHTML=
+      '<div class="tli-note-empty" id="modalNotesEmpty">Memuat...</div>';
+    _notesCurrentId=0;
+  });
+}
+
+function loadNotes(id){
+  var list=document.getElementById('modalNotesList');
+  list.innerHTML='<div class="tli-note-empty">Memuat...</div>';
+  fetch(BASE+'/tindak-lanjut/'+id+'/notes',{
+    headers:{'X-CSRF-Token':CSRF_TOKEN}
+  }).then(function(r){return r.json();}).then(function(notes){
+    renderNotes(notes);
+  }).catch(function(){
+    list.innerHTML='<div class="tli-note-empty">Gagal memuat catatan</div>';
+  });
+}
+
+function renderNotes(notes){
+  var list=document.getElementById('modalNotesList');
+  if(!notes||notes.length===0){
+    list.innerHTML='<div class="tli-note-empty">Belum ada catatan progress</div>';
+    return;
+  }
+  list.innerHTML='';
+  notes.forEach(function(n){list.appendChild(buildNoteEl(n));});
+}
+
+function buildNoteEl(n){
+  var div=document.createElement('div');
+  div.className='tli-note-item';
+  div.dataset.noteId=n.id;
+  div.innerHTML=
+    '<div class="tli-note-avatar">'+escHtml(String(n.author_name||'?').charAt(0).toUpperCase())+'</div>'+
+    '<div class="tli-note-body">'+
+      '<div class="tli-note-meta">'+
+        '<span class="tli-note-author">'+escHtml(n.author_name)+'</span>'+
+        '<span class="tli-note-time">'+escHtml(n.created_at_human||n.created_at||'')+'</span>'+
+      '</div>'+
+      '<div class="tli-note-text">'+escHtml(n.note).replace(/\n/g,'<br>')+'</div>'+
+    '</div>'+
+    (n.can_delete
+      ? '<button class="tli-note-del-btn btn-modal-del-note" data-id="'+n.id+'" title="Hapus">'+
+          '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'+
+        '</button>'
+      : '');
+  var delBtn=div.querySelector('.btn-modal-del-note');
+  if(delBtn)bindModalNoteDelete(delBtn);
+  return div;
+}
+
+function bindModalNoteDelete(btn){
+  btn.addEventListener('click',async function(){
+    if(!confirm('Hapus catatan ini?'))return;
+    var noteId=btn.dataset.id;
+    var r=await fetch(BASE+'/tindak-lanjut/'+_notesCurrentId+'/notes/'+noteId+'/delete',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},
+      body:JSON.stringify({_csrf:CSRF_TOKEN})
+    });
+    var d=await r.json();
+    if(d.success){
+      btn.closest('.tli-note-item').remove();
+      if(!document.querySelector('#modalNotesList .tli-note-item'))
+        document.getElementById('modalNotesList').innerHTML='<div class="tli-note-empty">Belum ada catatan progress</div>';
+      updateNoteBubble(_notesCurrentId,d.note_count);
+    } else {
+      alert(d.message||'Gagal menghapus catatan');
+    }
+  });
+}
+
+var modalNoteSubmit=document.getElementById('modalNoteSubmit');
+var modalNoteTA=document.getElementById('modalNoteTextarea');
+async function submitModalNote(){
+  if(!modalNoteTA||!_notesCurrentId)return;
+  var note=modalNoteTA.value.trim();
+  if(!note)return;
+  if(modalNoteSubmit)modalNoteSubmit.disabled=true;
+  var r=await fetch(BASE+'/tindak-lanjut/'+_notesCurrentId+'/notes',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},
+    body:JSON.stringify({_csrf:CSRF_TOKEN,note:note})
+  });
+  var d=await r.json();
+  if(d.success){
+    modalNoteTA.value='';
+    var list=document.getElementById('modalNotesList');
+    var empty=list.querySelector('.tli-note-empty');
+    if(empty)empty.remove();
+    list.appendChild(buildNoteEl(d.note));
+    list.scrollTop=list.scrollHeight;
+    updateNoteBubble(_notesCurrentId,d.note_count);
+  } else {
+    alert(d.message||'Gagal mengirim note');
+  }
+  if(modalNoteSubmit)modalNoteSubmit.disabled=false;
+}
+if(modalNoteSubmit)modalNoteSubmit.addEventListener('click',submitModalNote);
+if(modalNoteTA)modalNoteTA.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.ctrlKey)submitModalNote();});
+
 })();
 </script>
