@@ -121,12 +121,15 @@ $router->get('/api/roles',                      [RoleController::class, 'apiList
 $router->post('/api/roles/{id}/permissions',    [RoleController::class, 'syncPermissions']);
 
 // === UNIT KERJA ===
-$router->get('/departments',                     [DepartmentController::class, 'index']);
-$router->post('/departments',                    [DepartmentController::class, 'store']);
-$router->post('/departments/{id}/update',        [DepartmentController::class, 'update']);
-$router->post('/departments/{id}/delete',        [DepartmentController::class, 'delete']);
-$router->get('/api/departments',                 [DepartmentController::class, 'apiList']);
-$router->get('/api/departments/children',        [DepartmentController::class, 'apiChildren']);
+$router->get('/departments',                          [DepartmentController::class, 'index']);
+$router->post('/departments',                         [DepartmentController::class, 'store']);
+$router->post('/departments/{id}/update',             [DepartmentController::class, 'update']);
+$router->post('/departments/{id}/delete',             [DepartmentController::class, 'delete']);
+$router->get('/departments/{id}/members',             [DepartmentController::class, 'members']);
+$router->post('/departments/{id}/assign-member',      [DepartmentController::class, 'assignMember']);
+$router->post('/departments/{id}/remove-member',      [DepartmentController::class, 'removeMember']);
+$router->get('/api/departments',                      [DepartmentController::class, 'apiList']);
+$router->get('/api/departments/children',             [DepartmentController::class, 'apiChildren']);
 
 // === ATTACHMENTS ===
 $router->get('/api/meetings/{id}/attachments',  [AttachmentController::class, 'index']);
@@ -216,7 +219,7 @@ $router->post('/api/dokumen/kategoris',                [DokumenTagController::cl
 $router->post('/api/dokumen/kategoris/{id}/update',    [DokumenTagController::class, 'kategoriUpdate']);
 $router->post('/api/dokumen/kategoris/{id}/delete',    [DokumenTagController::class, 'kategoriDelete']);
 $router->get('/api/dokumen/{id}/tags',                 [DokumenTagController::class, 'fileTags']);
-$router->post('/api/dokumen/{id}/tags/sync',           [DokumenTagController::class, 'syncFileTags']);
+$router->post('/api/dokumen/{id}/sync',                [DokumenTagController::class, 'syncFileTags']);
 $router->post('/api/dokumen/{id}/kategori',            [DokumenTagController::class, 'setFileKategori']);
 
 // === DOKUMEN Fase 6 — Public Share Link ===
