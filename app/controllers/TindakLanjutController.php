@@ -230,12 +230,26 @@ class TindakLanjutController
         header('Location: ' . BASE_URL . '/tindak-lanjut'); exit;
     }
 
+    // BUG FIX #2: CSRF verify sesuai content-type (JSON pakai header, form pakai $_POST)
     public static function updateStatus(int $id): void
     {
         Auth::requireAuth();
-        CSRF::verify();
 
-        $input  = json_decode(file_get_contents('php://input'), true) ?? $_POST;
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        $isJson      = strpos($contentType, 'application/json') !== false;
+
+        if ($isJson) {
+            $csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+            if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfHeader)) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']); exit;
+            }
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        } else {
+            CSRF::verify();
+            $input = $_POST;
+        }
+
         $status = $input['status'] ?? '';
 
         // userId untuk scope summary: hanya boleh dipakai jika admin/sekretaris
@@ -313,10 +327,25 @@ class TindakLanjutController
         echo json_encode($notes); exit;
     }
 
+    // BUG FIX #2 (addNote) + BUG FIX #4 (can_delete): CSRF JSON header & can_delete berdasarkan role
     public static function addNote(int $id): void
     {
         Auth::requireAuth();
-        CSRF::verify();
+
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        $isJson      = strpos($contentType, 'application/json') !== false;
+
+        if ($isJson) {
+            $csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+            if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfHeader)) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']); exit;
+            }
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        } else {
+            CSRF::verify();
+            $input = $_POST;
+        }
 
         $tl = Database::queryOne("SELECT assigned_to, description FROM tindak_lanjut WHERE id=?", [$id]);
         if (!$tl) { http_response_code(404); echo json_encode(['success'=>false]); exit; }
@@ -327,8 +356,7 @@ class TindakLanjutController
             echo json_encode(['success'=>false,'message'=>'Akses ditolak']); exit;
         }
 
-        $input = json_decode(file_get_contents('php://input'), true) ?? $_POST;
-        $note  = trim($input['note'] ?? '');
+        $note = trim($input['note'] ?? '');
         if (!$note) {
             header('Content-Type: application/json');
             echo json_encode(['success'=>false,'message'=>'Note tidak boleh kosong']); exit;
@@ -349,7 +377,9 @@ class TindakLanjutController
              WHERE n.tindak_lanjut_id = ? ORDER BY n.id DESC LIMIT 1",
             [$id]
         );
-        $newNote['can_delete'] = true;
+
+        // BUG FIX #4: can_delete berdasarkan role/ownership, bukan hardcode true
+        $newNote['can_delete'] = Auth::hasRole('admin') || ((int)$newNote['user_id'] === Auth::id());
         unset($newNote['user_id']);
 
         $noteCount = (int)(Database::queryOne(
@@ -390,10 +420,23 @@ class TindakLanjutController
         }
     }
 
+    // BUG FIX #3: CSRF verify sesuai content-type untuk deleteNote
     public static function deleteNote(int $tlId, int $noteId): void
     {
         Auth::requireAuth();
-        CSRF::verify();
+
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        $isJson      = strpos($contentType, 'application/json') !== false;
+
+        if ($isJson) {
+            $csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+            if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfHeader)) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']); exit;
+            }
+        } else {
+            CSRF::verify();
+        }
 
         $n = Database::queryOne("SELECT * FROM tindak_lanjut_notes WHERE id=?", [$noteId]);
         if (!$n) {
@@ -417,10 +460,25 @@ class TindakLanjutController
         echo json_encode(['success'=>true, 'note_count'=>$noteCount]); exit;
     }
 
+    // BUG FIX #1: destroy() meneruskan userId ke getSummary agar stat cards akurat
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        CSRF::verify();
+
+        $contentType = $_SERVER['CONTENT_TYPE'] ?? '';
+        $isJson      = strpos($contentType, 'application/json') !== false;
+
+        if ($isJson) {
+            $csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+            if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfHeader)) {
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']); exit;
+            }
+            $input = json_decode(file_get_contents('php://input'), true) ?? [];
+        } else {
+            CSRF::verify();
+            $input = $_POST;
+        }
 
         $tl = Database::queryOne("SELECT id FROM tindak_lanjut WHERE id=?", [$id]);
         if (!$tl) {
@@ -431,9 +489,17 @@ class TindakLanjutController
 
         Database::getInstance()->prepare("DELETE FROM tindak_lanjut WHERE id=?")->execute([$id]);
 
-        // Kembalikan summary agar stat cards terupdate di frontend setelah hapus
+        // BUG FIX #1: teruskan userId agar summary yang dikembalikan sesuai filter aktif di frontend
         $isAdminLike = Auth::hasRole('admin', 'sekretaris');
-        $summary     = self::getSummary($isAdminLike);
+        $userId      = 0;
+        if ($isAdminLike) {
+            $userId = (int)($input['user_id'] ?? 0);
+            if ($userId > 0) {
+                $exists = Database::queryOne("SELECT id FROM users WHERE id=? AND is_active=1", [$userId]);
+                if (!$exists) $userId = 0;
+            }
+        }
+        $summary = self::getSummary($isAdminLike, $userId);
 
         header('Content-Type: application/json');
         echo json_encode(['success' => true, 'summary' => $summary]); exit;
