@@ -27,7 +27,8 @@ $allUsersJson = json_encode(array_values(array_map(
     $allUsers ?? []
 )));
 
-$meetingOptions = Database::query("SELECT id, title FROM meetings ORDER BY start_datetime DESC LIMIT 200");
+// BUG FIX #2: meetingOptions harus disediakan oleh controller, fallback ke query jika belum ada
+$meetingOptions = $meetingOptions ?? Database::query("SELECT id, title FROM meetings ORDER BY start_datetime DESC LIMIT 200");
 
 $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 ?>
@@ -42,6 +43,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 /* ── Buttons ─────────────────────────────────────────────────── */
 .tli-btn-gold        { display:inline-flex;align-items:center;gap:6px;padding:.45rem .9rem;background:linear-gradient(135deg,#7B1C1C,#a83218);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s; }
 .tli-btn-gold:hover  { opacity:.88; }
+.tli-btn-gold:disabled { opacity:.55;cursor:not-allowed; }
 .tli-btn-brand-sm    { display:inline-flex;align-items:center;gap:5px;padding:.38rem .75rem;background:#7B1C1C;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s; }
 .tli-btn-brand-sm:hover { opacity:.85; }
 .tli-btn-reset       { display:inline-flex;align-items:center;padding:.38rem .7rem;background:#f0f0f0;color:#555;border:none;border-radius:7px;font-size:12px;text-decoration:none;transition:background .15s; }
@@ -103,7 +105,8 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 .tli-badge-xs        { font-size:10px;padding:.15em .45em; }
 
 /* ── Status Select ───────────────────────────────────────────── */
-.tli-status-sel      { border:1px solid #ddd;border-radius:6px;padding:.25rem .45rem;font-size:12px;color:#333;cursor:pointer; }
+.tli-status-sel      { border:1px solid #ddd;border-radius:6px;padding:.25rem .45rem;font-size:12px;color:#333;cursor:pointer;transition:opacity .15s; }
+.tli-status-sel.loading { opacity:.5;pointer-events:none; }
 
 /* ── Action Buttons ──────────────────────────────────────────── */
 .tli-ico-btn         { display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:.3rem .55rem;border:1px solid #e0e0e0;border-radius:7px;background:#fff;font-size:12px;color:#555;cursor:pointer;text-decoration:none;transition:all .15s;white-space:nowrap; }
@@ -121,7 +124,8 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 .tli-kb-col          { background:#f9f9f9;border:1px solid #eee;border-radius:12px;overflow:hidden;height:100%; }
 .tli-kb-header       { display:flex;align-items:center;gap:8px;padding:.6rem .9rem;background:#faf4eb;border-bottom:1px solid #eee; }
 .tli-kb-title        { font-size:12px;font-weight:700;color:#7B1C1C;text-transform:uppercase;letter-spacing:.04em; }
-.tli-kb-body         { padding:.6rem;min-height:120px;display:flex;flex-direction:column;gap:8px; }
+/* UX FIX: kanban column body sekarang punya max-height + scroll */
+.tli-kb-body         { padding:.6rem;min-height:120px;max-height:520px;overflow-y:auto;display:flex;flex-direction:column;gap:8px; }
 .tli-kb-empty        { text-align:center;font-size:12px;color:#ccc;padding:1.5rem 0; }
 .tli-kcard           { background:#fff;border:1px solid #eee;border-radius:9px;padding:.65rem .8rem;box-shadow:0 1px 3px rgba(0,0,0,.04);cursor:grab;transition:box-shadow .15s; }
 .tli-kcard:hover     { box-shadow:0 3px 10px rgba(0,0,0,.09); }
@@ -157,6 +161,10 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 .modal-header-tl .btn-close   { filter:invert(1) brightness(2); }
 .tli-form-label      { font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px; }
 .tli-required        { color:#dc2626; }
+
+/* ── Spinner ─────────────────────────────────────────────────── */
+.tli-spinner { display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:tli-spin .6s linear infinite; }
+@keyframes tli-spin { to { transform:rotate(360deg); } }
 </style>
 
 <div class="tli-page-header mb-4">
@@ -227,8 +235,6 @@ foreach ($statDefs as $sc): ?>
       <?php endforeach; ?>
     </select>
 
-    <?php /* BUG FIX #3: ubah dari hasRole('admin') ke hasRole('admin','sekretaris')
-               agar konsisten dengan $isAdminLike di controller */ ?>
     <?php if (Auth::hasRole('admin', 'sekretaris') && !empty($allUsers)): ?>
     <select name="user_id" class="tli-input tli-select">
       <option value="">Semua User</option>
@@ -242,7 +248,11 @@ foreach ($statDefs as $sc): ?>
       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       Filter
     </button>
-    <?php if (($status ?? '') || ($priority ?? '') || ($search ?? '') || ($user_id ?? 0)): ?>
+    <?php
+    // BUG FIX #3: cek user_id > 0 agar tombol Reset muncul saat filter user aktif
+    $hasFilter = ($status ?? '') || ($priority ?? '') || ($search ?? '') || (($user_id ?? 0) > 0);
+    ?>
+    <?php if ($hasFilter): ?>
     <a href="<?= $baseUrl ?>/tindak-lanjut" class="tli-btn-reset">&#x2715; Reset</a>
     <?php endif; ?>
   </form>
@@ -330,7 +340,6 @@ foreach ($statDefs as $sc): ?>
             </td>
             <td>
               <div class="d-flex gap-1 justify-content-end align-items-center">
-                <!-- BUG FIX #2: data-bs-target sekarang menunjuk ke #modalNotes yang ada di bawah -->
                 <button class="tli-ico-btn btn-notes"
                   data-id="<?= $tl['id'] ?>"
                   data-status="<?= $tl['status'] ?>"
@@ -347,11 +356,9 @@ foreach ($statDefs as $sc): ?>
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   <span id="nbadge-<?= $tl['id'] ?>" class="tli-note-bubble" <?= $nc < 1 ? 'style="display:none"' : '' ?>><?= $nc ?></span>
                 </button>
-                <!-- Detail button -->
                 <a href="<?= $baseUrl ?>/tindak-lanjut/<?= (int)$tl['id'] ?>" class="tli-ico-btn tli-ico-detail" title="Lihat Detail">
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </a>
-                <!-- Delete button -->
                 <?php if ($isAdminLike): ?>
                 <button class="tli-ico-btn tli-ico-del btn-del"
                   data-id="<?= $tl['id'] ?>"
@@ -480,9 +487,10 @@ foreach ($statDefs as $sc): ?>
         </div>
         <div class="modal-footer border-0 pt-0">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-          <button type="submit" class="tli-btn-gold">
+          <!-- UX FIX: tombol Simpan punya id untuk disable saat loading -->
+          <button type="submit" class="tli-btn-gold" id="btnSimpanTL">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-            Simpan
+            <span id="btnSimpanTLText">Simpan</span>
           </button>
         </div>
       </form>
@@ -491,7 +499,7 @@ foreach ($statDefs as $sc): ?>
 </div>
 <?php endif; ?>
 
-<!-- BUG FIX #2: Modal Progress Notes (sebelumnya tidak ada, menyebabkan tombol Notes tidak berfungsi) -->
+<!-- Modal Progress Notes -->
 <div class="modal fade" id="modalNotes" tabindex="-1" aria-hidden="true" aria-labelledby="modalNotesLabel">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
@@ -550,6 +558,26 @@ function escHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// BUG FIX #1: helper update kanban column count badge
+function updateKanbanCount(status){
+  var col=document.getElementById('kanban-col-'+status);
+  var badge=document.getElementById('kanban-count-'+status);
+  if(!col||!badge)return;
+  var cards=col.querySelectorAll('.tli-kcard');
+  badge.textContent=cards.length;
+  var empty=col.querySelector('.kanban-empty');
+  if(cards.length===0){
+    if(!empty){
+      var d=document.createElement('div');
+      d.className='tli-kb-empty kanban-empty';
+      d.textContent='Belum ada tugas';
+      col.appendChild(d);
+    }
+  } else {
+    if(empty)empty.remove();
+  }
+}
+
 // ── View toggle ───────────────────────────────────────────────
 var btnTable=document.getElementById('btn-view-table'),
     btnKanban=document.getElementById('btn-view-kanban'),
@@ -566,11 +594,13 @@ btnTable.addEventListener('click',function(){setView('table');});
 btnKanban.addEventListener('click',function(){setView('kanban');});
 setView('table');
 
-// ── Status select ─────────────────────────────────────────────
+// ── Status select (UX FIX: loading class saat update) ─────────
 document.querySelectorAll('.status-select').forEach(function(sel){
   sel.dataset.prev=sel.value;
   sel.addEventListener('change',async function(){
+    this.classList.add('loading');
     var d=await postJSON(this.dataset.url,{status:this.value});
+    this.classList.remove('loading');
     if(!d.success){alert(d.message||'Gagal update status');this.value=this.dataset.prev;return;}
     this.dataset.prev=this.value;
     updateStatCards(d.summary);
@@ -590,28 +620,41 @@ function bindDel(){
       var trow=document.getElementById('trow-'+id);
       var kcard=document.getElementById('kcard-'+id);
       if(trow)trow.remove();
-      if(kcard){kcard.remove();}
+      if(kcard){
+        var oldStatus=kcard.dataset.status;
+        kcard.remove();
+        updateKanbanCount(oldStatus); // BUG FIX #1
+      }
       updateStatCards(d.summary);
     });
   });
 }
 bindDel();
 
-// ── Kanban drag ───────────────────────────────────────────────
+// ── Kanban drag (BUG FIX #1: update count kedua kolom) ────────
 if(IS_ADMIN_LIKE){
   document.querySelectorAll('.kanban-col').forEach(function(col){
     Sortable.create(col,{group:'kanban',animation:150,onEnd:async function(evt){
-      var card=evt.item,newCol=evt.to,oldCol=evt.from,newStatus=newCol.dataset.status;
+      var card=evt.item,newCol=evt.to,oldCol=evt.from,newStatus=newCol.dataset.status,oldStatus=oldCol.dataset.status;
       if(newStatus===card.dataset.status)return;
       card.dataset.status=newStatus;
       var d=await postJSON(card.dataset.url,{status:newStatus});
-      if(!d.success){alert(d.message||'Gagal update status');oldCol.appendChild(card);card.dataset.status=oldCol.dataset.status;return;}
+      if(!d.success){
+        alert(d.message||'Gagal update status');
+        oldCol.appendChild(card);
+        card.dataset.status=oldStatus;
+        updateKanbanCount(newStatus);
+        updateKanbanCount(oldStatus);
+        return;
+      }
+      updateKanbanCount(newStatus); // BUG FIX #1
+      updateKanbanCount(oldStatus); // BUG FIX #1
       updateStatCards(d.summary);
     }});
   });
 }
 
-// ── BUG FIX #2: Modal Notes handler ───────────────────────────
+// ── Modal Notes handler ───────────────────────────────────────
 var _notesCurrentId=0;
 var _notesCanEdit=false;
 
@@ -623,7 +666,7 @@ if(modalNotesEl){
     _notesCurrentId=parseInt(btn.dataset.id)||0;
     _notesCanEdit=btn.dataset.canEdit==='1';
     document.getElementById('modalNotesTitle').textContent=
-      'Progress Notes — '+escHtml(btn.dataset.desc||'');
+      'Progress Notes \u2014 '+escHtml(btn.dataset.desc||'');
     var inputArea=document.getElementById('modalNotesInputArea');
     if(inputArea)inputArea.style.display=_notesCanEdit?'':'none';
     loadNotes(_notesCurrentId);
@@ -717,6 +760,7 @@ async function submitModalNote(){
   if(d.success){
     modalNoteTA.value='';
     var list=document.getElementById('modalNotesList');
+    // BUG FIX #4: hapus pesan kosong jika ada
     var empty=list.querySelector('.tli-note-empty');
     if(empty)empty.remove();
     list.appendChild(buildNoteEl(d.note));
@@ -729,6 +773,36 @@ async function submitModalNote(){
 }
 if(modalNoteSubmit)modalNoteSubmit.addEventListener('click',submitModalNote);
 if(modalNoteTA)modalNoteTA.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.ctrlKey)submitModalNote();});
+
+// UX FIX: loading state saat submit form Tambah Tindak Lanjut
+var formTambahTL=document.getElementById('formTambahTL');
+var btnSimpanTL=document.getElementById('btnSimpanTL');
+var btnSimpanTLText=document.getElementById('btnSimpanTLText');
+if(formTambahTL&&btnSimpanTL){
+  formTambahTL.addEventListener('submit',async function(e){
+    e.preventDefault();
+    btnSimpanTL.disabled=true;
+    btnSimpanTLText.innerHTML='<span class="tli-spinner"></span> Menyimpan...';
+    var fd=new FormData(formTambahTL);
+    var body={};
+    fd.forEach(function(v,k){body[k]=v;});
+    try{
+      var r=await fetch(BASE+'/tindak-lanjut',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},body:JSON.stringify(Object.assign({_csrf:CSRF_TOKEN},body))});
+      var d=await r.json();
+      if(d.success){
+        location.reload();
+      } else {
+        alert(d.message||'Gagal menyimpan');
+        btnSimpanTL.disabled=false;
+        btnSimpanTLText.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Simpan';
+      }
+    } catch(err){
+      alert('Terjadi kesalahan jaringan');
+      btnSimpanTL.disabled=false;
+      btnSimpanTLText.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Simpan';
+    }
+  });
+}
 
 })();
 </script>
