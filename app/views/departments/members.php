@@ -4,6 +4,10 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '', ENT_QUOTES);
 $levelLabel = [1 => 'Unit Kerja', 2 => 'Bidang / Bagian', 3 => 'Sub Bidang'];
 $levelBadge = [1 => 'dept-badge-red', 2 => 'dept-badge-blue', 3 => 'dept-badge-green'];
 $deptLevel  = $dept['level'] ?? 1;
+
+// PHP <7.4 compatible stats
+$countUnassigned = count(array_filter($others, function($u){ return $u['dept_name'] === '—'; }));
+$countOtherDept  = count(array_filter($others, function($u){ return $u['dept_name'] !== '—'; }));
 ?>
 
 <style>
@@ -61,7 +65,7 @@ $deptLevel  = $dept['level'] ?? 1;
 .dm-hero-sub    { font-size:12px; color:rgba(255,255,255,.65); margin-top:.15rem; }
 .dm-hero-bar    { height:3px; background:linear-gradient(90deg,var(--dp-gold) 0%,#A8872F 60%,transparent 100%); }
 
-/* Back button */
+/* Buttons */
 .dm-btn {
   display:inline-flex; align-items:center; gap:.35rem;
   font-size:12.5px; font-weight:700; border-radius:var(--dp-radius-sm);
@@ -76,8 +80,10 @@ $deptLevel  = $dept['level'] ?? 1;
   box-shadow:0 2px 8px rgba(123,28,28,.25);
 }
 .dm-btn-primary:hover { background:linear-gradient(135deg,#9B2020,var(--dp-primary-dark)); color:#fff; }
+.dm-btn-primary:disabled { opacity:.55; cursor:not-allowed; }
 .dm-btn-danger { background:var(--dp-red-bg); color:var(--dp-red); border-color:rgba(123,28,28,.25); }
 .dm-btn-danger:hover { background:var(--dp-red); color:#fff; }
+.dm-btn-danger:disabled { opacity:.55; cursor:not-allowed; }
 .dm-btn-sm { padding:.26rem .65rem; font-size:11.5px; }
 
 /* Alert */
@@ -164,16 +170,22 @@ $deptLevel  = $dept['level'] ?? 1;
 .dm-empty h4 { font-size:14px; color:var(--dp-text-muted); margin:.5rem 0 .25rem; font-weight:700; }
 .dm-empty p  { font-size:12.5px; margin:0; }
 
-/* Search filter */
-.dm-search-wrap { position:relative; }
+/* Search filter with clear button */
+.dm-search-wrap { position:relative; display:inline-flex; align-items:center; }
 .dm-search-ico  { position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--dp-text-faint); pointer-events:none; }
 .dm-search-input {
   border:1.5px solid var(--dp-border); border-radius:var(--dp-radius-sm);
-  padding:.38rem .75rem .38rem 2rem; font-size:13px; color:var(--dp-text);
+  padding:.38rem 1.8rem .38rem 2rem; font-size:13px; color:var(--dp-text);
   background:#fff; outline:none; width:200px;
   transition:border-color var(--dp-transition);
 }
 .dm-search-input:focus { border-color:var(--dp-primary); box-shadow:0 0 0 3px var(--dp-primary-ring); }
+.dm-search-clear {
+  position:absolute; right:7px; top:50%; transform:translateY(-50%);
+  background:none; border:none; cursor:pointer; color:var(--dp-text-faint);
+  font-size:14px; line-height:1; padding:0; display:none;
+}
+.dm-search-clear:hover { color:var(--dp-text); }
 
 /* Modal */
 .dm-modal .modal-content {
@@ -199,11 +211,12 @@ select.dm-form-control { appearance:auto; }
 .dm-modal-danger .modal-header { background:var(--dp-red-bg); border-color:rgba(123,28,28,.18); }
 .dm-modal-danger .modal-title  { color:var(--dp-red); }
 
+/* fix: scope mobile hide to tbl-others only so tbl-members Aksi column stays */
 @media(max-width:600px){
   .dm-hero-inner { flex-direction:column; align-items:flex-start; }
   .dm-search-input { width:100%; }
   .dm-panel-header { flex-direction:column; align-items:flex-start; }
-  .dm-table th:nth-child(3), .dm-table td:nth-child(3) { display:none; }
+  #tbl-others th:nth-child(3), #tbl-others td:nth-child(3) { display:none; }
 }
 </style>
 
@@ -264,12 +277,12 @@ select.dm-form-control { appearance:auto; }
   </div>
   <div class="dm-stat-card">
     <div class="dm-stat-label">Belum Ditugaskan</div>
-    <div class="dm-stat-value" style="color:var(--dp-text-muted)"><?= count(array_filter($others, fn($u) => $u['dept_name'] === '—')) ?></div>
+    <div class="dm-stat-value" style="color:var(--dp-text-muted)"><?= $countUnassigned ?></div>
     <div class="dm-stat-sub">user tanpa unit</div>
   </div>
   <div class="dm-stat-card">
     <div class="dm-stat-label">Dari Unit Lain</div>
-    <div class="dm-stat-value" style="color:var(--dp-blue)"><?= count(array_filter($others, fn($u) => $u['dept_name'] !== '—')) ?></div>
+    <div class="dm-stat-value" style="color:var(--dp-blue)"><?= $countOtherDept ?></div>
     <div class="dm-stat-sub">dapat dipindah</div>
   </div>
 </div>
@@ -283,7 +296,10 @@ select.dm-form-control { appearance:auto; }
     </div>
     <div class="dm-search-wrap">
       <svg class="dm-search-ico" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="search-members" class="dm-search-input" placeholder="Cari anggota…" oninput="filterTable('tbl-members', this.value)">
+      <input type="text" id="search-members" class="dm-search-input" placeholder="Cari anggota…"
+             oninput="filterTable('tbl-members', this.value); toggleClear('clear-members', this.value)">
+      <button type="button" id="clear-members" class="dm-search-clear" title="Hapus pencarian"
+              onclick="clearSearch('search-members','tbl-members','clear-members')">&times;</button>
     </div>
   </div>
   <div class="dm-panel-body">
@@ -315,9 +331,10 @@ select.dm-form-control { appearance:auto; }
           </td>
           <td style="color:var(--dp-text-muted);font-size:12.5px;"><?= htmlspecialchars($m['email'] ?? '—') ?></td>
           <td>
+            <!-- fix: use ENT_QUOTES on data-name to prevent attribute-context XSS -->
             <button class="dm-btn dm-btn-danger dm-btn-sm btn-remove-member"
-                    data-id="<?= $m['id'] ?>"
-                    data-name="<?= htmlspecialchars($m['name']) ?>">
+                    data-id="<?= (int)$m['id'] ?>"
+                    data-name="<?= htmlspecialchars($m['name'], ENT_QUOTES, 'UTF-8') ?>">
               <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               Lepas
             </button>
@@ -339,7 +356,10 @@ select.dm-form-control { appearance:auto; }
     </div>
     <div class="dm-search-wrap">
       <svg class="dm-search-ico" xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input type="text" id="search-others" class="dm-search-input" placeholder="Cari pengguna…" oninput="filterTable('tbl-others', this.value)">
+      <input type="text" id="search-others" class="dm-search-input" placeholder="Cari pengguna…"
+             oninput="filterTable('tbl-others', this.value); toggleClear('clear-others', this.value)">
+      <button type="button" id="clear-others" class="dm-search-clear" title="Hapus pencarian"
+              onclick="clearSearch('search-others','tbl-others','clear-others')">&times;</button>
     </div>
   </div>
   <div class="dm-panel-body">
@@ -379,10 +399,18 @@ select.dm-form-control { appearance:auto; }
             <?php endif; ?>
           </td>
           <td>
-            <form method="POST" action="<?= $baseUrl ?>/departments/<?= $dept['id'] ?>/assign-member"
-                  onsubmit="return confirmAssign('<?= htmlspecialchars(addslashes($o['name'])) ?>', '<?= htmlspecialchars(addslashes($o['dept_name'])) ?>')">
+            <!--
+              fix: replace inline onsubmit JS string injection with data-attributes.
+              confirmAssign is now bound via event listener in JS block below.
+            -->
+            <form method="POST"
+                  action="<?= $baseUrl ?>/departments/<?= (int)$dept['id'] ?>/assign-member"
+                  class="form-assign"
+                  data-uid="<?= (int)$o['id'] ?>"
+                  data-uname="<?= htmlspecialchars($o['name'], ENT_QUOTES, 'UTF-8') ?>"
+                  data-dept="<?= htmlspecialchars($o['dept_name'], ENT_QUOTES, 'UTF-8') ?>">
               <?= Auth::csrfField() ?>
-              <input type="hidden" name="user_id" value="<?= $o['id'] ?>">
+              <input type="hidden" name="user_id" value="<?= (int)$o['id'] ?>">
               <button type="submit" class="dm-btn dm-btn-primary dm-btn-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 Tambah
@@ -428,44 +456,84 @@ select.dm-form-control { appearance:auto; }
 
 <script>
 (function(){
-  const BASE     = <?= json_encode($baseUrl) ?>;
-  const DEPT_ID  = <?= (int)$dept['id'] ?>;
+  var BASE    = <?= json_encode($baseUrl) ?>;
+  var DEPT_ID = <?= (int)$dept['id'] ?>;
 
-  /* Search/filter tabel */
+  /* ── Search/filter tabel ── */
   window.filterTable = function(tableId, query) {
-    var q = query.toLowerCase().trim();
+    var q    = query.toLowerCase().trim();
     var rows = document.querySelectorAll('#' + tableId + ' tbody tr');
     rows.forEach(function(row) {
-      var text = row.textContent.toLowerCase();
-      row.style.display = (!q || text.includes(q)) ? '' : 'none';
+      row.style.display = (!q || row.textContent.toLowerCase().indexOf(q) > -1) ? '' : 'none';
     });
   };
 
-  /* Konfirmasi assign jika user dari unit lain */
-  window.confirmAssign = function(name, currentDept) {
-    if (currentDept && currentDept !== '—') {
-      return confirm('"' + name + '" saat ini berada di unit "' + currentDept + '". Pindahkan ke unit ini?');
-    }
-    return true;
+  /* ── Toggle clear (×) button visibility ── */
+  window.toggleClear = function(clearId, value) {
+    var btn = document.getElementById(clearId);
+    if (btn) btn.style.display = value ? 'block' : 'none';
   };
 
-  /* Modal lepas anggota */
+  /* ── Clear search and reset table ── */
+  window.clearSearch = function(inputId, tableId, clearId) {
+    var inp = document.getElementById(inputId);
+    if (inp) { inp.value = ''; inp.focus(); }
+    filterTable(tableId, '');
+    toggleClear(clearId, '');
+  };
+
+  /* ── fix: bind confirmAssign via event listener, not inline onsubmit ──
+     Reads name and current dept from data-attributes to avoid JS string injection. */
+  document.querySelectorAll('.form-assign').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      var name = this.dataset.uname || '';
+      var dept = this.dataset.dept  || '';
+      if (dept && dept !== '—') {
+        if (!confirm('"' + name + '" saat ini berada di unit "' + dept + '". Pindahkan ke unit ini?')) {
+          e.preventDefault();
+          return;
+        }
+      }
+      /* fix: prevent double-submit */
+      var btn = this.querySelector('button[type=submit]');
+      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    });
+  });
+
+  /* ── fix: prevent double-submit on remove form ── */
+  document.getElementById('form-remove-member').addEventListener('submit', function() {
+    var btn = this.querySelector('button[type=submit]');
+    if (btn) btn.disabled = true;
+  });
+
+  /* ── Bootstrap modal helper with vanilla fallback ── */
   function bsModal(el) {
     var BS = window.bootstrap;
     if (BS && BS.Modal) return new BS.Modal(el);
     return {
-      show: function() { el.classList.add('show'); el.style.display = 'block'; document.body.classList.add('modal-open'); },
-      hide: function() { el.classList.remove('show'); el.style.display = ''; document.body.classList.remove('modal-open'); }
+      show: function() {
+        el.classList.add('show'); el.style.display = 'block';
+        document.body.classList.add('modal-open');
+      },
+      hide: function() {
+        el.classList.remove('show'); el.style.display = '';
+        document.body.classList.remove('modal-open');
+      }
     };
   }
 
+  /* ── Modal lepas anggota ── */
   document.querySelectorAll('.btn-remove-member').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var uid  = this.dataset.id;
       var name = this.dataset.name;
       document.getElementById('remove-member-name').textContent = name;
       document.getElementById('remove-member-uid').value = uid;
-      document.getElementById('form-remove-member').action = BASE + '/departments/' + DEPT_ID + '/remove-member';
+      document.getElementById('form-remove-member').action =
+        BASE + '/departments/' + DEPT_ID + '/remove-member';
+      /* reset disabled state in case modal was opened before */
+      var submitBtn = document.querySelector('#form-remove-member button[type=submit]');
+      if (submitBtn) submitBtn.disabled = false;
       bsModal(document.getElementById('modalRemoveMember')).show();
     });
   });
