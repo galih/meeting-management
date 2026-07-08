@@ -8,20 +8,56 @@ class DepartmentController
     {
         $db = Database::getInstance();
 
-        // Cek apakah kolom 'level' sudah ada
         $cols = $db->query("SHOW COLUMNS FROM departments LIKE 'level'")->fetchAll();
         if (empty($cols)) {
             $db->exec("ALTER TABLE departments
                 ADD COLUMN parent_id INT DEFAULT NULL AFTER id,
                 ADD COLUMN level TINYINT UNSIGNED NOT NULL DEFAULT 1
                     COMMENT '1=Unit Kerja, 2=Bidang/Bagian, 3=Sub Bidang/Sub Bagian' AFTER code");
-            // FK boleh gagal kalau sudah ada, pakai try-catch
             try {
                 $db->exec("ALTER TABLE departments
                     ADD CONSTRAINT fk_dept_parent
                     FOREIGN KEY (parent_id) REFERENCES departments(id) ON DELETE SET NULL");
-            } catch (\Throwable $e) { /* ignore jika sudah ada */ }
+            } catch (\Throwable $e) { /* ignore */ }
         }
+    }
+
+    // ---------------------------------------------------------------
+    // Pastikan tabel log tersedia (auto-migrate ringan)
+    // ---------------------------------------------------------------
+    private static function ensureLogTable(): void
+    {
+        Database::getInstance()->exec("
+            CREATE TABLE IF NOT EXISTS department_member_log (
+                id            INT PRIMARY KEY AUTO_INCREMENT,
+                department_id INT          NOT NULL,
+                user_id       INT          NOT NULL,
+                action        ENUM('assign','remove') NOT NULL,
+                from_dept_id  INT          DEFAULT NULL,
+                actor_id      INT          DEFAULT NULL,
+                actor_name    VARCHAR(100) DEFAULT NULL,
+                note          VARCHAR(255) DEFAULT NULL,
+                created_at    TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_dml_dept    (department_id),
+                INDEX idx_dml_user    (user_id),
+                INDEX idx_dml_created (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
+    // ---------------------------------------------------------------
+    // Helper: catat log perpindahan anggota
+    // ---------------------------------------------------------------
+    private static function logMemberAction(int $deptId, int $userId, string $action, ?int $fromDeptId = null, ?string $note = null): void
+    {
+        self::ensureLogTable();
+        $actorId   = $_SESSION['user_id']   ?? null;
+        $actorName = $_SESSION['user_name'] ?? null;
+        Database::getInstance()->prepare(
+            "INSERT INTO department_member_log
+                (department_id, user_id, action, from_dept_id, actor_id, actor_name, note)
+             VALUES (?,?,?,?,?,?,?)"
+        )->execute([$deptId, $userId, $action, $fromDeptId, $actorId, $actorName, $note]);
     }
 
     // ---------------------------------------------------------------
@@ -45,7 +81,6 @@ class DepartmentController
              ORDER BY d.level ASC, ISNULL(d.parent_id) DESC, d.parent_id ASC, d.name ASC"
         );
 
-        // Bangun pohon di PHP
         $tree  = [];
         $index = [];
         foreach ($rows as &$r) {
@@ -173,7 +208,6 @@ class DepartmentController
             header('Location: ' . BASE_URL . '/departments'); exit;
         }
 
-        // Anggota saat ini di unit ini
         $members = Database::query(
             "SELECT id, name, email FROM users
              WHERE department_id = ? AND is_active = 1
@@ -181,10 +215,10 @@ class DepartmentController
             [$id]
         );
 
-        // User yang belum punya dept atau di dept lain (bisa dipindah)
         $others = Database::query(
             "SELECT id, name, email,
-                    COALESCE((SELECT d2.name FROM departments d2 WHERE d2.id = users.department_id), '—') AS dept_name
+                    COALESCE((SELECT d2.name FROM departments d2 WHERE d2.id = users.department_id), '—') AS dept_name,
+                    users.department_id AS current_dept_id
              FROM users
              WHERE (department_id IS NULL OR department_id != ?) AND is_active = 1
              ORDER BY name ASC",
@@ -213,16 +247,22 @@ class DepartmentController
             header('Location: ' . BASE_URL . '/departments/' . $deptId . '/members'); exit;
         }
 
-        // Pastikan dept ada
         $dept = Database::queryOne("SELECT id, name FROM departments WHERE id=? AND is_active=1", [$deptId]);
         if (!$dept) {
             $_SESSION['flash_error'] = 'Unit kerja tidak ditemukan.';
             header('Location: ' . BASE_URL . '/departments'); exit;
         }
 
+        // Simpan dept asal sebelum diupdate (untuk log)
+        $userRow    = Database::queryOne("SELECT department_id FROM users WHERE id=?", [$userId]);
+        $fromDeptId = $userRow ? $userRow['department_id'] : null;
+
         Database::getInstance()->prepare(
             "UPDATE users SET department_id = ? WHERE id = ?"
         )->execute([$deptId, $userId]);
+
+        // Catat log
+        self::logMemberAction($deptId, $userId, 'assign', $fromDeptId);
 
         $_SESSION['flash_success'] = 'Anggota berhasil ditambahkan ke ' . $dept['name'] . '.';
         header('Location: ' . BASE_URL . '/departments/' . $deptId . '/members'); exit;
@@ -246,8 +286,106 @@ class DepartmentController
             "UPDATE users SET department_id = NULL WHERE id = ? AND department_id = ?"
         )->execute([$userId, $deptId]);
 
+        // Catat log
+        self::logMemberAction($deptId, $userId, 'remove', $deptId);
+
         $_SESSION['flash_success'] = 'Anggota berhasil dilepas dari unit kerja.';
         header('Location: ' . BASE_URL . '/departments/' . $deptId . '/members'); exit;
+    }
+
+    // ---------------------------------------------------------------
+    // Riwayat perpindahan anggota
+    // GET /departments/{id}/log
+    // ---------------------------------------------------------------
+    public static function memberLog(int $id): void
+    {
+        Auth::requireRole('admin');
+        self::ensureLogTable();
+
+        $dept = Database::queryOne(
+            "SELECT d.*, u.name AS head_name
+             FROM departments d
+             LEFT JOIN users u ON u.id = d.head_id
+             WHERE d.id = ? AND d.is_active = 1",
+            [$id]
+        );
+
+        if (!$dept) {
+            $_SESSION['flash_error'] = 'Unit kerja tidak ditemukan.';
+            header('Location: ' . BASE_URL . '/departments'); exit;
+        }
+
+        $logs = Database::query(
+            "SELECT l.*,
+                    u.name  AS user_name,
+                    u.email AS user_email,
+                    fd.name AS from_dept_name
+             FROM department_member_log l
+             LEFT JOIN users       u  ON u.id  = l.user_id
+             LEFT JOIN departments fd ON fd.id = l.from_dept_id
+             WHERE l.department_id = ?
+             ORDER BY l.created_at DESC
+             LIMIT 200",
+            [$id]
+        );
+
+        // Statistik rapat unit ini
+        $meetingStats = Database::queryOne(
+            "SELECT
+                COUNT(*) AS total_meetings,
+                SUM(CASE WHEN status='done' THEN 1 ELSE 0 END) AS done_meetings,
+                SUM(CASE WHEN status='scheduled' OR status='ongoing' THEN 1 ELSE 0 END) AS upcoming_meetings
+             FROM meetings
+             WHERE department_id = ?",
+            [$id]
+        );
+
+        View::layout('departments/history', [
+            'pageTitle'    => 'Riwayat Anggota — ' . $dept['name'],
+            'dept'         => $dept,
+            'logs'         => $logs,
+            'meetingStats' => $meetingStats,
+        ]);
+    }
+
+    // ---------------------------------------------------------------
+    // API: statistik rapat per unit
+    // GET /api/departments/{id}/stats
+    // ---------------------------------------------------------------
+    public static function apiStats(int $id): void
+    {
+        Auth::requireAuth();
+
+        $dept = Database::queryOne(
+            "SELECT id, name, level FROM departments WHERE id=? AND is_active=1", [$id]
+        );
+        if (!$dept) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Not found']); exit;
+        }
+
+        $stats = Database::queryOne(
+            "SELECT
+                COUNT(*)  AS total_meetings,
+                SUM(CASE WHEN status='done'      THEN 1 ELSE 0 END) AS done,
+                SUM(CASE WHEN status='scheduled' THEN 1 ELSE 0 END) AS scheduled,
+                SUM(CASE WHEN status='ongoing'   THEN 1 ELSE 0 END) AS ongoing,
+                SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END) AS cancelled
+             FROM meetings WHERE department_id = ?",
+            [$id]
+        );
+
+        $memberCount = Database::queryOne(
+            "SELECT COUNT(*) AS total FROM users WHERE department_id=? AND is_active=1", [$id]
+        );
+
+        header('Content-Type: application/json');
+        echo json_encode([
+            'department'   => $dept,
+            'meetings'     => $stats,
+            'member_count' => (int)($memberCount['total'] ?? 0),
+        ]);
+        exit;
     }
 
     // ---------------------------------------------------------------
