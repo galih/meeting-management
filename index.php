@@ -128,8 +128,10 @@ $router->post('/departments/{id}/delete',             [DepartmentController::cla
 $router->get('/departments/{id}/members',             [DepartmentController::class, 'members']);
 $router->post('/departments/{id}/assign-member',      [DepartmentController::class, 'assignMember']);
 $router->post('/departments/{id}/remove-member',      [DepartmentController::class, 'removeMember']);
+$router->get('/departments/{id}/log',                 [DepartmentController::class, 'memberLog']);   // NEW: riwayat perpindahan anggota
 $router->get('/api/departments',                      [DepartmentController::class, 'apiList']);
 $router->get('/api/departments/children',             [DepartmentController::class, 'apiChildren']);
+$router->get('/api/departments/{id}/stats',           [DepartmentController::class, 'apiStats']);    // NEW: statistik rapat per unit
 
 // === ATTACHMENTS ===
 $router->get('/api/meetings/{id}/attachments',  [AttachmentController::class, 'index']);
