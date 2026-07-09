@@ -191,7 +191,7 @@ class TindakLanjutController
                 echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']); exit;
             }
         } else {
-            CSRF::verify();
+            Auth::requireCsrf(); // fix: ganti CSRF::verify() → Auth::requireCsrf()
             $d = $_POST;
         }
 
@@ -230,7 +230,6 @@ class TindakLanjutController
         header('Location: ' . BASE_URL . '/tindak-lanjut'); exit;
     }
 
-    // BUG FIX #2: CSRF verify sesuai content-type (JSON pakai header, form pakai $_POST)
     public static function updateStatus(int $id): void
     {
         Auth::requireAuth();
@@ -246,7 +245,7 @@ class TindakLanjutController
             }
             $input = json_decode(file_get_contents('php://input'), true) ?? [];
         } else {
-            CSRF::verify();
+            Auth::requireCsrf(); // fix: ganti CSRF::verify() → Auth::requireCsrf()
             $input = $_POST;
         }
 
@@ -327,7 +326,6 @@ class TindakLanjutController
         echo json_encode($notes); exit;
     }
 
-    // BUG FIX #2 (addNote) + BUG FIX #4 (can_delete): CSRF JSON header & can_delete berdasarkan role
     public static function addNote(int $id): void
     {
         Auth::requireAuth();
@@ -343,7 +341,7 @@ class TindakLanjutController
             }
             $input = json_decode(file_get_contents('php://input'), true) ?? [];
         } else {
-            CSRF::verify();
+            Auth::requireCsrf(); // fix: ganti CSRF::verify() → Auth::requireCsrf()
             $input = $_POST;
         }
 
@@ -378,7 +376,6 @@ class TindakLanjutController
             [$id]
         );
 
-        // BUG FIX #4: can_delete berdasarkan role/ownership, bukan hardcode true
         $newNote['can_delete'] = Auth::hasRole('admin') || ((int)$newNote['user_id'] === Auth::id());
         unset($newNote['user_id']);
 
@@ -420,7 +417,6 @@ class TindakLanjutController
         }
     }
 
-    // BUG FIX #3: CSRF verify sesuai content-type untuk deleteNote
     public static function deleteNote(int $tlId, int $noteId): void
     {
         Auth::requireAuth();
@@ -435,7 +431,7 @@ class TindakLanjutController
                 echo json_encode(['success' => false, 'message' => 'Invalid CSRF token']); exit;
             }
         } else {
-            CSRF::verify();
+            Auth::requireCsrf(); // fix: ganti CSRF::verify() → Auth::requireCsrf()
         }
 
         $n = Database::queryOne("SELECT * FROM tindak_lanjut_notes WHERE id=?", [$noteId]);
@@ -460,7 +456,6 @@ class TindakLanjutController
         echo json_encode(['success'=>true, 'note_count'=>$noteCount]); exit;
     }
 
-    // BUG FIX #1: destroy() meneruskan userId ke getSummary agar stat cards akurat
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
@@ -476,7 +471,7 @@ class TindakLanjutController
             }
             $input = json_decode(file_get_contents('php://input'), true) ?? [];
         } else {
-            CSRF::verify();
+            Auth::requireCsrf(); // fix: ganti CSRF::verify() → Auth::requireCsrf()
             $input = $_POST;
         }
 
@@ -489,7 +484,6 @@ class TindakLanjutController
 
         Database::getInstance()->prepare("DELETE FROM tindak_lanjut WHERE id=?")->execute([$id]);
 
-        // BUG FIX #1: teruskan userId agar summary yang dikembalikan sesuai filter aktif di frontend
         $isAdminLike = Auth::hasRole('admin', 'sekretaris');
         $userId      = 0;
         if ($isAdminLike) {

@@ -29,7 +29,7 @@ class RecurringController
     {
         Auth::requireRole('admin', 'sekretaris');
         header('Content-Type: application/json');
-        Auth::csrfCheck();
+        Auth::requireCsrf(); // fix: ganti Auth::csrfCheck() → Auth::requireCsrf()
 
         $data = self::validateInput($_POST);
         if (isset($data['error'])) { echo json_encode(['success'=>false,'message'=>$data['error']]); exit; }
@@ -63,14 +63,13 @@ class RecurringController
     /* ------------------------------------------------------------------ */
     /*  UPDATE                                                              */
     /* ------------------------------------------------------------------ */
-    public static function update(): void
+    public static function update(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
         header('Content-Type: application/json');
-        Auth::csrfCheck();
+        Auth::requireCsrf(); // fix: ganti Auth::csrfCheck() → Auth::requireCsrf()
 
-        $id = (int)($_POST['id'] ?? 0);
-        $r  = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
+        $r = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
         if (!$r) { echo json_encode(['success'=>false,'message'=>'Data tidak ditemukan']); exit; }
 
         $data = self::validateInput($_POST);
@@ -99,14 +98,13 @@ class RecurringController
     /* ------------------------------------------------------------------ */
     /*  DELETE                                                              */
     /* ------------------------------------------------------------------ */
-    public static function delete(): void
+    public static function delete(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
         header('Content-Type: application/json');
-        Auth::csrfCheck();
+        Auth::requireCsrf(); // fix: ganti Auth::csrfCheck() → Auth::requireCsrf()
 
-        $id = (int)($_POST['id'] ?? 0);
-        $r  = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
+        $r = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
         if (!$r) { echo json_encode(['success'=>false,'message'=>'Data tidak ditemukan']); exit; }
 
         Database::getInstance()->prepare("DELETE FROM recurring_meetings WHERE id=?")->execute([$id]);
@@ -118,14 +116,13 @@ class RecurringController
     /* ------------------------------------------------------------------ */
     /*  GENERATE (buat meeting dari recurring)                             */
     /* ------------------------------------------------------------------ */
-    public static function generate(): void
+    public static function generate(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
         header('Content-Type: application/json');
-        Auth::csrfCheck();
+        Auth::requireCsrf(); // fix: ganti Auth::csrfCheck() → Auth::requireCsrf()
 
-        $id = (int)($_POST['id'] ?? 0);
-        $r  = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
+        $r = Database::queryOne("SELECT * FROM recurring_meetings WHERE id=?", [$id]);
         if (!$r) { echo json_encode(['success'=>false,'message'=>'Data tidak ditemukan']); exit; }
 
         $targetDate = $_POST['target_date'] ?? null;
@@ -142,9 +139,9 @@ class RecurringController
         ];
         $freqLabel = $freqMap[$r['frequency']] ?? ucfirst($r['frequency']);
 
-        $title      = "[{$freqLabel}] {$r['title']} - " . date('d M Y', strtotime($targetDate));
-        $startDt    = $targetDate . ' ' . $r['start_time'];
-        $endDt      = $targetDate . ' ' . $r['end_time'];
+        $title   = "[{$freqLabel}] {$r['title']} - " . date('d M Y', strtotime($targetDate));
+        $startDt = $targetDate . ' ' . $r['start_time'];
+        $endDt   = $targetDate . ' ' . $r['end_time'];
 
         $db   = Database::getInstance();
         $stmt = $db->prepare(

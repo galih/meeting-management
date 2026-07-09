@@ -142,6 +142,7 @@ $router->post('/api/attachments/{id}/delete',   [AttachmentController::class, 'd
 // === RECURRING MEETINGS ===
 $router->get('/recurring',                    [RecurringController::class, 'index']);
 $router->post('/recurring',                   [RecurringController::class, 'store']);
+$router->post('/recurring/{id}/update',       [RecurringController::class, 'update']);   // fix: route update yang sebelumnya hilang
 $router->post('/recurring/{id}/generate',     [RecurringController::class, 'generate']);
 $router->post('/recurring/{id}/delete',       [RecurringController::class, 'delete']);
 $router->post('/api/recurring/generate-all',  [RecurringController::class, 'generateAll']);

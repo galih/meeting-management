@@ -99,7 +99,6 @@ class MeetingController
     public static function store(): void
     {
         Auth::requireRole('admin', 'sekretaris');
-        // FIX #1: CSRF check yang sebelumnya tidak ada
         self::verifyCsrf();
 
         $title     = trim($_POST['title']          ?? '');
@@ -295,7 +294,7 @@ class MeetingController
              WHERE id=?"
         )->execute([$title, $desc, $location, $startDt, $endDt, $color, $deptId, $id]);
 
-        // FIX #4: Ambil peserta lama sebelum di-delete untuk diff notifikasi
+        // Ambil peserta lama sebelum di-delete untuk diff notifikasi
         $oldRows = Database::query(
             "SELECT user_id FROM meeting_participants WHERE meeting_id=?", [$id]
         );
@@ -311,7 +310,7 @@ class MeetingController
             )->execute([$id, $uid]);
         }
 
-        // FIX #4: Kirim notifikasi hanya ke peserta yang BARU ditambahkan
+        // Kirim notifikasi hanya ke peserta yang BARU ditambahkan
         $addedParticipants = array_values(array_diff($newParticipants, $oldParticipantIds));
         if (!empty($addedParticipants)) {
             Notification::sendBulk(
@@ -361,6 +360,7 @@ class MeetingController
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin');
+        self::verifyCsrf(); // fix: tambah CSRF check untuk konsistensi dengan store() dan update()
 
         $meeting = Database::queryOne("SELECT title FROM meetings WHERE id=?", [$id]);
         $title   = $meeting['title'] ?? "ID #{$id}";
@@ -387,7 +387,6 @@ class MeetingController
             "DELETE FROM email_queue          WHERE meeting_id=?",
             "DELETE FROM notifications        WHERE url LIKE CONCAT('%/meetings/',?,'%')",
             "DELETE FROM notulen              WHERE meeting_id=?",
-            // FIX #5: Hapus activity_log terkait agar tidak ada orphan data
             "DELETE FROM activity_log         WHERE object_type='meeting' AND object_id=?",
         ];
         foreach ($relatedTables as $sql) {
@@ -414,7 +413,6 @@ class MeetingController
         $scope  = self::accessScope();
         $params = array_merge($scope['params'], [$start, $end]);
 
-        // FIX #3: Tambahkan m.location agar tooltip kalender bisa menampilkan lokasi
         $meetings = Database::query(
             "SELECT m.id, m.title, m.start_datetime AS start, m.end_datetime AS `end`,
                     m.color, m.status, m.location
@@ -434,7 +432,6 @@ class MeetingController
             'url'   => BASE_URL . '/meetings/' . $m['id'],
             'extendedProps' => [
                 'status'   => $m['status'],
-                // FIX #3: Sertakan location di extendedProps
                 'location' => $m['location'] ?? '',
             ],
         ], $meetings);
