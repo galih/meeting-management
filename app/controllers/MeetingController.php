@@ -58,25 +58,40 @@ class MeetingController
             $params
         );
 
-        $departments = Database::query("SELECT id, name, level, parent_id FROM departments WHERE is_active=1 ORDER BY name");
+        $departments    = Database::query("SELECT id, name, level, parent_id FROM departments WHERE is_active=1 ORDER BY name");
+        $allUsers       = Database::query("SELECT id, name FROM users WHERE is_active=1 ORDER BY name");
+        $meetingOptions = Database::query("SELECT id, title FROM meetings ORDER BY start_datetime DESC LIMIT 200");
+
+        // Baca flash repopulate untuk modal create
+        $flashSuccess = $_SESSION['flash_success']      ?? null;
+        $flashError   = $_SESSION['flash_error']        ?? null;
+        $reopenModal  = $_SESSION['flash_reopen_modal'] ?? false;
+        $postTitle    = $_SESSION['flash_post_title']   ?? '';
+        unset(
+            $_SESSION['flash_success'], $_SESSION['flash_error'],
+            $_SESSION['flash_reopen_modal'], $_SESSION['flash_post_title']
+        );
 
         View::layout('meetings/index', [
-            'pageTitle'   => 'Daftar Meeting',
-            'meetings'    => $meetings,
-            'departments' => $departments,
-            'search'      => $search,
-            'status'      => $status,
-            'dept'        => $dept,
-            'date_from'   => $dateFrom,
-            'date_to'     => $dateTo,
+            'pageTitle'      => 'Daftar Meeting',
+            'meetings'       => $meetings,
+            'departments'    => $departments,
+            'allUsers'       => $allUsers,
+            'meetingOptions' => $meetingOptions,
+            'search'         => $search,
+            'status'         => $status,
+            'dept'           => $dept,
+            'date_from'      => $dateFrom,
+            'date_to'        => $dateTo,
+            'flashSuccess'   => $flashSuccess,
+            'flashError'     => $flashError,
+            'reopenModal'    => $reopenModal,
+            'postTitle'      => $postTitle,
         ]);
     }
 
     /**
      * GET /meetings/create
-     * Tampilkan form buat kegiatan baru.
-     * Route ini HARUS didaftarkan SEBELUM /meetings/{id} agar
-     * string "create" tidak ditangkap sebagai $id.
      */
     public static function create(): void
     {
@@ -294,13 +309,11 @@ class MeetingController
              WHERE id=?"
         )->execute([$title, $desc, $location, $startDt, $endDt, $color, $deptId, $id]);
 
-        // Ambil peserta lama sebelum di-delete untuk diff notifikasi
         $oldRows = Database::query(
             "SELECT user_id FROM meeting_participants WHERE meeting_id=?", [$id]
         );
         $oldParticipantIds = array_map('intval', array_column($oldRows, 'user_id'));
 
-        // Sync peserta
         $newParticipants = array_filter(array_map('intval', (array)($_POST['participants'] ?? [])));
         $db = Database::getInstance();
         $db->prepare("DELETE FROM meeting_participants WHERE meeting_id=?")->execute([$id]);
@@ -310,7 +323,6 @@ class MeetingController
             )->execute([$id, $uid]);
         }
 
-        // Kirim notifikasi hanya ke peserta yang BARU ditambahkan
         $addedParticipants = array_values(array_diff($newParticipants, $oldParticipantIds));
         if (!empty($addedParticipants)) {
             Notification::sendBulk(
@@ -360,7 +372,7 @@ class MeetingController
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin');
-        self::verifyCsrf(); // fix: tambah CSRF check untuk konsistensi dengan store() dan update()
+        self::verifyCsrf();
 
         $meeting = Database::queryOne("SELECT title FROM meetings WHERE id=?", [$id]);
         $title   = $meeting['title'] ?? "ID #{$id}";
@@ -404,21 +416,41 @@ class MeetingController
         header('Location: ' . BASE_URL . '/meetings'); exit;
     }
 
+    /**
+     * GET /api/meetings/calendar?start=YYYY-MM-DD&end=YYYY-MM-DD
+     *
+     * FIX: Gunakan logika OVERLAP, bukan BETWEEN start_datetime.
+     * Kegiatan tampil di bulan ini jika:
+     *   start_datetime < range_end  AND  end_datetime > range_start
+     *
+     * Ini memastikan kegiatan yang MULAI bulan lalu tapi SELESAI
+     * bulan ini (atau lintas beberapa bulan) tetap muncul di kalender.
+     */
     public static function calendarApi(): void
     {
         Auth::requireAuth();
-        $start = $_GET['start'] ?? date('Y-m-01');
-        $end   = $_GET['end']   ?? date('Y-m-t');
+
+        // FullCalendar mengirim start & end sebagai ISO 8601 (e.g. 2026-07-01T00:00:00)
+        // Normalisasi ke format datetime yang aman untuk perbandingan SQL.
+        $start = date('Y-m-d H:i:s', strtotime($_GET['start'] ?? date('Y-m-01')));
+        $end   = date('Y-m-d H:i:s', strtotime($_GET['end']   ?? date('Y-m-t') . ' 23:59:59'));
 
         $scope  = self::accessScope();
-        $params = array_merge($scope['params'], [$start, $end]);
+
+        // OVERLAP condition:
+        // event.start < range.end  AND  event.end > range.start
+        $overlapWhere = "m.start_datetime < ? AND m.end_datetime > ?";
+        $params = array_merge(
+            $scope['params'],
+            [$end, $start]
+        );
 
         $meetings = Database::query(
             "SELECT m.id, m.title, m.start_datetime AS start, m.end_datetime AS `end`,
                     m.color, m.status, m.location
              FROM meetings m
              WHERE {$scope['where']}
-               AND m.start_datetime BETWEEN ? AND ?
+               AND {$overlapWhere}
              ORDER BY m.start_datetime",
             $params
         );
