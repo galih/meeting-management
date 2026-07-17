@@ -7,6 +7,8 @@ $priorityColor = ['high' => 'danger', 'medium' => 'warning', 'low' => 'success']
 $priorityLabel = ['high' => 'Tinggi', 'medium' => 'Sedang', 'low' => 'Rendah'];
 $statusColor   = ['pending' => 'secondary', 'in_progress' => 'info', 'done' => 'success', 'cancelled' => 'danger'];
 $statusLabel   = ['pending' => 'Menunggu', 'in_progress' => 'Berlangsung', 'done' => 'Selesai', 'cancelled' => 'Dibatalkan'];
+$statusBg      = ['pending' => '#f0f0f0', 'in_progress' => '#e0f4ff', 'done' => '#e6faf0', 'cancelled' => '#fff0f0'];
+$statusText    = ['pending' => '#555',    'in_progress' => '#0284c7', 'done' => '#16a34a', 'cancelled' => '#dc2626'];
 
 $qp    = array_filter(['q' => $search ?? '', 'status' => $status ?? '', 'priority' => $priority ?? '', 'user_id' => $user_id ?? 0]);
 $qpStr = $qp ? '&' . http_build_query($qp) : '';
@@ -27,63 +29,77 @@ $allUsersJson = json_encode(array_values(array_map(
     $allUsers ?? []
 )));
 
-// BUG FIX #2: meetingOptions harus disediakan oleh controller, fallback ke query jika belum ada
 $meetingOptions = $meetingOptions ?? Database::query("SELECT id, title FROM meetings ORDER BY start_datetime DESC LIMIT 200");
-
 $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
+
+// Build per-row data for JS sync
+$rowDataJson = [];
+foreach ($tindakLanjutList as $tl) {
+    $rowDataJson[(int)$tl['id']] = [
+        'id'       => (int)$tl['id'],
+        'status'   => $tl['status'],
+        'priority' => $tl['priority'],
+        'desc'     => $tl['description'],
+        'assignee' => $tl['assignee_name'] ?? '',
+        'due_date' => $tl['due_date'] ?? '',
+        'meeting_id'    => (int)$tl['meeting_id'],
+        'meeting_title' => $tl['meeting_title'] ?? '',
+    ];
+}
 ?>
 
 <style>
-/* ── Page Header ─────────────────────────────────────────────── */
+/* ── Page Header ──────────────────────────────────────────────── */
 .tli-page-header { }
 .tli-header-icon { display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;background:rgba(123,28,28,.1);border-radius:8px;color:#7B1C1C; }
 .tli-page-title  { font-size:clamp(16px,2.5vw,22px);font-weight:800;color:#1a1a1a;margin:0; }
 .tli-page-sub    { font-size:13px;color:#888;margin:0; }
 
-/* ── Buttons ─────────────────────────────────────────────────── */
-.tli-btn-gold        { display:inline-flex;align-items:center;gap:6px;padding:.45rem .9rem;background:linear-gradient(135deg,#7B1C1C,#a83218);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s; }
-.tli-btn-gold:hover  { opacity:.88; }
+/* ── Buttons ──────────────────────────────────────────────────── */
+.tli-btn-gold       { display:inline-flex;align-items:center;gap:6px;padding:.45rem .9rem;background:linear-gradient(135deg,#7B1C1C,#a83218);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s; }
+.tli-btn-gold:hover { opacity:.88; }
 .tli-btn-gold:disabled { opacity:.55;cursor:not-allowed; }
-.tli-btn-brand-sm    { display:inline-flex;align-items:center;gap:5px;padding:.38rem .75rem;background:#7B1C1C;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s; }
+.tli-btn-brand-sm   { display:inline-flex;align-items:center;gap:5px;padding:.38rem .75rem;background:#7B1C1C;color:#fff;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:opacity .15s; }
 .tli-btn-brand-sm:hover { opacity:.85; }
-.tli-btn-reset       { display:inline-flex;align-items:center;padding:.38rem .7rem;background:#f0f0f0;color:#555;border:none;border-radius:7px;font-size:12px;text-decoration:none;transition:background .15s; }
+.tli-btn-reset      { display:inline-flex;align-items:center;padding:.38rem .7rem;background:#f0f0f0;color:#555;border:none;border-radius:7px;font-size:12px;text-decoration:none;transition:background .15s; }
 .tli-btn-reset:hover { background:#e0e0e0; }
 
-/* ── Stat Cards ──────────────────────────────────────────────── */
+/* ── Stat Cards ───────────────────────────────────────────────── */
 .tli-stat-row        { display:flex;flex-wrap:wrap;gap:12px; }
-.tli-stat-card       { display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #eee;border-radius:12px;padding:.65rem 1rem;flex:1;min-width:120px;box-shadow:0 1px 4px rgba(0,0,0,.05); }
+.tli-stat-card       { display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #eee;border-radius:12px;padding:.65rem 1rem;flex:1;min-width:120px;box-shadow:0 1px 4px rgba(0,0,0,.05);cursor:pointer;transition:box-shadow .15s; }
+.tli-stat-card:hover { box-shadow:0 3px 12px rgba(123,28,28,.12); }
 .tli-stat-icon       { display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;flex-shrink:0; }
-.tli-stat-icon-brand { background:rgba(123,28,28,.1);color:#7B1C1C; }
-.tli-stat-icon-muted { background:#f0f0f0;color:#888; }
-.tli-stat-icon-info  { background:#e0f4ff;color:#0284c7; }
+.tli-stat-icon-brand   { background:rgba(123,28,28,.1);color:#7B1C1C; }
+.tli-stat-icon-muted   { background:#f0f0f0;color:#888; }
+.tli-stat-icon-info    { background:#e0f4ff;color:#0284c7; }
 .tli-stat-icon-success { background:#e6faf0;color:#16a34a; }
 .tli-stat-icon-danger  { background:#fff0f0;color:#dc2626; }
-.tli-stat-val        { font-size:20px;font-weight:800;color:#1a1a1a;line-height:1; }
-.tli-stat-lbl        { font-size:11px;color:#888;margin-top:2px; }
+.tli-stat-val          { font-size:20px;font-weight:800;color:#1a1a1a;line-height:1; }
+.tli-stat-lbl          { font-size:11px;color:#888;margin-top:2px; }
 
-/* ── Toolbar ─────────────────────────────────────────────────── */
-.tli-toolbar         { display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px; }
-.tli-filter-form     { display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1; }
-.tli-search-wrap     { position:relative;display:flex;align-items:center; }
-.tli-search-ico      { position:absolute;left:9px;color:#aaa;pointer-events:none; }
-.tli-input           { border:1px solid #ddd;border-radius:7px;padding:.38rem .6rem;font-size:13px;color:#333;background:#fff;transition:border .15s; }
-.tli-input:focus     { outline:none;border-color:#7B1C1C; }
-.tli-search-input    { padding-left:28px;min-width:180px; }
-.tli-select          { min-width:130px; }
-.tli-view-toggle     { display:flex;gap:4px; }
-.tli-vbtn            { padding:.38rem .8rem;border:1px solid #ddd;background:#fff;color:#555;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s; }
+/* ── Toolbar ──────────────────────────────────────────────────── */
+.tli-toolbar      { display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px; }
+.tli-filter-form  { display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1; }
+.tli-search-wrap  { position:relative;display:flex;align-items:center; }
+.tli-search-ico   { position:absolute;left:9px;color:#aaa;pointer-events:none; }
+.tli-input        { border:1px solid #ddd;border-radius:7px;padding:.38rem .6rem;font-size:13px;color:#333;background:#fff;transition:border .15s; }
+.tli-input:focus  { outline:none;border-color:#7B1C1C; }
+.tli-search-input { padding-left:28px;min-width:180px; }
+.tli-select       { min-width:130px; }
+.tli-view-toggle  { display:flex;gap:4px; }
+.tli-vbtn         { padding:.38rem .8rem;border:1px solid #ddd;background:#fff;color:#555;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s; }
 .tli-vbtn.active,.tli-vbtn:hover { background:#7B1C1C;color:#fff;border-color:#7B1C1C; }
 
-/* ── Table Card ──────────────────────────────────────────────── */
+/* ── Table Card ───────────────────────────────────────────────── */
 .tli-card            { background:#fff;border:1px solid #eee;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05); }
 .tli-table thead tr  { background:#faf4eb; }
 .tli-table th        { font-size:11px;font-weight:700;color:#7B1C1C;text-transform:uppercase;letter-spacing:.04em;padding:.6rem .8rem;border-bottom:1px solid #eee; }
 .tli-table td        { font-size:13px;padding:.6rem .8rem;vertical-align:middle;border-bottom:1px solid #f5f5f5; }
 .tli-table tbody tr:last-child td { border-bottom:none; }
 .tli-table tbody tr:hover  { background:#fdf7f0; }
-.tli-row-overdue     { background:#fff8f8 !important; }
+.tli-row-overdue         { background:#fff8f8 !important; }
 
-/* ── Table Content ───────────────────────────────────────────── */
+/* ── Table Content ────────────────────────────────────────────── */
 .tli-task-link       { font-weight:600;color:#1a1a1a;text-decoration:none; }
 .tli-task-link:hover { color:#7B1C1C;text-decoration:underline; }
 .tli-meeting-link    { font-size:12px;color:#7B1C1C;text-decoration:none; }
@@ -93,7 +109,7 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 .tli-text-muted      { color:#aaa; }
 .tli-overdue-text    { color:#dc2626;font-weight:600; }
 
-/* ── Badges ──────────────────────────────────────────────────── */
+/* ── Badges ───────────────────────────────────────────────────── */
 .tli-badge           { display:inline-block;padding:.2em .55em;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:.03em; }
 .tli-badge-danger    { background:#fff0f0;color:#dc2626; }
 .tli-badge-warning   { background:#fffbea;color:#b45309; }
@@ -104,68 +120,78 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
 .tli-badge-muted     { background:#f5f5f5;color:#aaa; }
 .tli-badge-xs        { font-size:10px;padding:.15em .45em; }
 
-/* ── Status Select ───────────────────────────────────────────── */
-.tli-status-sel      { border:1px solid #ddd;border-radius:6px;padding:.25rem .45rem;font-size:12px;color:#333;cursor:pointer;transition:opacity .15s; }
+/* ── Status Select ────────────────────────────────────────────── */
+.tli-status-sel         { border:1px solid #ddd;border-radius:6px;padding:.25rem .45rem;font-size:12px;color:#333;cursor:pointer;transition:opacity .15s; }
 .tli-status-sel.loading { opacity:.5;pointer-events:none; }
 
-/* ── Action Buttons ──────────────────────────────────────────── */
-.tli-ico-btn         { display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:.3rem .55rem;border:1px solid #e0e0e0;border-radius:7px;background:#fff;font-size:12px;color:#555;cursor:pointer;text-decoration:none;transition:all .15s;white-space:nowrap; }
-.tli-ico-btn:hover   { background:#f5f5f5;border-color:#ccc; }
-.tli-ico-detail      { color:#0284c7;border-color:#bde0f5; }
+/* ── Action Buttons ───────────────────────────────────────────── */
+.tli-ico-btn          { display:inline-flex;align-items:center;justify-content:center;gap:4px;padding:.3rem .55rem;border:1px solid #e0e0e0;border-radius:7px;background:#fff;font-size:12px;color:#555;cursor:pointer;text-decoration:none;transition:all .15s;white-space:nowrap; }
+.tli-ico-btn:hover    { background:#f5f5f5;border-color:#ccc; }
+.tli-ico-detail       { color:#0284c7;border-color:#bde0f5; }
 .tli-ico-detail:hover { background:#e0f4ff; }
-.tli-ico-del         { color:#dc2626;border-color:#ffd0d0; }
-.tli-ico-del:hover   { background:#fff0f0; }
-.tli-note-bubble     { display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;background:#7B1C1C;color:#fff;border-radius:8px;font-size:10px;font-weight:700;padding:0 4px; }
+.tli-ico-del          { color:#dc2626;border-color:#ffd0d0; }
+.tli-ico-del:hover    { background:#fff0f0; }
+.tli-note-bubble      { display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;background:#7B1C1C;color:#fff;border-radius:8px;font-size:10px;font-weight:700;padding:0 4px; }
 
-/* ── Empty State ─────────────────────────────────────────────── */
-.tli-empty-state     { padding:2.5rem;text-align:center;color:#aaa; }
+/* ── Empty State ──────────────────────────────────────────────── */
+.tli-empty-state { padding:2.5rem;text-align:center;color:#aaa; }
 
-/* ── Kanban ──────────────────────────────────────────────────── */
-.tli-kb-col          { background:#f9f9f9;border:1px solid #eee;border-radius:12px;overflow:hidden;height:100%; }
-.tli-kb-header       { display:flex;align-items:center;gap:8px;padding:.6rem .9rem;background:#faf4eb;border-bottom:1px solid #eee; }
-.tli-kb-title        { font-size:12px;font-weight:700;color:#7B1C1C;text-transform:uppercase;letter-spacing:.04em; }
-/* UX FIX: kanban column body sekarang punya max-height + scroll */
-.tli-kb-body         { padding:.6rem;min-height:120px;max-height:520px;overflow-y:auto;display:flex;flex-direction:column;gap:8px; }
-.tli-kb-empty        { text-align:center;font-size:12px;color:#ccc;padding:1.5rem 0; }
-.tli-kcard           { background:#fff;border:1px solid #eee;border-radius:9px;padding:.65rem .8rem;box-shadow:0 1px 3px rgba(0,0,0,.04);cursor:grab;transition:box-shadow .15s; }
-.tli-kcard:hover     { box-shadow:0 3px 10px rgba(0,0,0,.09); }
-.tli-kcard-desc      { font-size:13px;font-weight:600;color:#1a1a1a;text-decoration:none;display:block;margin-bottom:6px; }
+/* ── Kanban ───────────────────────────────────────────────────── */
+.tli-kb-col      { background:#f9f9f9;border:1px solid #eee;border-radius:12px;overflow:hidden;height:100%; }
+.tli-kb-header   { display:flex;align-items:center;gap:8px;padding:.6rem .9rem;background:#faf4eb;border-bottom:1px solid #eee; }
+.tli-kb-title    { font-size:12px;font-weight:700;color:#7B1C1C;text-transform:uppercase;letter-spacing:.04em; }
+.tli-kb-body     { padding:.6rem;min-height:120px;max-height:520px;overflow-y:auto;display:flex;flex-direction:column;gap:8px; }
+.tli-kb-empty    { text-align:center;font-size:12px;color:#ccc;padding:1.5rem 0; }
+.tli-kcard       { background:#fff;border:1px solid #eee;border-radius:9px;padding:.65rem .8rem;box-shadow:0 1px 3px rgba(0,0,0,.04);cursor:grab;transition:box-shadow .15s; }
+.tli-kcard:hover { box-shadow:0 3px 10px rgba(0,0,0,.09); }
+.tli-kcard-desc  { font-size:13px;font-weight:600;color:#1a1a1a;text-decoration:none;display:block;margin-bottom:6px; }
 .tli-kcard-desc:hover { color:#7B1C1C; }
-.tli-kcard-meta      { display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px; }
-.tli-kcard-due       { font-size:11px;color:#888; }
-.tli-kcard-footer    { border-top:1px solid #f0f0f0;padding-top:5px;margin-top:2px; }
-.tli-kcard-meeting   { font-size:11px;color:#7B1C1C;text-decoration:none; }
+.tli-kcard-meta   { display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-bottom:5px; }
+.tli-kcard-due    { font-size:11px;color:#888; }
+.tli-kcard-footer { border-top:1px solid #f0f0f0;padding-top:5px;margin-top:2px; }
+.tli-kcard-meeting { font-size:11px;color:#7B1C1C;text-decoration:none; }
 .tli-kcard-meeting:hover { text-decoration:underline; }
+/* Kanban status badge per kolom */
+.tli-kb-count    { display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;background:#7B1C1C;color:#fff;border-radius:10px;font-size:11px;font-weight:700;padding:0 5px; }
 
-/* ── Modal Notes ─────────────────────────────────────────────── */
-.tli-notes-list      { max-height:360px;overflow-y:auto; }
-.tli-note-item       { display:flex;gap:.65rem;padding:.75rem 1rem;border-bottom:1px solid #f5f5f5;position:relative; }
+/* ── Modal Notes ──────────────────────────────────────────────── */
+.tli-notes-list   { max-height:360px;overflow-y:auto; }
+.tli-note-item    { display:flex;gap:.65rem;padding:.75rem 1rem;border-bottom:1px solid #f5f5f5;position:relative; }
 .tli-note-item:last-child { border-bottom:none; }
-.tli-note-avatar     { width:30px;height:30px;border-radius:50%;background:#7B1C1C;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0; }
-.tli-note-body       { flex:1;min-width:0; }
-.tli-note-meta       { display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem;flex-wrap:wrap; }
-.tli-note-author     { font-size:13px;font-weight:700;color:#333; }
-.tli-note-time       { font-size:11px;color:#aaa; }
-.tli-note-text       { font-size:13px;color:#444;white-space:pre-wrap;line-height:1.55; }
-.tli-note-del-btn    { position:absolute;top:.6rem;right:.6rem;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#fff0f0;color:#dc2626;border:1px solid #ffd0d0;border-radius:5px;cursor:pointer;opacity:0;transition:opacity .15s; }
+.tli-note-avatar  { width:30px;height:30px;border-radius:50%;background:#7B1C1C;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0; }
+.tli-note-body    { flex:1;min-width:0; }
+.tli-note-meta    { display:flex;align-items:center;gap:.4rem;margin-bottom:.2rem;flex-wrap:wrap; }
+.tli-note-author  { font-size:13px;font-weight:700;color:#333; }
+.tli-note-time    { font-size:11px;color:#aaa; }
+.tli-note-text    { font-size:13px;color:#444;white-space:pre-wrap;line-height:1.55; }
+.tli-note-del-btn { position:absolute;top:.6rem;right:.6rem;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#fff0f0;color:#dc2626;border:1px solid #ffd0d0;border-radius:5px;cursor:pointer;opacity:0;transition:opacity .15s; }
 .tli-note-item:hover .tli-note-del-btn { opacity:1; }
-.tli-note-empty      { padding:2rem;text-align:center;color:#bbb;font-size:13px; }
-.tli-note-input-row  { display:flex;gap:8px;align-items:flex-end; }
-.tli-note-ta         { flex:1;border:1px solid #ddd;border-radius:8px;padding:.45rem .7rem;font-size:13px;resize:none;transition:border .15s; }
-.tli-note-ta:focus   { outline:none;border-color:#7B1C1C; }
+.tli-note-empty   { padding:2rem;text-align:center;color:#bbb;font-size:13px; }
+.tli-note-input-row { display:flex;gap:8px;align-items:flex-end; }
+.tli-note-ta      { flex:1;border:1px solid #ddd;border-radius:8px;padding:.45rem .7rem;font-size:13px;resize:none;transition:border .15s; }
+.tli-note-ta:focus { outline:none;border-color:#7B1C1C; }
 
-/* ── Modal Enhancements ──────────────────────────────────────── */
-.modal-content       { border-radius:14px;border:none;box-shadow:0 8px 32px rgba(0,0,0,.15); }
-.modal-header-tl     { background:linear-gradient(135deg,#7B1C1C,#a83218);border-radius:14px 14px 0 0;padding:1rem 1.25rem; }
-.modal-header-tl .modal-title { color:#fff;font-weight:700;font-size:15px; }
-.modal-header-tl .btn-close   { filter:invert(1) brightness(2); }
-.tli-form-label      { font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px; }
-.tli-required        { color:#dc2626; }
+/* ── Modal Enhancements ───────────────────────────────────────── */
+.modal-content         { border-radius:14px;border:none;box-shadow:0 8px 32px rgba(0,0,0,.15); }
+.modal-header-tl       { background:linear-gradient(135deg,#7B1C1C,#a83218);border-radius:14px 14px 0 0;padding:1rem 1.25rem; }
+.modal-header-tl .modal-title   { color:#fff;font-weight:700;font-size:15px; }
+.modal-header-tl .btn-close     { filter:invert(1) brightness(2); }
+.tli-form-label  { font-size:12px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px; }
+.tli-required    { color:#dc2626; }
 
-/* ── Spinner ─────────────────────────────────────────────────── */
+/* ── Spinner ──────────────────────────────────────────────────── */
 .tli-spinner { display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:tli-spin .6s linear infinite; }
 @keyframes tli-spin { to { transform:rotate(360deg); } }
+
+/* ── Toast Notification ───────────────────────────────────────── */
+#tli-toast { position:fixed;bottom:1.5rem;right:1.5rem;z-index:9999;padding:.6rem 1.1rem;border-radius:10px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.18);opacity:0;transform:translateY(12px);transition:opacity .25s,transform .25s;pointer-events:none; }
+#tli-toast.show { opacity:1;transform:translateY(0); }
+#tli-toast.success { background:#16a34a; }
+#tli-toast.error   { background:#dc2626; }
 </style>
+
+<!-- Toast -->
+<div id="tli-toast"></div>
 
 <div class="tli-page-header mb-4">
   <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
@@ -187,22 +213,23 @@ $csrfToken = htmlspecialchars($_SESSION['csrf_token'] ?? '');
   </div>
 </div>
 
+<!-- Stat Cards -->
 <div class="tli-stat-row mb-4">
 <?php
 $statDefs = [
-  ['key'=>'total',       'label'=>'Total Tugas',  'icon'=>'brand',
+  ['key'=>'total',       'label'=>'Total Tugas', 'icon'=>'brand',
    'svg'=>'<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'],
-  ['key'=>'pending',     'label'=>'Menunggu',     'icon'=>'muted',
+  ['key'=>'pending',     'label'=>'Menunggu',    'icon'=>'muted',
    'svg'=>'<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>'],
-  ['key'=>'in_progress', 'label'=>'Berlangsung',  'icon'=>'info',
+  ['key'=>'in_progress', 'label'=>'Berlangsung', 'icon'=>'info',
    'svg'=>'<polygon points="5 3 19 12 5 21 5 3"/>'],
-  ['key'=>'done',        'label'=>'Selesai',      'icon'=>'success',
+  ['key'=>'done',        'label'=>'Selesai',     'icon'=>'success',
    'svg'=>'<polyline points="20 6 9 17 4 12"/>'],
-  ['key'=>'overdue',     'label'=>'Terlambat',    'icon'=>'danger',
+  ['key'=>'overdue',     'label'=>'Terlambat',   'icon'=>'danger',
    'svg'=>'<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'],
 ];
 foreach ($statDefs as $sc): ?>
-  <div class="tli-stat-card">
+  <div class="tli-stat-card" id="stat-card-<?= $sc['key'] ?>" title="Filter: <?= $sc['label'] ?>">
     <span class="tli-stat-icon tli-stat-icon-<?= $sc['icon'] ?>">
       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><?= $sc['svg'] ?></svg>
     </span>
@@ -214,8 +241,9 @@ foreach ($statDefs as $sc): ?>
 <?php endforeach; ?>
 </div>
 
+<!-- Toolbar -->
 <div class="tli-toolbar mb-3">
-  <form method="GET" action="<?= $baseUrl ?>/tindak-lanjut" class="tli-filter-form">
+  <form method="GET" action="<?= $baseUrl ?>/tindak-lanjut" class="tli-filter-form" id="filter-form">
     <div class="tli-search-wrap">
       <svg class="tli-search-ico" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       <input type="text" name="q" value="<?= htmlspecialchars($search ?? '') ?>" class="tli-input tli-search-input" placeholder="Cari deskripsi…">
@@ -248,10 +276,7 @@ foreach ($statDefs as $sc): ?>
       <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
       Filter
     </button>
-    <?php
-    // BUG FIX #3: cek user_id > 0 agar tombol Reset muncul saat filter user aktif
-    $hasFilter = ($status ?? '') || ($priority ?? '') || ($search ?? '') || (($user_id ?? 0) > 0);
-    ?>
+    <?php $hasFilter = ($status ?? '') || ($priority ?? '') || ($search ?? '') || (($user_id ?? 0) > 0); ?>
     <?php if ($hasFilter): ?>
     <a href="<?= $baseUrl ?>/tindak-lanjut" class="tli-btn-reset">&#x2715; Reset</a>
     <?php endif; ?>
@@ -269,6 +294,7 @@ foreach ($statDefs as $sc): ?>
   </div>
 </div>
 
+<!-- TABLE VIEW -->
 <div id="view-table">
   <div class="tli-card">
     <div class="table-responsive">
@@ -284,9 +310,9 @@ foreach ($statDefs as $sc): ?>
             <th style="width:120px"></th>
           </tr>
         </thead>
-        <tbody>
+        <tbody id="tbl-tbody">
           <?php if (empty($tindakLanjutList)): ?>
-          <tr><td colspan="7"><div class="tli-empty-state"><p>Belum ada tindak lanjut yang ditemukan</p></div></td></tr>
+          <tr id="tbl-empty-row"><td colspan="7"><div class="tli-empty-state"><p>Belum ada tindak lanjut yang ditemukan</p></div></td></tr>
           <?php endif; ?>
           <?php foreach ($tindakLanjutList as $tl):
             $overdue = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in_array($tl['status'], ['done','cancelled']);
@@ -306,16 +332,13 @@ foreach ($statDefs as $sc): ?>
                 <span class="tli-avatar"><?= strtoupper(mb_substr($tl['assignee_name'], 0, 1)) ?></span>
                 <span class="tli-assignee"><?= htmlspecialchars($tl['assignee_name']) ?></span>
               </div>
-              <?php else: ?>
-              <span class="tli-text-muted">—</span>
+              <?php else: ?><span class="tli-text-muted">—</span>
               <?php endif; ?>
             </td>
             <td class="text-nowrap <?= $overdue ? 'tli-overdue-text' : 'tli-text-muted' ?>">
               <?php if (!empty($tl['due_date'])): ?>
               <div class="d-flex align-items-center gap-1">
-                <?php if ($overdue): ?>
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <?php endif; ?>
+                <?php if ($overdue): ?><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><?php endif; ?>
                 <?= date('d M Y', strtotime($tl['due_date'])) ?>
               </div>
               <?php else: ?>—<?php endif; ?>
@@ -327,7 +350,9 @@ foreach ($statDefs as $sc): ?>
             </td>
             <td>
               <?php if ($canEdit): ?>
-              <select class="tli-status-sel status-select" data-id="<?= $tl['id'] ?>" data-url="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/status">
+              <select class="tli-status-sel status-select"
+                data-id="<?= $tl['id'] ?>"
+                data-url="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/status">
                 <?php foreach ($statusLabel as $v => $l): ?>
                 <option value="<?= $v ?>" <?= $tl['status'] === $v ? 'selected' : '' ?>><?= $l ?></option>
                 <?php endforeach; ?>
@@ -342,19 +367,16 @@ foreach ($statDefs as $sc): ?>
               <div class="d-flex gap-1 justify-content-end align-items-center">
                 <button class="tli-ico-btn btn-notes"
                   data-id="<?= $tl['id'] ?>"
-                  data-status="<?= $tl['status'] ?>"
-                  data-can-done="<?= ($canEdit && $tl['status'] !== 'done') ? '1' : '0' ?>"
                   data-desc="<?= htmlspecialchars($tl['description']) ?>"
                   data-url-get="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
                   data-url-post="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
-                  data-url-status="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/status"
                   data-delete-base="<?= $baseUrl ?>/tindak-lanjut/<?= $tl['id'] ?>/notes"
                   data-can-edit="<?= $canEdit ? '1' : '0' ?>"
                   title="Progress Notes"
                   data-bs-toggle="modal"
                   data-bs-target="#modalNotes">
                   <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  <span id="nbadge-<?= $tl['id'] ?>" class="tli-note-bubble" <?= $nc < 1 ? 'style="display:none"' : '' ?>><?= $nc ?></span>
+                  <span class="tli-note-bubble" id="nbadge-<?= $tl['id'] ?>" <?= $nc < 1 ? 'style="display:none"' : '' ?>><?= $nc ?></span>
                 </button>
                 <a href="<?= $baseUrl ?>/tindak-lanjut/<?= (int)$tl['id'] ?>" class="tli-ico-btn tli-ico-detail" title="Lihat Detail">
                   <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -375,8 +397,21 @@ foreach ($statDefs as $sc): ?>
       </table>
     </div>
   </div>
+  <!-- Pagination -->
+  <?php if (($totalPages ?? 1) > 1): ?>
+  <nav class="mt-3 d-flex justify-content-center">
+    <ul class="pagination pagination-sm">
+      <?php for ($p = 1; $p <= $totalPages; $p++): ?>
+      <li class="page-item <?= $p === ($page ?? 1) ? 'active' : '' ?>">
+        <a class="page-link" href="?page=<?= $p . $qpStr ?>"><?= $p ?></a>
+      </li>
+      <?php endfor; ?>
+    </ul>
+  </nav>
+  <?php endif; ?>
 </div>
 
+<!-- KANBAN VIEW -->
 <div id="view-kanban" style="display:none">
   <div class="row g-3">
     <?php foreach ($kanbanCols as $colStatus => $col): ?>
@@ -384,7 +419,7 @@ foreach ($statDefs as $sc): ?>
       <div class="tli-kb-col">
         <div class="tli-kb-header">
           <span class="tli-kb-title"><?= $col['label'] ?></span>
-          <span class="tli-badge tli-badge-brand ms-auto" id="kanban-count-<?= $colStatus ?>"><?= count($col['items']) ?></span>
+          <span class="tli-kb-count ms-auto" id="kanban-count-<?= $colStatus ?>"><?= count($col['items']) ?></span>
         </div>
         <div class="tli-kb-body kanban-col" id="kanban-col-<?= $colStatus ?>" data-status="<?= $colStatus ?>">
           <?php if (empty($col['items'])): ?>
@@ -406,9 +441,7 @@ foreach ($statDefs as $sc): ?>
               </span>
               <?php if (!empty($tl['due_date'])): ?>
               <span class="tli-kcard-due <?= $klOverdue ? 'tli-overdue-text' : '' ?>">
-                <?php if ($klOverdue): ?>
-                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <?php endif; ?>
+                <?php if ($klOverdue): ?><svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><?php endif; ?>
                 <?= date('d M', strtotime($tl['due_date'])) ?>
               </span>
               <?php endif; ?>
@@ -420,7 +453,7 @@ foreach ($statDefs as $sc): ?>
             </div>
             <div class="tli-kcard-footer">
               <a href="<?= $baseUrl ?>/meetings/<?= (int)$tl['meeting_id'] ?>" class="tli-kcard-meeting">
-                <?= htmlspecialchars(mb_strimwidth($tl['meeting_title'],0,28,'…')) ?>
+                <?= htmlspecialchars(mb_strimwidth($tl['meeting_title'], 0, 28, '…')) ?>
               </a>
             </div>
           </div>
@@ -433,6 +466,7 @@ foreach ($statDefs as $sc): ?>
 </div>
 
 <?php if ($isAdminLike): ?>
+<!-- Modal Tambah TL -->
 <div class="modal fade" id="modalTambahTL" tabindex="-1" aria-hidden="true" aria-labelledby="modalTambahTLLabel">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
@@ -480,14 +514,12 @@ foreach ($statDefs as $sc): ?>
             </div>
             <div class="col-md-4">
               <label class="tli-form-label">Deadline</label>
-              <input type="date" name="due_date" class="form-control"
-                min="<?= date('Y-m-d') ?>">
+              <input type="date" name="due_date" class="form-control" min="<?= date('Y-m-d') ?>">
             </div>
           </div>
         </div>
         <div class="modal-footer border-0 pt-0">
           <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
-          <!-- UX FIX: tombol Simpan punya id untuk disable saat loading -->
           <button type="submit" class="tli-btn-gold" id="btnSimpanTL">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
             <span id="btnSimpanTLText">Simpan</span>
@@ -533,178 +565,254 @@ foreach ($statDefs as $sc): ?>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 <script>
 (function(){'use strict';
-var BASE=<?= json_encode($baseUrl) ?>;
-var ALL_USERS=<?= $allUsersJson ?>;
-var IS_ADMIN_LIKE=<?= $isAdminLike ? 'true' : 'false' ?>;
-var CSRF_TOKEN=<?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
+var BASE         = <?= json_encode($baseUrl) ?>;
+var IS_ADMIN     = <?= $isAdminLike ? 'true' : 'false' ?>;
+var CSRF_TOKEN   = <?= json_encode($_SESSION['csrf_token'] ?? '') ?>;
+var STATUS_LABEL = <?= json_encode($statusLabel) ?>;
+var STATUS_COLOR = <?= json_encode($statusColor) ?>;
+var ROW_DATA     = <?= json_encode($rowDataJson) ?>;
 
-function postJSON(url,body){
-  return fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},body:JSON.stringify(Object.assign({_csrf:CSRF_TOKEN},body))}).then(r=>r.json());
+// ── Helpers ─────────────────────────────────────────────────────
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+function postJSON(url, body){
+  return fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},
+    body: JSON.stringify(body)
+  }).then(r => r.json());
 }
+
+function showToast(msg, type){
+  var t = document.getElementById('tli-toast');
+  t.textContent = msg;
+  t.className   = 'show ' + (type||'success');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.className = ''; }, 2800);
+}
+
+// ── Stat cards ──────────────────────────────────────────────────
 function updateStatCards(s){
-  if(!s)return;
+  if (!s) return;
   ['total','pending','in_progress','done','overdue'].forEach(function(k){
-    var el=document.getElementById('stat-'+k);
-    if(el&&s[k]!==undefined)el.textContent=s[k];
+    var el = document.getElementById('stat-'+k);
+    if (el && s[k] !== undefined) el.textContent = s[k];
   });
-}
-function updateNoteBubble(id,count){
-  document.querySelectorAll('#nbadge-'+id).forEach(function(el){
-    el.textContent=count;
-    el.style.display=count>0?'flex':'none';
-  });
-}
-function escHtml(s){
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-// BUG FIX #1: helper update kanban column count badge
-function updateKanbanCount(status){
-  var col=document.getElementById('kanban-col-'+status);
-  var badge=document.getElementById('kanban-count-'+status);
-  if(!col||!badge)return;
-  var cards=col.querySelectorAll('.tli-kcard');
-  badge.textContent=cards.length;
-  var empty=col.querySelector('.kanban-empty');
-  if(cards.length===0){
-    if(!empty){
-      var d=document.createElement('div');
-      d.className='tli-kb-empty kanban-empty';
-      d.textContent='Belum ada tugas';
+function updateNoteBubble(id, count){
+  var el = document.getElementById('nbadge-'+id);
+  if (!el) return;
+  el.textContent  = count;
+  el.style.display = count > 0 ? 'flex' : 'none';
+}
+
+// ── Kanban count + empty state ──────────────────────────────────
+function updateKanbanCol(status){
+  var col   = document.getElementById('kanban-col-'+status);
+  var badge = document.getElementById('kanban-count-'+status);
+  if (!col || !badge) return;
+  var cards = col.querySelectorAll('.tli-kcard');
+  badge.textContent = cards.length;
+  var empty = col.querySelector('.kanban-empty');
+  if (cards.length === 0){
+    if (!empty){
+      var d = document.createElement('div');
+      d.className = 'tli-kb-empty kanban-empty';
+      d.textContent = 'Belum ada tugas';
       col.appendChild(d);
     }
-  } else {
-    if(empty)empty.remove();
+  } else if (empty) { empty.remove(); }
+}
+
+// ── CORE SYNC: update tabel row badge status saat kanban berubah
+function syncTableRowStatus(id, newStatus){
+  var sel = document.querySelector('.status-select[data-id="'+id+'"]');
+  if (sel) {
+    sel.value = newStatus;
+    sel.dataset.prev = newStatus;
+    return;
+  }
+  // jika non-editable badge
+  var badgeWrap = document.querySelector('#trow-'+id+' .tli-badge[data-status-badge]');
+  if (badgeWrap){
+    badgeWrap.className = 'tli-badge tli-badge-'+(STATUS_COLOR[newStatus]||'muted');
+    badgeWrap.textContent = STATUS_LABEL[newStatus] || newStatus;
   }
 }
 
-// ── View toggle ───────────────────────────────────────────────
-var btnTable=document.getElementById('btn-view-table'),
-    btnKanban=document.getElementById('btn-view-kanban'),
-    divTable=document.getElementById('view-table'),
-    divKanban=document.getElementById('view-kanban');
-function setView(v){
-  var isK=v==='kanban';
-  divTable.style.display=isK?'none':'';
-  divKanban.style.display=isK?'':'none';
-  btnTable.classList.toggle('active',!isK);
-  btnKanban.classList.toggle('active',isK);
+// ── CORE SYNC: update kanban card kolom saat tabel select berubah
+function syncKanbanCardMove(id, oldStatus, newStatus){
+  var card = document.getElementById('kcard-'+id);
+  if (!card) return;
+  var oldCol = document.getElementById('kanban-col-'+oldStatus);
+  var newCol = document.getElementById('kanban-col-'+newStatus);
+  if (!newCol) return;
+  card.dataset.status = newStatus;
+  card.dataset.url    = BASE + '/tindak-lanjut/' + id + '/status';
+  newCol.appendChild(card);
+  updateKanbanCol(oldStatus);
+  updateKanbanCol(newStatus);
 }
-btnTable.addEventListener('click',function(){setView('table');});
-btnKanban.addEventListener('click',function(){setView('kanban');});
-setView('table');
 
-// ── Status select (UX FIX: loading class saat update) ─────────
+// ── CORE SYNC: hapus baris tabel + kanban card sekaligus
+function syncDeleteItem(id, oldStatus){
+  var trow  = document.getElementById('trow-'+id);
+  var kcard = document.getElementById('kcard-'+id);
+  if (trow)  trow.remove();
+  if (kcard) kcard.remove();
+  if (oldStatus) updateKanbanCol(oldStatus);
+  // cek apakah tabel kosong
+  var tbody = document.getElementById('tbl-tbody');
+  if (tbody && tbody.querySelectorAll('tr.tli-row, tr[id^="trow-"]').length === 0){
+    if (!document.getElementById('tbl-empty-row')){
+      var tr = document.createElement('tr');
+      tr.id  = 'tbl-empty-row';
+      tr.innerHTML = '<td colspan="7"><div class="tli-empty-state"><p>Belum ada tindak lanjut yang ditemukan</p></div></td>';
+      tbody.appendChild(tr);
+    }
+  }
+}
+
+// ── View toggle ─────────────────────────────────────────────────
+var btnTable  = document.getElementById('btn-view-table');
+var btnKanban = document.getElementById('btn-view-kanban');
+var divTable  = document.getElementById('view-table');
+var divKanban = document.getElementById('view-kanban');
+
+function setView(v){
+  var isK = v === 'kanban';
+  divTable.style.display  = isK ? 'none' : '';
+  divKanban.style.display = isK ? ''     : 'none';
+  btnTable.classList.toggle('active',  !isK);
+  btnKanban.classList.toggle('active',  isK);
+  localStorage.setItem('tli_view', v);
+}
+btnTable.addEventListener('click',  function(){ setView('table'); });
+btnKanban.addEventListener('click', function(){ setView('kanban'); });
+setView(localStorage.getItem('tli_view') || 'table');
+
+// ── Status select (tabel) → sync kanban ─────────────────────────
 document.querySelectorAll('.status-select').forEach(function(sel){
-  sel.dataset.prev=sel.value;
-  sel.addEventListener('change',async function(){
+  sel.dataset.prev = sel.value;
+  sel.addEventListener('change', async function(){
+    var id        = this.dataset.id;
+    var oldStatus = this.dataset.prev;
+    var newStatus = this.value;
     this.classList.add('loading');
-    var d=await postJSON(this.dataset.url,{status:this.value});
-    this.classList.remove('loading');
-    if(!d.success){alert(d.message||'Gagal update status');this.value=this.dataset.prev;return;}
-    this.dataset.prev=this.value;
-    updateStatCards(d.summary);
+    try {
+      var d = await postJSON(this.dataset.url, {status: newStatus});
+      if (!d.success){ showToast(d.message||'Gagal update status','error'); this.value = oldStatus; return; }
+      this.dataset.prev = newStatus;
+      syncKanbanCardMove(id, oldStatus, newStatus);  // ← SYNC ke kanban
+      updateStatCards(d.summary);
+      showToast('Status berhasil diperbarui','success');
+    } catch(e){ showToast('Terjadi kesalahan jaringan','error'); this.value = oldStatus; }
+    finally { this.classList.remove('loading'); }
   });
 });
 
-// ── Delete ────────────────────────────────────────────────────
+// ── Delete ───────────────────────────────────────────────────────
 function bindDel(){
   document.querySelectorAll('.btn-del').forEach(function(btn){
-    if(btn._bound)return;btn._bound=true;
-    btn.addEventListener('click',async function(){
-      if(!confirm('Hapus tindak lanjut ini?'))return;
-      var r=await fetch(this.dataset.url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},body:JSON.stringify({_csrf:CSRF_TOKEN})});
-      var d=await r.json();
-      if(!d.success){alert(d.message||'Gagal hapus');return;}
-      var id=this.dataset.id;
-      var trow=document.getElementById('trow-'+id);
-      var kcard=document.getElementById('kcard-'+id);
-      if(trow)trow.remove();
-      if(kcard){
-        var oldStatus=kcard.dataset.status;
-        kcard.remove();
-        updateKanbanCount(oldStatus); // BUG FIX #1
-      }
-      updateStatCards(d.summary);
+    if (btn._bound) return; btn._bound = true;
+    btn.addEventListener('click', async function(){
+      if (!confirm('Hapus tindak lanjut ini secara permanen?')) return;
+      var id        = this.dataset.id;
+      var oldStatus = (document.getElementById('kcard-'+id)||{}).dataset&&document.getElementById('kcard-'+id).dataset.status;
+      btn.disabled  = true;
+      try {
+        var d = await postJSON(this.dataset.url, {});
+        if (!d.success){ showToast(d.message||'Gagal hapus','error'); btn.disabled=false; return; }
+        syncDeleteItem(id, oldStatus);  // ← SYNC hapus di tabel + kanban
+        updateStatCards(d.summary);
+        showToast('Tindak lanjut dihapus','success');
+      } catch(e){ showToast('Terjadi kesalahan jaringan','error'); btn.disabled=false; }
     });
   });
 }
 bindDel();
 
-// ── Kanban drag (BUG FIX #1: update count kedua kolom) ────────
-if(IS_ADMIN_LIKE){
+// ── Kanban drag → sync tabel select ─────────────────────────────
+if (IS_ADMIN){
   document.querySelectorAll('.kanban-col').forEach(function(col){
-    Sortable.create(col,{group:'kanban',animation:150,onEnd:async function(evt){
-      var card=evt.item,newCol=evt.to,oldCol=evt.from,newStatus=newCol.dataset.status,oldStatus=oldCol.dataset.status;
-      if(newStatus===card.dataset.status)return;
-      card.dataset.status=newStatus;
-      var d=await postJSON(card.dataset.url,{status:newStatus});
-      if(!d.success){
-        alert(d.message||'Gagal update status');
-        oldCol.appendChild(card);
-        card.dataset.status=oldStatus;
-        updateKanbanCount(newStatus);
-        updateKanbanCount(oldStatus);
-        return;
+    Sortable.create(col, {
+      group: 'kanban', animation: 150,
+      onEnd: async function(evt){
+        var card      = evt.item;
+        var newCol    = evt.to;
+        var oldCol    = evt.from;
+        var newStatus = newCol.dataset.status;
+        var oldStatus = card.dataset.status;
+        if (newStatus === oldStatus) return;
+        card.dataset.status = newStatus;
+        updateKanbanCol(newStatus);
+        updateKanbanCol(oldStatus);
+        try {
+          var d = await postJSON(card.dataset.url, {status: newStatus});
+          if (!d.success){
+            showToast(d.message||'Gagal update status','error');
+            oldCol.appendChild(card);
+            card.dataset.status = oldStatus;
+            updateKanbanCol(newStatus);
+            updateKanbanCol(oldStatus);
+            return;
+          }
+          syncTableRowStatus(card.dataset.id, newStatus); // ← SYNC ke tabel
+          updateStatCards(d.summary);
+          showToast('Status diperbarui via Kanban','success');
+        } catch(e){
+          showToast('Terjadi kesalahan jaringan','error');
+          oldCol.appendChild(card); card.dataset.status = oldStatus;
+          updateKanbanCol(newStatus); updateKanbanCol(oldStatus);
+        }
       }
-      updateKanbanCount(newStatus); // BUG FIX #1
-      updateKanbanCount(oldStatus); // BUG FIX #1
-      updateStatCards(d.summary);
-    }});
+    });
   });
 }
 
-// ── Modal Notes handler ───────────────────────────────────────
-var _notesCurrentId=0;
-var _notesCanEdit=false;
+// ── Modal Notes ──────────────────────────────────────────────────
+var _notesId   = 0;
+var _canEdit   = false;
+var modalNotesEl = document.getElementById('modalNotes');
 
-var modalNotesEl=document.getElementById('modalNotes');
-if(modalNotesEl){
-  modalNotesEl.addEventListener('show.bs.modal',function(e){
-    var btn=e.relatedTarget;
-    if(!btn)return;
-    _notesCurrentId=parseInt(btn.dataset.id)||0;
-    _notesCanEdit=btn.dataset.canEdit==='1';
-    document.getElementById('modalNotesTitle').textContent=
-      'Progress Notes \u2014 '+escHtml(btn.dataset.desc||'');
-    var inputArea=document.getElementById('modalNotesInputArea');
-    if(inputArea)inputArea.style.display=_notesCanEdit?'':'none';
-    loadNotes(_notesCurrentId);
+if (modalNotesEl){
+  modalNotesEl.addEventListener('show.bs.modal', function(e){
+    var btn = e.relatedTarget; if (!btn) return;
+    _notesId  = parseInt(btn.dataset.id) || 0;
+    _canEdit  = btn.dataset.canEdit === '1';
+    document.getElementById('modalNotesTitle').textContent = 'Progress Notes — ' + (btn.dataset.desc || '');
+    var inp = document.getElementById('modalNotesInputArea');
+    if (inp) inp.style.display = _canEdit ? '' : 'none';
+    loadNotes(_notesId);
   });
-  modalNotesEl.addEventListener('hidden.bs.modal',function(){
-    document.getElementById('modalNotesList').innerHTML=
-      '<div class="tli-note-empty" id="modalNotesEmpty">Memuat...</div>';
-    _notesCurrentId=0;
+  modalNotesEl.addEventListener('hidden.bs.modal', function(){
+    document.getElementById('modalNotesList').innerHTML = '<div class="tli-note-empty">Memuat...</div>';
+    _notesId = 0;
   });
 }
 
 function loadNotes(id){
-  var list=document.getElementById('modalNotesList');
-  list.innerHTML='<div class="tli-note-empty">Memuat...</div>';
-  fetch(BASE+'/tindak-lanjut/'+id+'/notes',{
-    headers:{'X-CSRF-Token':CSRF_TOKEN}
-  }).then(function(r){return r.json();}).then(function(notes){
-    renderNotes(notes);
-  }).catch(function(){
-    list.innerHTML='<div class="tli-note-empty">Gagal memuat catatan</div>';
-  });
+  var list = document.getElementById('modalNotesList');
+  list.innerHTML = '<div class="tli-note-empty">Memuat...</div>';
+  fetch(BASE+'/tindak-lanjut/'+id+'/notes',{headers:{'X-CSRF-Token':CSRF_TOKEN}})
+    .then(r => r.json())
+    .then(function(notes){ renderNotes(notes); })
+    .catch(function(){ list.innerHTML = '<div class="tli-note-empty">Gagal memuat catatan</div>'; });
 }
 
 function renderNotes(notes){
-  var list=document.getElementById('modalNotesList');
-  if(!notes||notes.length===0){
-    list.innerHTML='<div class="tli-note-empty">Belum ada catatan progress</div>';
-    return;
-  }
-  list.innerHTML='';
-  notes.forEach(function(n){list.appendChild(buildNoteEl(n));});
+  var list = document.getElementById('modalNotesList');
+  if (!notes || notes.length === 0){ list.innerHTML = '<div class="tli-note-empty">Belum ada catatan progress</div>'; return; }
+  list.innerHTML = '';
+  notes.forEach(function(n){ list.appendChild(buildNoteEl(n)); });
 }
 
 function buildNoteEl(n){
-  var div=document.createElement('div');
-  div.className='tli-note-item';
-  div.dataset.noteId=n.id;
-  div.innerHTML=
+  var div = document.createElement('div');
+  div.className    = 'tli-note-item';
+  div.dataset.noteId = n.id;
+  div.innerHTML =
     '<div class="tli-note-avatar">'+escHtml(String(n.author_name||'?').charAt(0).toUpperCase())+'</div>'+
     '<div class="tli-note-body">'+
       '<div class="tli-note-meta">'+
@@ -718,88 +826,70 @@ function buildNoteEl(n){
           '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'+
         '</button>'
       : '');
-  var delBtn=div.querySelector('.btn-modal-del-note');
-  if(delBtn)bindModalNoteDelete(delBtn);
+  var delBtn = div.querySelector('.btn-modal-del-note');
+  if (delBtn) bindModalNoteDelete(delBtn);
   return div;
 }
 
 function bindModalNoteDelete(btn){
-  btn.addEventListener('click',async function(){
-    if(!confirm('Hapus catatan ini?'))return;
-    var noteId=btn.dataset.id;
-    var r=await fetch(BASE+'/tindak-lanjut/'+_notesCurrentId+'/notes/'+noteId+'/delete',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},
-      body:JSON.stringify({_csrf:CSRF_TOKEN})
-    });
-    var d=await r.json();
-    if(d.success){
-      btn.closest('.tli-note-item').remove();
-      if(!document.querySelector('#modalNotesList .tli-note-item'))
-        document.getElementById('modalNotesList').innerHTML='<div class="tli-note-empty">Belum ada catatan progress</div>';
-      updateNoteBubble(_notesCurrentId,d.note_count);
-    } else {
-      alert(d.message||'Gagal menghapus catatan');
-    }
+  btn.addEventListener('click', async function(){
+    if (!confirm('Hapus catatan ini?')) return;
+    var noteId = btn.dataset.id;
+    try {
+      var d = await postJSON(BASE+'/tindak-lanjut/'+_notesId+'/notes/'+noteId+'/delete', {});
+      if (d.success){
+        btn.closest('.tli-note-item').remove();
+        if (!document.querySelector('#modalNotesList .tli-note-item'))
+          document.getElementById('modalNotesList').innerHTML = '<div class="tli-note-empty">Belum ada catatan progress</div>';
+        updateNoteBubble(_notesId, d.note_count);
+      } else { showToast(d.message||'Gagal hapus catatan','error'); }
+    } catch(e){ showToast('Terjadi kesalahan jaringan','error'); }
   });
 }
 
-var modalNoteSubmit=document.getElementById('modalNoteSubmit');
-var modalNoteTA=document.getElementById('modalNoteTextarea');
+var modalNoteSubmit = document.getElementById('modalNoteSubmit');
+var modalNoteTA     = document.getElementById('modalNoteTextarea');
 async function submitModalNote(){
-  if(!modalNoteTA||!_notesCurrentId)return;
-  var note=modalNoteTA.value.trim();
-  if(!note)return;
-  if(modalNoteSubmit)modalNoteSubmit.disabled=true;
-  var r=await fetch(BASE+'/tindak-lanjut/'+_notesCurrentId+'/notes',{
-    method:'POST',
-    headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},
-    body:JSON.stringify({_csrf:CSRF_TOKEN,note:note})
-  });
-  var d=await r.json();
-  if(d.success){
-    modalNoteTA.value='';
-    var list=document.getElementById('modalNotesList');
-    // BUG FIX #4: hapus pesan kosong jika ada
-    var empty=list.querySelector('.tli-note-empty');
-    if(empty)empty.remove();
-    list.appendChild(buildNoteEl(d.note));
-    list.scrollTop=list.scrollHeight;
-    updateNoteBubble(_notesCurrentId,d.note_count);
-  } else {
-    alert(d.message||'Gagal mengirim note');
-  }
-  if(modalNoteSubmit)modalNoteSubmit.disabled=false;
+  if (!modalNoteTA || !_notesId) return;
+  var note = modalNoteTA.value.trim();
+  if (!note) return;
+  if (modalNoteSubmit) modalNoteSubmit.disabled = true;
+  try {
+    var d = await postJSON(BASE+'/tindak-lanjut/'+_notesId+'/notes', {note: note});
+    if (d.success){
+      modalNoteTA.value = '';
+      var list  = document.getElementById('modalNotesList');
+      var empty = list.querySelector('.tli-note-empty'); if (empty) empty.remove();
+      list.appendChild(buildNoteEl(d.note));
+      list.scrollTop = list.scrollHeight;
+      updateNoteBubble(_notesId, d.note_count);
+      showToast('Catatan berhasil dikirim','success');
+    } else { showToast(d.message||'Gagal mengirim note','error'); }
+  } catch(e){ showToast('Terjadi kesalahan jaringan','error'); }
+  finally { if (modalNoteSubmit) modalNoteSubmit.disabled = false; }
 }
-if(modalNoteSubmit)modalNoteSubmit.addEventListener('click',submitModalNote);
-if(modalNoteTA)modalNoteTA.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.ctrlKey)submitModalNote();});
+if (modalNoteSubmit) modalNoteSubmit.addEventListener('click', submitModalNote);
+if (modalNoteTA)     modalNoteTA.addEventListener('keydown', function(e){ if (e.key==='Enter'&&e.ctrlKey) submitModalNote(); });
 
-// UX FIX: loading state saat submit form Tambah Tindak Lanjut
-var formTambahTL=document.getElementById('formTambahTL');
-var btnSimpanTL=document.getElementById('btnSimpanTL');
-var btnSimpanTLText=document.getElementById('btnSimpanTLText');
-if(formTambahTL&&btnSimpanTL){
-  formTambahTL.addEventListener('submit',async function(e){
+// ── Form Tambah Tindak Lanjut ────────────────────────────────────
+var formTambahTL   = document.getElementById('formTambahTL');
+var btnSimpanTL    = document.getElementById('btnSimpanTL');
+var btnSimpanTLTxt = document.getElementById('btnSimpanTLText');
+if (formTambahTL && btnSimpanTL){
+  formTambahTL.addEventListener('submit', async function(e){
     e.preventDefault();
-    btnSimpanTL.disabled=true;
-    btnSimpanTLText.innerHTML='<span class="tli-spinner"></span> Menyimpan...';
-    var fd=new FormData(formTambahTL);
-    var body={};
-    fd.forEach(function(v,k){body[k]=v;});
-    try{
-      var r=await fetch(BASE+'/tindak-lanjut',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN},body:JSON.stringify(Object.assign({_csrf:CSRF_TOKEN},body))});
-      var d=await r.json();
-      if(d.success){
-        location.reload();
-      } else {
-        alert(d.message||'Gagal menyimpan');
-        btnSimpanTL.disabled=false;
-        btnSimpanTLText.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Simpan';
-      }
-    } catch(err){
-      alert('Terjadi kesalahan jaringan');
-      btnSimpanTL.disabled=false;
-      btnSimpanTLText.innerHTML='<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Simpan';
+    btnSimpanTL.disabled = true;
+    btnSimpanTLTxt.innerHTML = '<span class="tli-spinner"></span> Menyimpan...';
+    var fd = new FormData(formTambahTL);
+    var body = {}; fd.forEach(function(v,k){ body[k]=v; });
+    try {
+      var d = await postJSON(BASE+'/tindak-lanjut', body);
+      if (d.success){ showToast('Tindak lanjut berhasil ditambahkan','success'); setTimeout(function(){ location.reload(); }, 900); }
+      else { showToast(d.message||'Gagal menyimpan','error'); }
+    } catch(e){ showToast('Terjadi kesalahan jaringan','error'); }
+    finally {
+      btnSimpanTL.disabled = false;
+      btnSimpanTLTxt.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Simpan';
     }
   });
 }
