@@ -345,7 +345,7 @@ if ($uploadedThisMonth === null && !empty($files)) {
 .dm-share-role { font-size:11.5px; color:#9A8D7F; }
 .dm-share-perm-select { min-height:34px; border-radius:10px; border:1px solid #DDCFBE; background:#fff; padding:0 .65rem; font-size:12px; font-weight:800; color:var(--dm-text); outline:none; }
 .dm-share-revoke { width:30px; height:30px; border:none; border-radius:10px; cursor:pointer; color:#9E9183; background:transparent; display:flex; align-items:center; justify-content:center; }
-.dm-share-revoke:hover { background:#FDE9E2; color:var(--dm-orange); }
+.dm-share-revoke:hover { background:#FDE9E2; color:#C05621; }
 .dm-pub-form { background:#FCFAF7; border:1px solid #EEE2D5; border-radius:18px; padding:1rem; display:flex; flex-direction:column; gap:.8rem; }
 .dm-pub-form-row { display:flex; gap:.7rem; flex-wrap:wrap; }
 .dm-pub-form-col { flex:1; min-width:140px; }
@@ -356,10 +356,10 @@ if ($uploadedThisMonth === null && !empty($files)) {
 .dm-pub-link-copy.copied { background:#1E8B4D; }
 .dm-pub-link-meta { margin-top:.55rem; display:flex; gap:.45rem; align-items:center; flex-wrap:wrap; font-size:11px; color:#7B6F63; }
 .dm-pub-link-badge { display:inline-flex; align-items:center; gap:.25rem; border-radius:999px; padding:.2rem .55rem; font-size:10.5px; font-weight:800; background:#E8F7EE; color:var(--dm-green); }
-.dm-pub-link-badge.locked { background:#EAF4FF; color:var(--dm-blue); }
-.dm-pub-link-badge.expired { background:#FDE9E2; color:var(--dm-orange); }
+.dm-pub-link-badge.locked { background:#EAF4FF; color:#2B6CB0; }
+.dm-pub-link-badge.expired { background:#FDE9E2; color:#C05621; }
 .dm-pub-link-del { margin-left:auto; border:none; background:transparent; color:#948678; font-size:12px; font-weight:800; cursor:pointer; padding:.2rem .45rem; border-radius:8px; }
-.dm-pub-link-del:hover { background:#FDE9E2; color:var(--dm-orange); }
+.dm-pub-link-del:hover { background:#FDE9E2; color:#C05621; }
 .spinner-border { width:18px; height:18px; border:2px solid #E0D4C8; border-top-color:var(--dm-maroon); border-radius:50%; display:inline-block; animation:dmspin .8s linear infinite; }
 .spinner-border-sm { width:16px; height:16px; }
 @keyframes dmspin { to { transform:rotate(360deg); } }
