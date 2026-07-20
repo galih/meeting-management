@@ -104,6 +104,10 @@ $router->get('/tindak-lanjut/{id}/notes',                    [TindakLanjutContro
 $router->post('/tindak-lanjut/{id}/notes',                   [TindakLanjutController::class, 'addNote']);
 $router->post('/tindak-lanjut/{tlId}/notes/{noteId}/delete', [TindakLanjutController::class, 'deleteNote']);
 $router->post('/tindak-lanjut/{id}/delete',                  [TindakLanjutController::class, 'destroy']);
+// Lampiran progress tindak lanjut
+$router->get('/api/tindak-lanjut/{id}/attachments',                          [TindakLanjutController::class, 'getAttachments']);
+$router->post('/api/tindak-lanjut/{id}/attachments/upload',                  [TindakLanjutController::class, 'uploadAttachment']);
+$router->post('/api/tindak-lanjut/{tlId}/attachments/{attachId}/delete',     [TindakLanjutController::class, 'deleteAttachment']);
 
 // === USERS ===
 $router->get('/users',                [UserController::class, 'index']);

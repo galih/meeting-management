@@ -456,6 +456,228 @@ class TindakLanjutController
         echo json_encode(['success'=>true, 'note_count'=>$noteCount]); exit;
     }
 
+    // ── Lampiran Progress ─────────────────────────────────────────────
+
+    public static function getAttachments(int $id): void
+    {
+        Auth::requireAuth();
+        header('Content-Type: application/json');
+
+        $tl = Database::queryOne("SELECT assigned_to FROM tindak_lanjut WHERE id=?", [$id]);
+        if (!$tl) { http_response_code(404); echo json_encode(['success'=>false,'data'=>[]]); exit; }
+
+        if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
+            http_response_code(403); echo json_encode(['success'=>false,'data'=>[]]); exit;
+        }
+
+        $rows = Database::query(
+            "SELECT a.id, a.original_name, a.file_path, a.mime_type, a.file_size,
+                    a.uploaded_by, a.created_at,
+                    DATE_FORMAT(a.created_at, '%d %b %Y %H:%i') AS created_at_human,
+                    u.name AS uploaded_by_name
+             FROM tindak_lanjut_attachments a
+             LEFT JOIN users u ON u.id = a.uploaded_by
+             WHERE a.tindak_lanjut_id = ?
+             ORDER BY a.created_at DESC",
+            [$id]
+        );
+
+        $isAdmin = Auth::hasRole('admin');
+        $myId    = Auth::id();
+
+        foreach ($rows as &$row) {
+            $row['icon']       = self::iconForMime($row['mime_type'] ?? '');
+            $row['size_fmt']   = self::formatSize((int)($row['file_size'] ?? 0));
+            $row['can_delete'] = $isAdmin || ((int)$row['uploaded_by'] === $myId);
+            $row['url']        = BASE_URL . $row['file_path'];
+            unset($row['uploaded_by']);
+        }
+        unset($row);
+
+        $attachCount = count($rows);
+        echo json_encode(['success'=>true,'data'=>$rows,'attach_count'=>$attachCount]);
+        exit;
+    }
+
+    public static function uploadAttachment(int $id): void
+    {
+        Auth::requireAuth();
+        header('Content-Type: application/json');
+
+        $tl = Database::queryOne("SELECT assigned_to FROM tindak_lanjut WHERE id=?", [$id]);
+        if (!$tl) { echo json_encode(['success'=>false,'message'=>'Data tidak ditemukan']); exit; }
+
+        if (!Auth::hasRole('admin', 'sekretaris') && $tl['assigned_to'] != Auth::id()) {
+            http_response_code(403);
+            echo json_encode(['success'=>false,'message'=>'Akses ditolak']); exit;
+        }
+
+        $file = $_FILES['file'] ?? null;
+        if (!$file || $file['error'] !== UPLOAD_ERR_OK) {
+            $codes = [
+                1=>'Ukuran melebihi php.ini',
+                2=>'Ukuran melebihi MAX_FILE_SIZE',
+                3=>'Upload tidak lengkap',
+                4=>'Tidak ada file',
+                6=>'Tidak ada folder tmp',
+                7=>'Gagal tulis ke disk',
+                8=>'Upload dihentikan ekstensi',
+            ];
+            $msg = $codes[$file['error'] ?? 0] ?? 'Upload gagal';
+            echo json_encode(['success'=>false,'message'=>$msg]); exit;
+        }
+
+        $allowedMimes = [
+            'application/pdf','application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'image/jpeg','image/png','image/gif','image/webp',
+            'text/plain','text/csv',
+            'application/zip','application/x-zip-compressed',
+        ];
+        $maxSize = 10 * 1024 * 1024;
+        $mime    = mime_content_type($file['tmp_name']);
+
+        if (!in_array($mime, $allowedMimes, true)) {
+            echo json_encode(['success'=>false,'message'=>'Tipe file tidak diizinkan. Gunakan PDF, Word, Excel, PowerPoint, gambar, atau ZIP.']); exit;
+        }
+        if ($file['size'] > $maxSize) {
+            echo json_encode(['success'=>false,'message'=>'Ukuran file maksimal 10 MB.']); exit;
+        }
+
+        $ext      = self::extensionForMime($mime);
+        $filename = 'tl_' . $id . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+        $dir      = ROOT_PATH . '/assets/uploads/tindak-lanjut/';
+        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+
+        if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
+            echo json_encode(['success'=>false,'message'=>'Gagal menyimpan file']); exit;
+        }
+
+        $original = self::safeFileName($file['name']);
+        $filePath = '/assets/uploads/tindak-lanjut/' . $filename;
+
+        Database::getInstance()->prepare(
+            "INSERT INTO tindak_lanjut_attachments
+             (tindak_lanjut_id, uploaded_by, original_name, file_path, mime_type, file_size)
+             VALUES (?,?,?,?,?,?)"
+        )->execute([$id, Auth::id(), $original, $filePath, $mime, $file['size']]);
+
+        ActivityLog::record('tindak_lanjut.attachment.create', 'Upload lampiran progress: ' . $original, 'tindak_lanjut', $id);
+
+        $newId = (int)Database::getInstance()->lastInsertId();
+        $attachCount = (int)(Database::queryOne(
+            "SELECT COUNT(*) c FROM tindak_lanjut_attachments WHERE tindak_lanjut_id=?", [$id]
+        )['c'] ?? 0);
+
+        echo json_encode([
+            'success'      => true,
+            'message'      => 'File berhasil diupload',
+            'attach_count' => $attachCount,
+            'attachment'   => [
+                'id'               => $newId,
+                'original_name'    => $original,
+                'file_path'        => $filePath,
+                'url'              => BASE_URL . $filePath,
+                'mime_type'        => $mime,
+                'file_size'        => $file['size'],
+                'size_fmt'         => self::formatSize($file['size']),
+                'icon'             => self::iconForMime($mime),
+                'uploaded_by_name' => Database::queryOne("SELECT name FROM users WHERE id=?", [Auth::id()])['name'] ?? '',
+                'can_delete'       => true,
+            ],
+        ]);
+        exit;
+    }
+
+    public static function deleteAttachment(int $tlId, int $attachId): void
+    {
+        Auth::requireAuth();
+        header('Content-Type: application/json');
+
+        $csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+        if (!hash_equals($_SESSION['csrf_token'] ?? '', $csrfHeader)) {
+            echo json_encode(['success'=>false,'message'=>'Invalid CSRF token']); exit;
+        }
+
+        $att = Database::queryOne(
+            "SELECT * FROM tindak_lanjut_attachments WHERE id=? AND tindak_lanjut_id=?",
+            [$attachId, $tlId]
+        );
+        if (!$att) { echo json_encode(['success'=>false,'message'=>'Lampiran tidak ditemukan']); exit; }
+
+        if (!Auth::hasRole('admin') && $att['uploaded_by'] != Auth::id()) {
+            http_response_code(403);
+            echo json_encode(['success'=>false,'message'=>'Anda tidak berhak menghapus file ini']); exit;
+        }
+
+        $path = ROOT_PATH . $att['file_path'];
+        if (file_exists($path)) @unlink($path);
+
+        Database::getInstance()->prepare(
+            "DELETE FROM tindak_lanjut_attachments WHERE id=?"
+        )->execute([$attachId]);
+
+        ActivityLog::record('tindak_lanjut.attachment.delete', 'Hapus lampiran progress: ' . $att['original_name'], 'tindak_lanjut', $tlId);
+
+        $attachCount = (int)(Database::queryOne(
+            "SELECT COUNT(*) c FROM tindak_lanjut_attachments WHERE tindak_lanjut_id=?", [$tlId]
+        )['c'] ?? 0);
+
+        echo json_encode(['success'=>true,'message'=>'Lampiran berhasil dihapus','attach_count'=>$attachCount]);
+        exit;
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────
+
+    private static function iconForMime(string $mime): string
+    {
+        if (strpos($mime, 'pdf') !== false)          return '📄';
+        if (strpos($mime, 'word') !== false)         return '📝';
+        if (strpos($mime, 'sheet') !== false)        return '📊';
+        if (strpos($mime, 'excel') !== false)        return '📊';
+        if (strpos($mime, 'presentation') !== false) return '📋';
+        if (strpos($mime, 'image') !== false)        return '🖼️';
+        return '📎';
+    }
+
+    private static function formatSize(int $bytes): string
+    {
+        if ($bytes < 1024)    return $bytes . ' B';
+        if ($bytes < 1048576) return round($bytes / 1024, 1) . ' KB';
+        return round($bytes / 1048576, 2) . ' MB';
+    }
+
+    private static function safeFileName(string $name): string
+    {
+        $name = trim(str_replace(["\r", "\n", "\0"], '', $name));
+        return $name === '' ? 'file' : $name;
+    }
+
+    private static function extensionForMime(string $mime): string
+    {
+        return match ($mime) {
+            'application/pdf' => 'pdf',
+            'application/msword' => 'doc',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+            'application/vnd.ms-excel' => 'xls',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 'xlsx',
+            'application/vnd.ms-powerpoint' => 'ppt',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+            'image/jpeg' => 'jpg',
+            'image/png' => 'png',
+            'image/gif' => 'gif',
+            'image/webp' => 'webp',
+            'text/plain' => 'txt',
+            'text/csv' => 'csv',
+            'application/zip', 'application/x-zip-compressed' => 'zip',
+            default => 'bin',
+        };
+    }
+
     public static function destroy(int $id): void
     {
         Auth::requireRole('admin', 'sekretaris');
@@ -480,6 +702,13 @@ class TindakLanjutController
             http_response_code(404);
             header('Content-Type: application/json');
             echo json_encode(['success' => false, 'message' => 'Data tidak ditemukan']); exit;
+        }
+
+        // Hapus file fisik lampiran sebelum hapus record
+        $attachments = Database::query("SELECT file_path FROM tindak_lanjut_attachments WHERE tindak_lanjut_id=?", [$id]);
+        foreach ($attachments as $att) {
+            $path = ROOT_PATH . $att['file_path'];
+            if (file_exists($path)) @unlink($path);
         }
 
         Database::getInstance()->prepare("DELETE FROM tindak_lanjut WHERE id=?")->execute([$id]);
