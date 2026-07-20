@@ -91,6 +91,29 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
 .tl-nav-links  { padding:.5rem 0; }
 .tl-nav-link   { display:flex;align-items:center;gap:8px;padding:.55rem 1rem;font-size:13px;color:#555;text-decoration:none;transition:background .15s; }
 .tl-nav-link:hover { background:#fdf7f0;color:#7B1C1C; }
+
+/* -- Lampiran ---------------------------------------------------- */
+.tl-attach-head      { padding:.65rem 1rem;background:#faf4eb;font-weight:700;font-size:13px;color:#7B1C1C;display:flex;align-items:center;gap:8px; }
+.tl-attach-btn-add   { margin-left:auto;background:#7B1C1C;color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;padding:.22rem .55rem;display:inline-flex;align-items:center;gap:4px;cursor:pointer;transition:opacity .15s; }
+.tl-attach-btn-add:hover { opacity:.85; }
+.tl-attach-upload    { padding:.75rem 1rem;border-bottom:1px solid #f0f0f0;background:#fffdf8; }
+.tl-attach-form-label{ font-size:12px;font-weight:700;color:#333;display:block;margin-bottom:.2rem; }
+.tl-attach-form-hint { font-size:11px;color:#aaa;margin-top:.2rem; }
+.tl-attach-btn-upload{ background:linear-gradient(135deg,#7B1C1C,#9B2020);border:none;color:#fff;font-size:12px;font-weight:700;border-radius:7px;padding:.38rem .75rem;display:inline-flex;align-items:center;gap:.28rem;cursor:pointer;transition:filter .15s; }
+.tl-attach-btn-upload:hover { filter:brightness(1.1); }
+.tl-attach-btn-cancel{ background:transparent;border:1.5px solid #ddd;color:#888;font-size:12px;border-radius:7px;padding:.38rem .75rem;cursor:pointer;transition:all .15s; }
+.tl-attach-btn-cancel:hover { border-color:#888; }
+.tl-attach-list      { max-height:260px;overflow-y:auto; }
+.tl-attach-item      { display:flex;align-items:center;gap:.6rem;padding:.55rem 1rem;border-bottom:1px solid #f5f5f5;font-size:12.5px; }
+.tl-attach-item:last-child { border-bottom:none; }
+.tl-attach-icon      { width:28px;height:28px;border-radius:6px;background:#f0e8e8;color:#7B1C1C;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+.tl-attach-name      { flex:1;min-width:0;font-weight:600;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.tl-attach-meta      { font-size:11px;color:#aaa; }
+.tl-attach-del       { background:transparent;border:none;color:#dc2626;width:22px;height:22px;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s;padding:0;flex-shrink:0;opacity:0; }
+.tl-attach-item:hover .tl-attach-del { opacity:1; }
+.tl-attach-del:hover { background:#fff0f0; }
+.tl-attach-empty     { padding:1.5rem;text-align:center;font-size:12.5px;color:#bbb; }
+.tl-attach-loading   { padding:.9rem;text-align:center;font-size:12.5px;color:#888; }
 </style>
 
 <!-- BUG FIX #5: CSRF disimpan sebagai variabel JS inline (bukan <meta> di body) -->
@@ -184,12 +207,11 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
     </div>
   </div>
 
-  <!-- Kolom kanan: Info + Status + Nav -->
+  <!-- Kolom kanan: Info + Lampiran + Status + Nav -->
   <div class="col-lg-4">
     <!-- Info -->
     <div class="tl-card mb-3">
       <div class="tl-card-header">
-        <!-- UX FIX: SVG icon info yang benar -->
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
         Info Tindak Lanjut
       </div>
@@ -238,6 +260,60 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
         <?php endif; ?>
       </div>
     </div>
+
+    <!-- ============================================================
+         LAMPIRAN PROGRESS
+    ============================================================ -->
+    <div class="tl-card mb-3" id="tl-attachment-panel" data-tl-id="<?= (int)$tl['id'] ?>">
+      <div class="tl-attach-head">
+        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        Lampiran Progress
+        <span class="tl-count-badge" id="tl-attach-count">0</span>
+        <?php if ($canEdit): ?>
+        <button class="tl-attach-btn-add" id="btn-tl-show-upload">
+          <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Upload
+        </button>
+        <?php endif; ?>
+      </div>
+
+      <?php if ($canEdit): ?>
+      <div id="tl-upload-form-wrapper" style="display:none;" class="tl-attach-upload">
+        <form id="form-tl-upload" enctype="multipart/form-data">
+          <div class="mb-2">
+            <label class="tl-attach-form-label">Pilih File <span style="color:#dc2626;">*</span></label>
+            <input type="file" id="tl-attach-file" class="form-control form-control-sm"
+                   accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.zip,.rar" required>
+            <div class="tl-attach-form-hint">PDF, Office, Gambar, ZIP &middot; maks. 10 MB</div>
+          </div>
+          <div class="mb-2">
+            <label class="tl-attach-form-label">Kategori</label>
+            <select id="tl-attach-category" class="form-select form-select-sm">
+              <option value="dokumen">Dokumen</option>
+              <option value="presentasi">Presentasi</option>
+              <option value="gambar">Gambar</option>
+              <option value="lainnya">Lainnya</option>
+            </select>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="tl-attach-btn-upload flex-fill" id="btn-tl-do-upload">
+              <span id="tl-upload-spinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+              Upload
+            </button>
+            <button type="button" class="tl-attach-btn-cancel" id="btn-tl-cancel-upload">Batal</button>
+          </div>
+          <div id="tl-upload-alert" class="d-none mt-2"></div>
+        </form>
+      </div>
+      <?php endif; ?>
+
+      <div id="tl-attachment-list" class="tl-attach-list">
+        <div class="tl-attach-loading">
+          <span class="spinner-border spinner-border-sm"></span> Memuat…
+        </div>
+      </div>
+    </div>
+    <!-- END LAMPIRAN -->
 
     <!-- Ubah Status -->
     <?php if ($canEdit): ?>
@@ -289,8 +365,8 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
 (function(){
   var TL_ID      = <?= (int)$tl['id'] ?>;
   var BASE_URL   = <?= json_encode($baseUrl) ?>;
-  // BUG FIX #5: ambil CSRF dari variabel JS inline di atas, bukan dari <meta>
   var CSRF_TOKEN = (typeof _CSRF_TOKEN_SHOW !== 'undefined') ? _CSRF_TOKEN_SHOW : '';
+  var CAN_EDIT   = <?= $canEdit ? 'true' : 'false' ?>;
 
   function jsonHeaders(){
     return {'Content-Type':'application/json','X-CSRF-Token':CSRF_TOKEN};
@@ -303,7 +379,7 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
-  // Status buttons
+  // ── Status buttons ───────────────────────────────────────────────
   document.querySelectorAll('.tl-status-btn').forEach(function(btn){
     btn.addEventListener('click', async function(){
       var status = btn.dataset.status;
@@ -318,7 +394,7 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
     });
   });
 
-  // Note input
+  // ── Note input ───────────────────────────────────────────────────
   var noteInput  = document.getElementById('note-input');
   var noteSubmit = document.getElementById('note-submit');
 
@@ -374,7 +450,6 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
       var noteId = btn.dataset.id;
       var res = await fetch(BASE_URL + '/tindak-lanjut/' + TL_ID + '/notes/' + noteId + '/delete', {
         method: 'POST',
-        // BUG FIX #6: sertakan _csrf pada body delete note
         headers: jsonHeaders(),
         body: JSON.stringify({_csrf: CSRF_TOKEN})
       });
@@ -392,7 +467,7 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
   }
   document.querySelectorAll('.btn-delete-note').forEach(bindDeleteNote);
 
-  // Delete TL
+  // ── Delete TL ────────────────────────────────────────────────────
   var btnDeleteTL = document.getElementById('btn-delete-tl');
   if (btnDeleteTL) {
     btnDeleteTL.addEventListener('click', async function(){
@@ -408,5 +483,187 @@ $isOverdue   = !empty($tl['due_date']) && $tl['due_date'] < date('Y-m-d') && !in
       else { alert(d.message || 'Gagal menghapus'); btnDeleteTL.disabled = false; }
     });
   }
+
+  // ════════════════════════════════════════════════════════════════
+  // LAMPIRAN PROGRESS
+  // ════════════════════════════════════════════════════════════════
+  var attachApiBase = BASE_URL + '/tindak-lanjut/' + TL_ID + '/attachments';
+
+  function setAttachCount(n){
+    var el = document.getElementById('tl-attach-count');
+    if (el) el.textContent = n;
+  }
+
+  function fileIcon(ext){
+    var e = (ext || '').toLowerCase();
+    if (['jpg','jpeg','png','gif','webp'].indexOf(e) >= 0) return '🖼';
+    if (['pdf'].indexOf(e) >= 0) return '📄';
+    if (['doc','docx'].indexOf(e) >= 0) return '📝';
+    if (['xls','xlsx'].indexOf(e) >= 0) return '📊';
+    if (['ppt','pptx'].indexOf(e) >= 0) return '📑';
+    if (['zip','rar'].indexOf(e) >= 0) return '🗜';
+    return '📎';
+  }
+
+  function formatBytes(b){
+    if (!b) return '';
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+  }
+
+  function renderAttachItem(a){
+    var ext = (a.original_name || a.file_name || '').split('.').pop();
+    var div = document.createElement('div');
+    div.className   = 'tl-attach-item';
+    div.dataset.id  = a.id;
+    div.innerHTML =
+      '<div class="tl-attach-icon" style="font-size:14px;">' + fileIcon(ext) + '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div class="tl-attach-name">' +
+          '<a href="' + escHtml(BASE_URL + '/tindak-lanjut/' + TL_ID + '/attachments/' + a.id + '/download') + '" ' +
+             'style="color:#7B1C1C;text-decoration:none;font-weight:600;" ' +
+             'title="' + escHtml(a.original_name || a.file_name) + '">' +
+            escHtml(a.original_name || a.file_name) +
+          '</a>' +
+        '</div>' +
+        '<div class="tl-attach-meta">' +
+          (a.category ? escHtml(a.category) + ' · ' : '') +
+          formatBytes(a.file_size) +
+          (a.uploaded_by_name ? ' · ' + escHtml(a.uploaded_by_name) : '') +
+        '</div>' +
+      '</div>' +
+      (CAN_EDIT
+        ? '<button class="tl-attach-del btn-tl-del-attach" data-id="' + a.id + '" title="Hapus lampiran">' +
+            '<svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+          '</button>'
+        : '');
+    if (CAN_EDIT) {
+      var delBtn = div.querySelector('.btn-tl-del-attach');
+      if (delBtn) bindDeleteAttach(delBtn);
+    }
+    return div;
+  }
+
+  function bindDeleteAttach(btn){
+    btn.addEventListener('click', async function(){
+      if (!confirm('Hapus lampiran ini?')) return;
+      var aid = btn.dataset.id;
+      var res = await fetch(attachApiBase + '/' + aid + '/delete', {
+        method: 'POST',
+        headers: jsonHeaders(),
+        body: JSON.stringify({_csrf: CSRF_TOKEN})
+      });
+      var d = await res.json();
+      if (d.success) {
+        var item = btn.closest('.tl-attach-item');
+        if (item) item.remove();
+        setAttachCount(d.attach_count);
+        var list = document.getElementById('tl-attachment-list');
+        if (list && !list.querySelector('.tl-attach-item'))
+          list.innerHTML = '<div class="tl-attach-empty">Belum ada lampiran</div>';
+      } else {
+        alert(d.message || 'Gagal menghapus lampiran');
+      }
+    });
+  }
+
+  // Load lampiran saat halaman siap
+  async function loadAttachments(){
+    var list = document.getElementById('tl-attachment-list');
+    if (!list) return;
+    try {
+      var res = await fetch(attachApiBase, { headers: {'X-CSRF-Token': CSRF_TOKEN} });
+      var d   = await res.json();
+      list.innerHTML = '';
+      if (!d.attachments || !d.attachments.length) {
+        list.innerHTML = '<div class="tl-attach-empty">Belum ada lampiran</div>';
+        setAttachCount(0);
+        return;
+      }
+      d.attachments.forEach(function(a){ list.appendChild(renderAttachItem(a)); });
+      setAttachCount(d.attachments.length);
+    } catch(e) {
+      list.innerHTML = '<div class="tl-attach-empty" style="color:#dc2626;">Gagal memuat lampiran</div>';
+    }
+  }
+  loadAttachments();
+
+  // Toggle upload form
+  var btnShowUpload   = document.getElementById('btn-tl-show-upload');
+  var uploadWrapper   = document.getElementById('tl-upload-form-wrapper');
+  var btnCancelUpload = document.getElementById('btn-tl-cancel-upload');
+
+  if (btnShowUpload) {
+    btnShowUpload.addEventListener('click', function(){
+      if (uploadWrapper) uploadWrapper.style.display = uploadWrapper.style.display === 'none' ? '' : 'none';
+    });
+  }
+  if (btnCancelUpload) {
+    btnCancelUpload.addEventListener('click', function(){
+      if (uploadWrapper) uploadWrapper.style.display = 'none';
+      var form = document.getElementById('form-tl-upload');
+      if (form) form.reset();
+      var alertEl = document.getElementById('tl-upload-alert');
+      if (alertEl) { alertEl.className = 'd-none'; alertEl.textContent = ''; }
+    });
+  }
+
+  // Handle upload form submit
+  var formUpload = document.getElementById('form-tl-upload');
+  if (formUpload) {
+    formUpload.addEventListener('submit', async function(e){
+      e.preventDefault();
+      var fileInput = document.getElementById('tl-attach-file');
+      var category  = document.getElementById('tl-attach-category');
+      var alertEl   = document.getElementById('tl-upload-alert');
+      var spinner   = document.getElementById('tl-upload-spinner');
+      var btnUpload = document.getElementById('btn-tl-do-upload');
+      if (!fileInput || !fileInput.files.length) return;
+
+      var file = fileInput.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        alertEl.className = 'alert alert-danger py-1 px-2 mt-2';
+        alertEl.textContent = 'Ukuran file melebihi 10 MB.';
+        return;
+      }
+
+      var fd = new FormData();
+      fd.append('file', file);
+      fd.append('category', category ? category.value : 'lainnya');
+      fd.append('_csrf', CSRF_TOKEN);
+
+      btnUpload.disabled = true;
+      if (spinner) spinner.classList.remove('d-none');
+      alertEl.className = 'd-none';
+
+      try {
+        var res = await fetch(attachApiBase + '/upload', {
+          method: 'POST',
+          headers: {'X-CSRF-Token': CSRF_TOKEN},
+          body: fd
+        });
+        var d = await res.json();
+        if (d.success) {
+          formUpload.reset();
+          if (uploadWrapper) uploadWrapper.style.display = 'none';
+          var list = document.getElementById('tl-attachment-list');
+          var emptyEl = list ? list.querySelector('.tl-attach-empty') : null;
+          if (emptyEl) emptyEl.remove();
+          if (list) list.appendChild(renderAttachItem(d.attachment));
+          setAttachCount(d.attach_count);
+        } else {
+          alertEl.className = 'alert alert-danger py-1 px-2 mt-2';
+          alertEl.textContent = d.message || 'Gagal mengunggah file';
+        }
+      } catch(err) {
+        alertEl.className = 'alert alert-danger py-1 px-2 mt-2';
+        alertEl.textContent = 'Terjadi kesalahan jaringan.';
+      }
+      btnUpload.disabled = false;
+      if (spinner) spinner.classList.add('d-none');
+    });
+  }
+
 })();
 </script>
